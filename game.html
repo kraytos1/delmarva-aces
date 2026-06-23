@@ -403,19 +403,21 @@ async function loadLiveGame() {
     }
 
     // Load plays
-    var { data: plays } = await db
-      .from('at_bats')
-      .select('*')
-      .eq('game_id', game.id)
-      .order('created_at', { ascending: false })
-      .limit(20)
+    try {
+      var { data: plays } = await db
+        .from('at_bats')
+        .select('*')
+        .eq('game_id', game.id)
+        .order('created_at', { ascending: false })
+        .limit(20)
+      if (plays && plays.length > 0) {
+        plays.reverse().forEach(function(ab) { addPlayToFeed(ab, false) })
+      }
+    } catch(e) { console.log('plays load skipped:', e.message) }
 
-    if (plays && plays.length > 0) {
-      plays.reverse().forEach(function(ab) { addPlayToFeed(ab, false) })
-    }
-
-    // Subscribe to real-time
+    // Subscribe to real-time updates
     subscribeToGame(game.id)
+    console.log('Subscribed to game:', game.id)
 
   } catch(e) {
     console.log('loadLiveGame error:', e.message)
