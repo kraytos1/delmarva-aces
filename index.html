@@ -191,6 +191,7 @@
     <button class="nav-link active" id="nav-home" onclick="showPage('home')">Home</button>
     <button class="nav-link" id="nav-schedule" onclick="showPage('schedule')">Schedule</button>
     <button class="nav-link" id="nav-roster" onclick="showPage('roster')">Roster</button>
+    <a class="nav-link" href="/game.html" style="text-decoration:none;">Live Game</a>
   </div>
   <div class="live-pill" id="live-pill" onclick="showPage('home')">
     <div class="live-dot"></div>LIVE NOW
@@ -213,7 +214,7 @@
       </div>
       <div class="hero-cta">
         <button class="btn-primary" onclick="showPage('roster')">▶ Roster &amp; Stats</button>
-        <button class="btn-secondary" id="watch-btn">Watch Last Game</button>
+        <button class="btn-secondary" onclick="window.location='/game.html'">Watch Last Game</button>
       </div>
     </div>
   </section>
@@ -387,8 +388,8 @@ var monthFilter = 'all'
 // CONFIG — paste your Supabase values here
 // OR set them as env vars if using Vite/React build
 // ─────────────────────────────────────────────────────────
-var SUPABASE_URL      = 'https://urwwzdlkgfljfvqgfhyb.supabase.co'      // e.g. https://xyzxyz.supabase.co
-var SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVyd3d6ZGxrZ2ZsamZ2cWdmaHliIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIxMzY0MzYsImV4cCI6MjA5NzcxMjQzNn0.s5eOVqI0EaCnP5jDfuVtHeqBonsaIwwqQBrf1heMK1k' // eyJhbG...
+var SUPABASE_URL      = 'https://urwwzdlkgfljfvqgfhyb.supabase.co'
+var SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVyd3d6ZGxrZ2ZsamZ2cWdmaHliIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIxMzY0MzYsImV4cCI6MjA5NzcxMjQzNn0.s5eOVqI0EaCnP5jDfuVtHeqBonsaIwwqQBrf1heMK1k'
 
 // ─────────────────────────────────────────────────────────
 // FALLBACK DATA (real Spring 2026 stats from GameChanger)

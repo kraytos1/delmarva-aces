@@ -1,0 +1,617 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Delmarva Aces · Live</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Inter:wght@300;400;500;600&family=Roboto+Mono:wght@400;500&display=swap');
+  :root{--orange:#E8530A;--og:rgba(232,83,10,.18);--black:#0A0C0E;--dark:#111418;--dark2:#181C22;--dark3:#1F242C;--bdr:rgba(255,255,255,.08);--bdr-a:rgba(232,83,10,.35);--text:#F0EDE8;--muted:#7A8290;--green:#3DDC6A;--mono:'Roboto Mono',monospace;--display:'Oswald',sans-serif;--body:'Inter',sans-serif;}
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{background:var(--black);color:var(--text);font-family:var(--body);overflow-x:hidden;}
+
+  /* ── NAV ── */
+  nav{background:rgba(10,12,14,.95);border-bottom:1px solid var(--bdr);display:flex;align-items:center;justify-content:space-between;padding:0 20px;height:52px;position:sticky;top:0;z-index:100;}
+  .nav-brand{display:flex;align-items:center;gap:10px;text-decoration:none;cursor:pointer;}
+  .nav-logo{width:32px;height:32px;background:var(--orange);border-radius:5px;display:flex;align-items:center;justify-content:center;font-family:var(--display);font-size:17px;font-weight:700;color:white;}
+  .nav-name{font-family:var(--display);font-size:15px;font-weight:600;color:var(--text);}
+  .nav-name span{color:var(--orange);}
+  .live-badge{display:flex;align-items:center;gap:6px;background:rgba(61,220,106,.1);border:1px solid rgba(61,220,106,.3);border-radius:20px;padding:4px 12px;font-family:var(--mono);font-size:11px;color:var(--green);}
+  .live-dot{width:6px;height:6px;border-radius:50%;background:var(--green);animation:blink 1.2s infinite;}
+  .pregame-badge{display:flex;align-items:center;gap:6px;background:rgba(232,83,10,.1);border:1px solid rgba(232,83,10,.3);border-radius:20px;padding:4px 12px;font-family:var(--mono);font-size:11px;color:var(--orange);}
+  @keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+  .back-link{font-family:var(--mono);font-size:11px;color:var(--muted);text-decoration:none;display:flex;align-items:center;gap:4px;}
+  .back-link:hover{color:var(--text);}
+
+  /* ── SCOREBOARD ── */
+  .scoreboard{background:var(--dark2);border-bottom:1px solid var(--bdr);padding:12px 20px;display:flex;align-items:center;gap:0;}
+  .sb-team{flex:1;display:flex;flex-direction:column;}
+  .sb-team.away{align-items:flex-start;}
+  .sb-team.home{align-items:flex-end;}
+  .sb-name{font-family:var(--display);font-size:13px;font-weight:600;letter-spacing:.5px;text-transform:uppercase;color:var(--muted);}
+  .sb-score{font-family:var(--display);font-size:42px;font-weight:700;line-height:1;color:var(--text);}
+  .sb-score.leading{color:var(--orange);}
+  .sb-mid{text-align:center;padding:0 16px;min-width:120px;}
+  .sb-inning{font-family:var(--display);font-size:14px;font-weight:600;color:var(--text);letter-spacing:.5px;}
+  .sb-half{font-family:var(--mono);font-size:10px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-top:2px;}
+  .sb-bso{display:flex;gap:10px;margin-top:6px;justify-content:center;}
+  .bso-grp{display:flex;align-items:center;gap:3px;}
+  .bso-lbl{font-family:var(--mono);font-size:9px;color:var(--muted);margin-right:2px;}
+  .pip{width:10px;height:10px;border-radius:50%;border:1.5px solid var(--bdr);background:transparent;}
+  .pip.ball-on{background:#1a7ac4;border-color:#1a7ac4;}
+  .pip.strike-on{background:#e74c3c;border-color:#e74c3c;}
+  .pip.out-on{background:#777;border-color:#555;}
+
+  /* ── MAIN LAYOUT ── */
+  .main{display:grid;grid-template-columns:1fr 340px;min-height:calc(100vh - 52px - 80px);}
+
+  /* ── VIDEO ── */
+  .video-col{display:flex;flex-direction:column;}
+  .video-wrap{position:relative;background:#000;aspect-ratio:16/9;width:100%;}
+  .video-wrap iframe{position:absolute;inset:0;width:100%;height:100%;border:none;}
+  .video-offline{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;}
+  .video-offline-icon{font-size:48px;opacity:.3;}
+  .video-offline-text{font-family:var(--mono);font-size:12px;color:var(--muted);text-align:center;line-height:1.6;}
+  .video-checking{font-family:var(--mono);font-size:11px;color:var(--orange);display:flex;align-items:center;gap:6px;}
+
+  /* ── FIELD VIZ ── */
+  .field-panel{background:var(--dark);border-top:1px solid var(--bdr);padding:12px 16px;}
+  .field-row{display:flex;align-items:center;gap:16px;}
+  .field-svg-wrap{flex-shrink:0;}
+  .at-bat-info{flex:1;}
+  .ab-label{font-family:var(--mono);font-size:9px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:4px;}
+  .ab-batter{font-size:14px;font-weight:500;color:var(--text);}
+  .ab-pitcher{font-size:12px;color:var(--muted);margin-top:2px;}
+  .velo-display{margin-top:8px;display:flex;align-items:baseline;gap:6px;}
+  .velo-num{font-family:var(--display);font-size:28px;font-weight:700;color:var(--orange);line-height:1;}
+  .velo-unit{font-family:var(--mono);font-size:11px;color:var(--muted);}
+  .velo-type{font-family:var(--mono);font-size:11px;color:var(--muted);margin-left:4px;}
+  .pc-badge{display:inline-flex;align-items:center;gap:4px;background:var(--dark3);border:1px solid var(--bdr);border-radius:4px;padding:3px 8px;font-family:var(--mono);font-size:10px;color:var(--muted);margin-top:6px;}
+
+  /* ── RIGHT PANEL ── */
+  .right-col{border-left:1px solid var(--bdr);display:flex;flex-direction:column;background:var(--dark);}
+
+  .pitch-header{padding:10px 14px;border-bottom:1px solid var(--bdr);background:var(--dark2);display:flex;align-items:center;justify-content:space-between;}
+  .pitch-header-title{font-family:var(--mono);font-size:10px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;}
+  .pitch-count-badge{font-family:var(--display);font-size:16px;font-weight:700;color:var(--orange);}
+
+  .pitch-log{flex:1;overflow-y:auto;max-height:400px;}
+  .pitch-item{padding:8px 14px;border-bottom:1px solid rgba(255,255,255,.04);display:flex;align-items:center;gap:8px;transition:background .1s;}
+  .pitch-item:hover{background:var(--dark2);}
+  .pitch-item.new{animation:flash .6s ease-out;}
+  @keyframes flash{0%{background:rgba(232,83,10,.15)}100%{background:transparent}}
+  .p-num{font-family:var(--mono);font-size:10px;color:var(--muted);width:16px;text-align:center;}
+  .p-velo{font-family:var(--display);font-size:16px;font-weight:700;color:var(--text);min-width:36px;}
+  .p-velo.no-velo{font-size:12px;color:var(--muted);font-family:var(--mono);}
+  .p-type{font-family:var(--mono);font-size:10px;padding:2px 6px;border-radius:3px;font-weight:500;}
+  .fb{background:#E6F1FB;color:#185FA5;}
+  .cb{background:#EAF3DE;color:#3B6D11;}
+  .sl{background:#FAEEDA;color:#854f0b;}
+  .ch{background:#FBEAF0;color:#993556;}
+  .p-result{font-size:11px;margin-left:auto;font-family:var(--mono);}
+  .p-result.ball{color:#1a7ac4;}
+  .p-result.strike{color:#e74c3c;}
+  .p-result.hit{color:var(--green);font-weight:500;}
+  .p-result.out{color:var(--muted);}
+
+  /* play by play */
+  .play-feed{border-top:1px solid var(--bdr);}
+  .play-header{padding:8px 14px;border-bottom:1px solid var(--bdr);background:var(--dark2);display:flex;align-items:center;justify-content:space-between;}
+  .play-header-title{font-family:var(--mono);font-size:10px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;}
+  .play-items{max-height:220px;overflow-y:auto;}
+  .play-item{padding:8px 14px;border-bottom:1px solid rgba(255,255,255,.04);display:flex;gap:10px;align-items:flex-start;}
+  .play-inning{font-family:var(--mono);font-size:9px;color:var(--muted);min-width:36px;margin-top:2px;}
+  .play-desc{font-size:12px;color:var(--text);line-height:1.4;}
+  .play-desc .player{color:var(--orange);font-weight:500;}
+  .play-outcome{font-family:var(--mono);font-size:10px;margin-top:2px;}
+  .play-outcome.hit{color:var(--green);}
+  .play-outcome.out{color:var(--muted);}
+  .play-outcome.score{color:var(--orange);}
+
+  /* pregame / offline states */
+  .state-screen{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:60px 20px;text-align:center;flex:1;}
+  .state-icon{font-size:48px;margin-bottom:16px;opacity:.6;}
+  .state-title{font-family:var(--display);font-size:24px;font-weight:600;letter-spacing:.5px;margin-bottom:8px;}
+  .state-sub{font-family:var(--mono);font-size:12px;color:var(--muted);line-height:1.8;max-width:320px;}
+  .state-next{margin-top:20px;background:var(--dark2);border:1px solid var(--bdr);border-radius:8px;padding:14px 20px;text-align:left;min-width:280px;}
+  .state-next-label{font-family:var(--mono);font-size:9px;color:var(--orange);letter-spacing:2px;text-transform:uppercase;margin-bottom:8px;}
+  .state-next-teams{font-family:var(--display);font-size:18px;font-weight:600;}
+  .state-next-teams span{color:var(--muted);font-weight:400;margin:0 8px;}
+  .state-next-meta{font-family:var(--mono);font-size:11px;color:var(--muted);margin-top:4px;}
+  .countdown-row{display:flex;gap:16px;margin-top:16px;justify-content:center;}
+  .cd-unit{text-align:center;}
+  .cd-num{font-family:var(--display);font-size:32px;font-weight:700;color:var(--orange);line-height:1;display:block;}
+  .cd-lbl{font-family:var(--mono);font-size:9px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;}
+
+  /* checking animation */
+  .checking-dots::after{content:'...';animation:dots 1.5s infinite;}
+  @keyframes dots{0%{content:'.'}33%{content:'..'}66%{content:'...'}100%{content:'.'}}
+
+  /* responsive */
+  @media(max-width:768px){
+    .main{grid-template-columns:1fr;}
+    .right-col{border-left:none;border-top:1px solid var(--bdr);}
+    .pitch-log{max-height:240px;}
+    .play-items{max-height:160px;}
+  }
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-brand" onclick="window.location='/'">
+    <div class="nav-logo">A</div>
+    <span class="nav-name">Delmarva <span>Aces</span></span>
+  </div>
+  <div id="nav-status" class="pregame-badge">
+    <div class="live-dot" style="background:var(--orange);"></div>
+    <span id="nav-status-text">Checking stream<span class="checking-dots"></span></span>
+  </div>
+  <a href="/" class="back-link">← Back</a>
+</nav>
+
+<!-- SCOREBOARD -->
+<div class="scoreboard" id="scoreboard">
+  <div class="sb-team away">
+    <div class="sb-name" id="away-name">Delmarva Aces</div>
+    <div class="sb-score leading" id="away-score">0</div>
+  </div>
+  <div class="sb-mid">
+    <div class="sb-inning" id="inning-label">PRE</div>
+    <div class="sb-half" id="half-label">Game</div>
+    <div class="sb-bso" id="bso-display">
+      <div class="bso-grp">
+        <span class="bso-lbl">B</span>
+        <div class="pip" id="b1"></div><div class="pip" id="b2"></div><div class="pip" id="b3"></div>
+      </div>
+      <div class="bso-grp">
+        <span class="bso-lbl">S</span>
+        <div class="pip" id="s1"></div><div class="pip" id="s2"></div>
+      </div>
+      <div class="bso-grp">
+        <span class="bso-lbl">O</span>
+        <div class="pip" id="o1"></div><div class="pip" id="o2"></div>
+      </div>
+    </div>
+  </div>
+  <div class="sb-team home" style="align-items:flex-end;">
+    <div class="sb-name" id="home-name">Opponent</div>
+    <div class="sb-score" id="home-score">0</div>
+  </div>
+</div>
+
+<!-- MAIN -->
+<div class="main">
+
+  <!-- LEFT: VIDEO + FIELD -->
+  <div class="video-col">
+
+    <!-- Video embed -->
+    <div class="video-wrap" id="video-wrap">
+      <div class="video-offline" id="video-offline">
+        <div class="video-offline-icon">📡</div>
+        <div class="video-offline-text">
+          Stream not yet live<br>
+          <span style="font-size:10px;">Checking <span style="color:var(--orange);">@AcesEast12u</span> on YouTube</span>
+        </div>
+        <div class="video-checking">
+          <div class="live-dot" style="background:var(--orange);"></div>
+          Checking for live stream<span class="checking-dots"></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Field visualization -->
+    <div class="field-panel">
+      <div class="field-row">
+        <div class="field-svg-wrap">
+          <svg viewBox="0 0 130 130" width="130" height="130">
+            <rect width="130" height="130" fill="#0A0C0E"/>
+            <polygon points="65,105 15,105 65,20 115,105" fill="#2d5a1b" opacity=".7"/>
+            <polygon points="65,105 40,72 65,40 90,72" fill="#8B6914" opacity=".8"/>
+            <!-- bases -->
+            <rect id="base-home" x="59" y="97" width="12" height="12" rx="1" fill="#888" transform="rotate(45,65,103)"/>
+            <rect id="base-1b" x="87" y="65" width="11" height="11" rx="1" fill="#333" transform="rotate(45,92,70)" style="cursor:pointer;" onclick="toggleBase(1)"/>
+            <rect id="base-2b" x="59" y="33" width="11" height="11" rx="1" fill="#333" transform="rotate(45,65,38)" style="cursor:pointer;" onclick="toggleBase(2)"/>
+            <rect id="base-3b" x="32" y="65" width="11" height="11" rx="1" fill="#333" transform="rotate(45,37,70)" style="cursor:pointer;" onclick="toggleBase(3)"/>
+            <!-- pitcher -->
+            <circle cx="65" cy="72" r="4" fill="#8B6914" opacity=".9"/>
+            <!-- runner indicators -->
+            <circle id="runner-1b" cx="92" cy="70" r="5" fill="#f0c040" opacity="0" style="pointer-events:none;"/>
+            <circle id="runner-2b" cx="65" cy="38" r="5" fill="#f0c040" opacity="0" style="pointer-events:none;"/>
+            <circle id="runner-3b" cx="37" cy="70" r="5" fill="#f0c040" opacity="0" style="pointer-events:none;"/>
+          </svg>
+        </div>
+        <div class="at-bat-info">
+          <div class="ab-label">At bat</div>
+          <div class="ab-batter" id="ab-batter">—</div>
+          <div class="ab-pitcher" id="ab-pitcher">Pitching: —</div>
+          <div class="velo-display">
+            <div class="velo-num" id="velo-num">—</div>
+            <div class="velo-unit">mph</div>
+            <div class="velo-type" id="velo-type"></div>
+          </div>
+          <div class="pc-badge">PC <span id="pitch-count">0</span></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- RIGHT: PITCH LOG + PLAY FEED -->
+  <div class="right-col">
+
+    <!-- Pitch log -->
+    <div class="pitch-header">
+      <span class="pitch-header-title">Pitch log</span>
+      <span class="pitch-count-badge" id="total-pitches">0 pitches</span>
+    </div>
+    <div class="pitch-log" id="pitch-log">
+      <div style="padding:24px 14px;text-align:center;font-family:var(--mono);font-size:11px;color:var(--muted);">
+        Pitches will appear here live
+      </div>
+    </div>
+
+    <!-- Play by play -->
+    <div class="play-feed">
+      <div class="play-header">
+        <span class="play-header-title">Play by play</span>
+        <span style="font-family:var(--mono);font-size:10px;color:var(--muted);" id="play-count">0 plays</span>
+      </div>
+      <div class="play-items" id="play-log">
+        <div style="padding:20px 14px;text-align:center;font-family:var(--mono);font-size:11px;color:var(--muted);">
+          Play-by-play will appear here
+        </div>
+      </div>
+    </div>
+
+    <!-- No game / pregame state -->
+    <div class="state-screen" id="pregame-screen">
+      <div class="state-icon">⚾</div>
+      <div class="state-title">Pregame</div>
+      <div class="state-sub">Live scoring will begin at first pitch. Stream may already be live above.</div>
+      <div class="state-next" id="next-game-card" style="display:none;">
+        <div class="state-next-label">Next game</div>
+        <div class="state-next-teams" id="ng-teams">—</div>
+        <div class="state-next-meta" id="ng-meta">—</div>
+      </div>
+      <div class="countdown-row" id="countdown-row" style="display:none;">
+        <div class="cd-unit"><span class="cd-num" id="cd-d">--</span><span class="cd-lbl">Days</span></div>
+        <div class="cd-unit"><span class="cd-num" id="cd-h">--</span><span class="cd-lbl">Hrs</span></div>
+        <div class="cd-unit"><span class="cd-num" id="cd-m">--</span><span class="cd-lbl">Min</span></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+// ─────────────────────────────────────────────────────────
+// CONFIG
+// ─────────────────────────────────────────────────────────
+var SUPABASE_URL      = 'https://urwwzdlkgfljfvqgfhyb.supabase.co'
+var SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVyd3d6ZGxrZ2ZsamZ2cWdmaHliIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIxMzY0MzYsImV4cCI6MjA5NzcxMjQzNn0.s5eOVqI0EaCnP5jDfuVtHeqBonsaIwwqQBrf1heMK1k'
+var YT_CHANNEL_ID     = 'UC6nY8Jns2vJYu3ZyDTUDnJw'  // @AcesEast12u
+var YT_API_KEY        = ''  // optional — add YouTube Data API key for auto-detection
+
+var db = null
+var liveGame = null
+var unsubPitches = null
+var unsubGame = null
+var unsubAtBats = null
+var pitchLog = []
+var playLog = []
+var bases = [false, false, false]
+var totalPitches = 0
+
+// ─────────────────────────────────────────────────────────
+// INIT
+// ─────────────────────────────────────────────────────────
+async function init() {
+  // Connect Supabase
+  if (SUPABASE_URL !== 'YOUR_SUPABASE_URL') {
+    db = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+    await loadLiveGame()
+  }
+
+  // Check YouTube for live stream
+  checkYouTubeLive()
+  setInterval(checkYouTubeLive, 30000)  // check every 30s
+
+  updateCountdown()
+  setInterval(updateCountdown, 30000)
+}
+
+// ─────────────────────────────────────────────────────────
+// YOUTUBE LIVE DETECTION
+// Two methods:
+// 1. If YT_API_KEY set → uses YouTube Data API (automatic)
+// 2. Fallback → checks if channel has active stream via oEmbed
+// ─────────────────────────────────────────────────────────
+async function checkYouTubeLive() {
+  // Method 1: YouTube Data API (best, needs API key)
+  if (YT_API_KEY) {
+    try {
+      var url = 'https://www.googleapis.com/youtube/v3/search?part=snippet&channelId='+YT_CHANNEL_ID+'&type=video&eventType=live&key='+YT_API_KEY
+      var res = await fetch(url)
+      var data = await res.json()
+      if (data.items && data.items.length > 0) {
+        var videoId = data.items[0].id.videoId
+        showStream(videoId)
+        return
+      }
+    } catch(e) { console.log('YT API error:', e) }
+  }
+
+  // Method 2: Check Supabase for manually-set stream ID on live game
+  if (liveGame && liveGame.youtube_stream_id) {
+    showStream(liveGame.youtube_stream_id)
+    return
+  }
+
+  // No stream found
+  setNavStatus('pregame')
+}
+
+function showStream(videoId) {
+  var wrap = document.getElementById('video-wrap')
+  var offline = document.getElementById('video-offline')
+  // Only inject iframe once
+  if (!document.getElementById('yt-iframe')) {
+    var iframe = document.createElement('iframe')
+    iframe.id = 'yt-iframe'
+    iframe.src = 'https://www.youtube.com/embed/'+videoId+'?autoplay=1&mute=0'
+    iframe.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture'
+    iframe.allowFullscreen = true
+    wrap.appendChild(iframe)
+    offline.style.display = 'none'
+    setNavStatus('live')
+  }
+}
+
+// ─────────────────────────────────────────────────────────
+// SUPABASE — LIVE GAME
+// ─────────────────────────────────────────────────────────
+async function loadLiveGame() {
+  try {
+    var { data } = await db.from('live_game_summary').select('*').single()
+    if (!data) {
+      // No live game — load next scheduled
+      await loadNextGame()
+      return
+    }
+    liveGame = data
+    updateScoreboard(data)
+    document.getElementById('pregame-screen').style.display = 'none'
+
+    // Load recent pitches
+    var { data: pitches } = await db
+      .from('pitches')
+      .select('*, at_bats(batter_id, players(jersey_num, first_name, last_name))')
+      .eq('game_id', data.id)
+      .order('created_at', { ascending: false })
+      .limit(30)
+    if (pitches) {
+      pitches.reverse().forEach(function(p) { addPitchToLog(p, false) })
+    }
+
+    // Load plays
+    var { data: plays } = await db
+      .from('at_bats')
+      .select('*, players(jersey_num, first_name, last_name)')
+      .eq('game_id', data.id)
+      .order('created_at', { ascending: false })
+      .limit(20)
+    if (plays) {
+      plays.reverse().forEach(function(ab) { addPlayToFeed(ab, false) })
+    }
+
+    // Subscribe to real-time
+    subscribeToGame(data.id)
+
+  } catch(e) {
+    console.log('No live game:', e.message)
+    await loadNextGame()
+  }
+}
+
+async function loadNextGame() {
+  try {
+    var today = new Date().toISOString().split('T')[0]
+    var { data } = await db
+      .from('games')
+      .select('*, opponents(name)')
+      .eq('status', 'scheduled')
+      .gte('game_date', today)
+      .order('game_date').limit(1).single()
+
+    if (data) {
+      var opp = data.opponents?.name || 'TBD'
+      document.getElementById('ng-teams').innerHTML =
+        'Delmarva Aces <span style="color:var(--muted);font-weight:400;margin:0 8px;">vs</span> '+opp
+      var d = new Date(data.game_date)
+      document.getElementById('ng-meta').textContent =
+        d.toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',timeZone:'UTC'})+
+        (data.tournament?' · '+data.tournament:'')
+      document.getElementById('next-game-card').style.display = 'block'
+      document.getElementById('countdown-row').style.display = 'flex'
+      window._nextGameDate = data.game_date+'T'+(data.game_time||'09:00:00')
+      updateCountdown()
+    }
+  } catch(e) { console.log('No next game') }
+}
+
+// ─────────────────────────────────────────────────────────
+// REAL-TIME SUBSCRIPTIONS
+// ─────────────────────────────────────────────────────────
+function subscribeToGame(gameId) {
+  // New pitches → update pitch log + BSO + velo
+  var pitchCh = db.channel('pitches:'+gameId)
+    .on('postgres_changes',
+      { event:'INSERT', schema:'public', table:'pitches', filter:'game_id=eq.'+gameId },
+      function(payload) { addPitchToLog(payload.new, true) })
+    .subscribe()
+
+  // Game state changes → update scoreboard
+  var gameCh = db.channel('game:'+gameId)
+    .on('postgres_changes',
+      { event:'UPDATE', schema:'public', table:'games', filter:'id=eq.'+gameId },
+      function(payload) { updateScoreboard(payload.new) })
+    .subscribe()
+
+  // At-bat outcomes → play by play
+  var abCh = db.channel('at_bats:'+gameId)
+    .on('postgres_changes',
+      { event:'INSERT', schema:'public', table:'at_bats', filter:'game_id=eq.'+gameId },
+      function(payload) { addPlayToFeed(payload.new, true) })
+    .subscribe()
+}
+
+// ─────────────────────────────────────────────────────────
+// UI UPDATES
+// ─────────────────────────────────────────────────────────
+function updateScoreboard(game) {
+  setText('away-name', game.team_name || 'Delmarva Aces')
+  setText('home-name', game.opponent_name || 'Opponent')
+  setText('away-score', game.our_score || 0)
+  setText('home-score', game.opp_score || 0)
+
+  var us = game.our_score || 0
+  var them = game.opp_score || 0
+  document.getElementById('away-score').className = 'sb-score'+(us>them?' leading':'')
+  document.getElementById('home-score').className = 'sb-score'+(them>us?' leading':'')
+
+  setText('inning-label', (game.inning||1))
+  setText('half-label', (game.half==='top'?'▲ Top':'▼ Bot')+' Inning')
+
+  // BSO
+  var b=game.balls||0, s=game.strikes||0, o=game.outs||0
+  ['b1','b2','b3'].forEach(function(id,i){document.getElementById(id).className='pip'+(i<b?' ball-on':'')})
+  ['s1','s2'].forEach(function(id,i){document.getElementById(id).className='pip'+(i<s?' strike-on':'')})
+  ['o1','o2'].forEach(function(id,i){document.getElementById(id).className='pip'+(i<o?' out-on':'')})
+}
+
+var typeColors = {FB:'fb',CB:'cb',SL:'sl',CH:'ch'}
+
+function addPitchToLog(pitch, isNew) {
+  totalPitches++
+  setText('total-pitches', totalPitches+' pitch'+(totalPitches===1?'':'es'))
+  setText('pitch-count', totalPitches)
+
+  // Update velo display
+  if (pitch.velocity_mph) {
+    setText('velo-num', pitch.velocity_mph)
+    document.getElementById('velo-type').textContent = pitch.pitch_type || ''
+  }
+
+  // Build log item
+  var log = document.getElementById('pitch-log')
+  var empty = log.querySelector('div[style]')
+  if (empty) empty.remove()
+
+  var result = pitch.result || ''
+  var rClass = result==='ball'?'ball':(result.indexOf('strike')>=0?'strike':(result==='in_play'?'hit':''))
+  var rLabel = result.replace('_',' ').replace('strike called','called ✓').replace('strike swinging','swinging ✗')
+
+  var item = document.createElement('div')
+  item.className = 'pitch-item'+(isNew?' new':'')
+  item.innerHTML =
+    '<span class="p-num">'+(pitch.pitch_num||'')+'</span>'+
+    (pitch.velocity_mph
+      ? '<span class="p-velo">'+pitch.velocity_mph+'</span>'
+      : '<span class="p-velo no-velo">—</span>')+
+    '<span class="p-type '+(typeColors[pitch.pitch_type]||'')+'">'+  (pitch.pitch_type||'—')+'</span>'+
+    '<span class="p-result '+rClass+'">'+rLabel+'</span>'
+
+  log.insertBefore(item, log.firstChild)
+}
+
+function addPlayToFeed(ab, isNew) {
+  var feed = document.getElementById('play-log')
+  var empty = feed.querySelector('div[style]')
+  if (empty) empty.remove()
+
+  var result = ab.result || ''
+  var isHit = ['single','double','triple','home_run','walk','hbp'].indexOf(result)>=0
+  var rClass = isHit?'hit':(ab.runs_scored>0?'score':'out')
+  var rLabel = result.replace(/_/g,' ')
+  if (ab.rbi > 0) rLabel += ' ('+ab.rbi+' RBI)'
+  if (ab.runs_scored > 0) rLabel += ' · '+ab.runs_scored+' run'+(ab.runs_scored>1?'s':'')+' score'
+
+  var playerName = ab.players
+    ? ab.players.first_name+' '+ab.players.last_name
+    : 'Batter'
+
+  var innings = ['Top','Bot'][(ab.half==='bottom'?1:0)]+' '+(ab.inning||'?')
+
+  var item = document.createElement('div')
+  item.className = 'play-item'
+  item.innerHTML =
+    '<div class="play-inning">'+innings+'</div>'+
+    '<div>'+
+      '<div class="play-desc"><span class="player">'+playerName+'</span></div>'+
+      '<div class="play-outcome '+rClass+'">'+rLabel+'</div>'+
+    '</div>'
+
+  feed.insertBefore(item, feed.firstChild)
+
+  var playCount = feed.querySelectorAll('.play-item').length
+  setText('play-count', playCount+' play'+(playCount===1?'':'s'))
+}
+
+// ─────────────────────────────────────────────────────────
+// BASES (manual toggle for visual)
+// ─────────────────────────────────────────────────────────
+function toggleBase(b) {
+  bases[b-1] = !bases[b-1]
+  renderBases()
+}
+
+function renderBases() {
+  var ids = {1:'base-1b',2:'base-2b',3:'base-3b'}
+  var runners = {1:'runner-1b',2:'runner-2b',3:'runner-3b'}
+  for (var i=1; i<=3; i++) {
+    document.getElementById(ids[i]).style.fill = bases[i-1]?'#f0c040':'#333'
+    document.getElementById(runners[i]).style.opacity = bases[i-1]?'1':'0'
+  }
+}
+
+// ─────────────────────────────────────────────────────────
+// NAV STATUS
+// ─────────────────────────────────────────────────────────
+function setNavStatus(state) {
+  var badge = document.getElementById('nav-status')
+  var dot = badge.querySelector('.live-dot')
+  var text = document.getElementById('nav-status-text')
+  if (state==='live') {
+    badge.className = 'live-badge'
+    dot.style.background = 'var(--green)'
+    text.textContent = 'Live now'
+    text.innerHTML = 'Live now'
+  } else {
+    badge.className = 'pregame-badge'
+    dot.style.background = 'var(--orange)'
+    text.innerHTML = 'Pregame · checking stream'
+  }
+}
+
+// ─────────────────────────────────────────────────────────
+// COUNTDOWN
+// ─────────────────────────────────────────────────────────
+function updateCountdown() {
+  if (!window._nextGameDate) return
+  var diff = new Date(window._nextGameDate) - new Date()
+  if (diff <= 0) return
+  var d=Math.floor(diff/86400000), h=Math.floor((diff%86400000)/3600000), m=Math.floor((diff%3600000)/60000)
+  setText('cd-d',String(d).padStart(2,'0'))
+  setText('cd-h',String(h).padStart(2,'0'))
+  setText('cd-m',String(m).padStart(2,'0'))
+}
+
+function setText(id,val){var el=document.getElementById(id);if(el)el.textContent=val}
+
+init()
+</script>
+</body>
+</html>
