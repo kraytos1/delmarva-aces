@@ -189,6 +189,7 @@
   </div>
   <div class="nav-links">
     <button class="nav-link active" id="nav-home" onclick="showPage('home')">Home</button>
+    <button class="nav-link" id="nav-schedule" onclick="showPage('schedule')">Schedule</button>
     <button class="nav-link" id="nav-roster" onclick="showPage('roster')">Roster</button>
   </div>
   <div class="live-pill" id="live-pill" onclick="showPage('home')">
@@ -331,13 +332,53 @@
   </footer>
 </div>
 
+<!-- ══ SCHEDULE ══ -->
+<div class="page" id="page-schedule">
+  <div class="roster-header">
+    <div class="roster-season">Spring 2026 Season</div>
+    <div class="roster-page-title">Schedule &amp; Results</div>
+    <div class="roster-meta" id="schedule-meta">Loading...</div>
+    <div class="team-stat-bar" style="margin-top:16px;">
+      <div class="tsb-item"><div class="tsb-val" id="sch-w">52</div><div class="tsb-lbl">Wins</div></div>
+      <div class="tsb-item"><div class="tsb-val" id="sch-l">2</div><div class="tsb-lbl">Losses</div></div>
+      <div class="tsb-item"><div class="tsb-val" id="sch-pct">.963</div><div class="tsb-lbl">Win %</div></div>
+      <div class="tsb-item"><div class="tsb-val" id="sch-rs">—</div><div class="tsb-lbl">Runs For</div></div>
+      <div class="tsb-item"><div class="tsb-val" id="sch-ra">—</div><div class="tsb-lbl">Runs Against</div></div>
+    </div>
+  </div>
+
+  <div class="roster-filters">
+    <span class="filter-label">Filter</span>
+    <button class="filter-btn active" onclick="filterSchedule('all',this)">All Games</button>
+    <button class="filter-btn" onclick="filterSchedule('W',this)">Wins</button>
+    <button class="filter-btn" onclick="filterSchedule('L',this)">Losses</button>
+    <span style="margin-left:12px;" class="filter-label">Month</span>
+    <button class="filter-btn active-month" id="month-all" onclick="filterMonth('all',this)">All</button>
+    <button class="filter-btn" id="month-Feb" onclick="filterMonth('Feb',this)">Feb</button>
+    <button class="filter-btn" id="month-Mar" onclick="filterMonth('Mar',this)">Mar</button>
+    <button class="filter-btn" id="month-Apr" onclick="filterMonth('Apr',this)">Apr</button>
+    <button class="filter-btn" id="month-May" onclick="filterMonth('May',this)">May</button>
+    <button class="filter-btn" id="month-Jun" onclick="filterMonth('Jun',this)">Jun</button>
+  </div>
+
+  <div style="padding:24px 40px;" id="schedule-grid"></div>
+
+  <footer>
+    <div class="footer-brand">Delmarva <span>Aces</span> · 12U East · 2026</div>
+    <div class="footer-links"><a class="footer-link" href="#">Highlights</a></div>
+  </footer>
+</div>
+
 <script>
+var allGames = []
+var scheduleFilter = 'all'
+var monthFilter = 'all'
 // ─────────────────────────────────────────────────────────
 // CONFIG — paste your Supabase values here
 // OR set them as env vars if using Vite/React build
 // ─────────────────────────────────────────────────────────
-var SUPABASE_URL      = 'https://urwwzdlkgfljfvqgfhyb.supabase.co'      // e.g. https://xyzxyz.supabase.co
-var SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVyd3d6ZGxrZ2ZsamZ2cWdmaHliIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIxMzY0MzYsImV4cCI6MjA5NzcxMjQzNn0.s5eOVqI0EaCnP5jDfuVtHeqBonsaIwwqQBrf1heMK1k' // eyJhbG...
+var SUPABASE_URL      = 'YOUR_SUPABASE_URL'      // e.g. https://xyzxyz.supabase.co
+var SUPABASE_ANON_KEY = 'YOUR_SUPABASE_ANON_KEY' // eyJhbG...
 
 // ─────────────────────────────────────────────────────────
 // FALLBACK DATA (real Spring 2026 stats from GameChanger)
@@ -412,9 +453,12 @@ async function init() {
           .select('*, opponents(name)')
           .eq('status', 'final')
           .order('game_date', { ascending: false })
-          .limit(5)
+          .limit(100)
 
-        if (dbGames && dbGames.length > 0) games = dbGames.map(mapDBGame)
+        if (dbGames && dbGames.length > 0) {
+          allGames = dbGames
+          games = dbGames.slice(0,5).map(mapDBGame)
+        }
 
         try {
           var { data: nextGame } = await db
@@ -718,6 +762,16 @@ function showPage(id){
   document.querySelectorAll('.nav-link').forEach(function(l){l.classList.remove('active')})
   var el=document.getElementById('nav-'+id);if(el)el.classList.add('active')
   window.scrollTo(0,0)
+  if(id==='schedule'){
+    // Use DB games if available, otherwise map fallback
+    if(allGames.length===0){
+      allGames = FALLBACK_GAMES.map(function(g){
+        return {game_date:'2026-06-14',our_score:g.us,opp_score:g.them,
+          is_home:true,tournament:g.event,location:'',opponents:{name:g.opp}}
+      })
+    }
+    renderSchedule()
+  }
 }
 function updateCountdown(){
   var target = window._nextGameDate ? new Date(window._nextGameDate) : new Date('2026-06-28T09:00:00')
@@ -727,6 +781,90 @@ function updateCountdown(){
   setText('cd-d',String(d).padStart(2,'0'))
   setText('cd-h',String(h).padStart(2,'0'))
   setText('cd-m',String(m).padStart(2,'0'))
+}
+
+// ─────────────────────────────────────────────────────────
+// SCHEDULE PAGE
+// ─────────────────────────────────────────────────────────
+function renderSchedule() {
+  var filtered = allGames.filter(function(g) {
+    var win = g.our_score > g.opp_score
+    if (scheduleFilter === 'W' && !win) return false
+    if (scheduleFilter === 'L' && win) return false
+    if (monthFilter !== 'all') {
+      var m = new Date(g.game_date).toLocaleDateString('en-US',{month:'short',timeZone:'UTC'})
+      if (m !== monthFilter) return false
+    }
+    return true
+  })
+
+  // Group by month
+  var months = {}, monthOrder = []
+  filtered.forEach(function(g) {
+    var d = new Date(g.game_date)
+    var key = d.toLocaleDateString('en-US',{month:'long',year:'numeric',timeZone:'UTC'})
+    if (!months[key]) { months[key] = []; monthOrder.push(key); }
+    months[key].push(g)
+  })
+
+  var wins = filtered.filter(function(g){return g.our_score>g.opp_score}).length
+  var losses = filtered.length - wins
+  var rs = filtered.reduce(function(a,g){return a+g.our_score},0)
+  var ra = filtered.reduce(function(a,g){return a+g.opp_score},0)
+  setText('sch-w', wins); setText('sch-l', losses)
+  setText('sch-pct', wins+losses>0?'.'+Math.round((wins/(wins+losses))*1000).toString().padStart(3,'0'):'—')
+  setText('sch-rs', rs); setText('sch-ra', ra)
+  setText('schedule-meta', '12U East · '+filtered.length+' Games · '+wins+'–'+losses)
+
+  var html = ''
+  monthOrder.forEach(function(month) {
+    var mg = months[month]
+    var mw = mg.filter(function(g){return g.our_score>g.opp_score}).length
+    html += '<div style="margin-bottom:32px;">'
+    html += '<div style="display:flex;align-items:baseline;gap:12px;margin-bottom:12px;">'
+    html += '<div style="font-family:var(--display);font-size:20px;font-weight:600;text-transform:uppercase;">'+month+'</div>'
+    html += '<div style="font-family:var(--mono);font-size:11px;color:var(--muted);">'+mw+'–'+(mg.length-mw)+'</div>'
+    html += '<div style="flex:1;height:1px;background:var(--bdr);margin-left:8px;"></div></div>'
+    mg.forEach(function(g) {
+      var win = g.our_score > g.opp_score
+      var d = new Date(g.game_date)
+      var dateStr = d.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric',timeZone:'UTC'})
+      var opp = (g.opponents && g.opponents.name) ? g.opponents.name : (g.opp || 'Opponent')
+      var loc = g.location || ''
+      var tour = g.tournament || ''
+      var meta = [tour, loc].filter(Boolean).join(' · ')
+      html += '<div class="result-row" style="margin-bottom:6px;">'
+      html += '<div class="result-badge '+(win?'W':'L')+'">'+(win?'W':'L')+'</div>'
+      html += '<div class="result-teams">'
+      html += '<div class="result-matchup">'+(g.is_home?'vs':'@')+' '+opp+'</div>'
+      html += '<div class="result-event">'+meta+'</div></div>'
+      html += '<div class="result-score" style="min-width:80px;text-align:center;">'
+      html += '<span class="'+(win?'us':'')+'" style="'+(win?'':'color:var(--muted)')+'">'+(win?g.our_score:g.opp_score)+'</span>'
+      html += ' – '+(win?g.opp_score:g.our_score)+'</div>'
+      html += '<div style="font-family:var(--mono);font-size:11px;color:var(--muted);min-width:110px;text-align:right;">'+dateStr+'</div>'
+      html += '</div>'
+    })
+    html += '</div>'
+  })
+
+  if (!html) html = '<div style="color:var(--muted);font-family:var(--mono);font-size:12px;padding:20px 0;">No games match this filter.</div>'
+  document.getElementById('schedule-grid').innerHTML = html
+}
+
+function filterSchedule(f, btn) {
+  scheduleFilter = f
+  document.querySelectorAll('#page-schedule .filter-btn').forEach(function(b){
+    if(['All Games','Wins','Losses'].indexOf(b.textContent)>=0) b.classList.remove('active')
+  })
+  btn.classList.add('active')
+  renderSchedule()
+}
+
+function filterMonth(m, btn) {
+  monthFilter = m
+  document.querySelectorAll('[id^="month-"]').forEach(function(b){b.classList.remove('active')})
+  btn.classList.add('active')
+  renderSchedule()
 }
 
 // ─────────────────────────────────────────────────────────
