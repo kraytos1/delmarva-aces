@@ -497,9 +497,9 @@ function updateScoreboard(game) {
 
   // BSO
   var b=game.balls||0, s=game.strikes||0, o=game.outs||0
-  ['b1','b2','b3'].forEach(function(id,i){document.getElementById(id).className='pip'+(i<b?' ball-on':'')})
-  ['s1','s2'].forEach(function(id,i){document.getElementById(id).className='pip'+(i<s?' strike-on':'')})
-  ['o1','o2'].forEach(function(id,i){document.getElementById(id).className='pip'+(i<o?' out-on':'')})
+  ;['b1','b2','b3'].forEach(function(id,i){document.getElementById(id).className='pip'+(i<b?' ball-on':'')})
+  ;['s1','s2'].forEach(function(id,i){document.getElementById(id).className='pip'+(i<s?' strike-on':'')})
+  ;['o1','o2'].forEach(function(id,i){document.getElementById(id).className='pip'+(i<o?' out-on':'')})
 }
 
 var typeColors = {FB:'fb',CB:'cb',SL:'sl',CH:'ch'}
