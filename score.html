@@ -485,9 +485,38 @@ async function startScoring() {
 async function quickLog(result) {
   S.pitchCount++
   var bBefore=S.balls, sBefore=S.strikes
-  if(result==='ball'){S.balls=Math.min(S.balls+1,3);if(S.balls===3){S.balls=0;S.strikes=0}}
-  else if(result==='strike_called'||result==='strike_swinging'){S.strikes=Math.min(S.strikes+1,2);if(S.strikes===2){S.balls=0;S.strikes=0}}
-  else if(result==='foul'){if(S.strikes<2)S.strikes++}
+  var autoWalk=false, autoK=false, autoKLooking=false
+
+  if(result==='ball'){
+    S.balls++
+    if(S.balls>=4){
+      // Walk! Log the pitch then trigger walk AB
+      autoWalk=true
+    }
+  }
+  else if(result==='strike_swinging'){
+    S.strikes++
+    if(S.strikes>=3){
+      // Strikeout swinging
+      autoK=true
+    }
+  }
+  else if(result==='strike_called'){
+    S.strikes++
+    if(S.strikes>=3){
+      // Strikeout looking
+      autoKLooking=true
+    }
+  }
+  else if(result==='foul'){
+    // Foul never causes 3rd strike
+    if(S.strikes<2) S.strikes++
+    // stays at 2 on foul
+  }
+  else if(result==='in_play'){
+    // ball in play — count resets handled by logAB
+  }
+
   var offset=S.game?.stream_start_utc?Math.floor((Date.now()-new Date(S.game.stream_start_utc))/1000):null
   var pd={game_id:S.gameId,pitch_num:S.pitchCount,pitch_type:S.pitchType,
     velocity_mph:S.velo,result:result,inning:S.inning,
@@ -497,17 +526,41 @@ async function quickLog(result) {
     S.lastPitchId=data?.id
     setSynced(true)
   }catch(e){setSynced(false)}
+
+  // Auto-trigger outcomes
+  if(autoWalk){
+    S.balls=0; S.strikes=0
+    await pushState(); renderAll()
+    await logAB('walk','Walk (BB)', true)
+    return
+  }
+  if(autoK){
+    S.balls=0; S.strikes=0
+    await pushState(); renderAll()
+    await logAB('strikeout_swinging','K swinging', true)
+    return
+  }
+  if(autoKLooking){
+    S.balls=0; S.strikes=0
+    await pushState(); renderAll()
+    await logAB('strikeout_looking','K looking', true)
+    return
+  }
+
   await pushState(); renderAll()
 }
 
-async function logAB(result, label) {
+async function logAB(result, label, skipPitchLog) {
   S.abNum++
   var runs=applyBaserunners(result)
   var isOut=/(strikeout|groundout|flyout|lineout|popout|sac_fly|sac_bunt|double_play|caught_stealing|pickoff|out_advancing|dropped_third_k)/i.test(result)
   var isHit=/(single|double|triple|home_run|walk|hbp|intentional_walk|error|fielders_choice|dropped_third$)/i.test(result)
   if(isOut){S.outs=Math.min(S.outs+1,3);S.balls=0;S.strikes=0}
   if(isHit){S.balls=0;S.strikes=0}
-  if(isHit||isOut) await quickLog('in_play')
+  // Only log in_play pitch for batted balls, not walks/strikeouts (already logged)
+  if(!skipPitchLog && (isHit&&!/(walk|hbp|intentional_walk)/i.test(result)||isOut&&!/(strikeout)/i.test(result))){
+    await quickLog('in_play')
+  }
   var offset=S.game?.stream_start_utc?Math.floor((Date.now()-new Date(S.game.stream_start_utc))/1000):null
   var abd={game_id:S.gameId,inning:S.inning,half:S.isTop?'top':'bottom',
     ab_num:S.abNum,result:result,rbi:0,runs_scored:runs,notes:label,
@@ -517,8 +570,8 @@ async function logAB(result, label) {
     var t=S.isTop?'us':'them'
     S.scores[t]+=runs
     showToast(runs===1?'Run scores! 🏃':''+runs+' runs score! 🏃')
-    if(CLIP.includes(result)) setTimeout(function(){showToast('📹 Clip queued!')},1800)
   }
+  if(CLIP.includes(result)) setTimeout(function(){showToast('📹 Clip queued!')},800)
   if(S.outs>=3){setTimeout(function(){if(confirm('3 outs — end half?'))newHalf()},300)}
   await pushState(); renderAll()
 }
@@ -598,7 +651,9 @@ function openModal(type){
 function closeModal(e){if(!e||e.target.id==='modal-overlay')document.getElementById('modal-overlay').style.display='none'}
 function pickOutcome(v,l){
   document.getElementById('modal-overlay').style.display='none'
-  logAB(v,l)
+  // Walks/HBP from modal: pitch already logged as in_play, skip double logging
+  var skipPitch = /(walk|hbp|intentional_walk)/i.test(v)
+  logAB(v,l,skipPitch)
 }
 
 /* ── CONTROLS ── */
