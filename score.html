@@ -410,6 +410,19 @@ var S = {
   lastPitchId:null
 }
 
+// State history for undo — each entry is a snapshot + DB ids to delete
+var HISTORY = []
+
+function saveSnapshot(pitchId, atBatId) {
+  HISTORY.push({
+    state: JSON.parse(JSON.stringify(S)),
+    pitchId: pitchId || null,
+    atBatId: atBatId || null
+  })
+  // Keep last 10 actions
+  if (HISTORY.length > 10) HISTORY.shift()
+}
+
 var CLIP = ['single','double','triple','home_run','strikeout_looking','strikeout_swinging','walk','hbp','double_play']
 
 var MODALS = {
@@ -483,6 +496,9 @@ async function startScoring() {
 
 /* ── PITCH LOGGING ── */
 async function quickLog(result) {
+  // Save state before this pitch for undo
+  saveSnapshot(null, null)
+
   S.pitchCount++
   var bBefore=S.balls, sBefore=S.strikes
   var autoWalk=false, autoK=false, autoKLooking=false
@@ -524,6 +540,8 @@ async function quickLog(result) {
   try{
     var {data}=await db.from('pitches').insert(pd).select().single()
     S.lastPitchId=data?.id
+    // Update the snapshot we saved with the real DB id
+    if(HISTORY.length && data?.id) HISTORY[HISTORY.length-1].pitchId = data.id
     setSynced(true)
   }catch(e){setSynced(false)}
 
@@ -565,7 +583,12 @@ async function logAB(result, label, skipPitchLog) {
   var abd={game_id:S.gameId,inning:S.inning,half:S.isTop?'top':'bottom',
     ab_num:S.abNum,result:result,rbi:0,runs_scored:runs,notes:label,
     yt_offset_sec:offset,clip_status:CLIP.includes(result)?'queued':'none'}
-  try{await db.from('at_bats').insert(abd);setSynced(true)}catch(e){setSynced(false)}
+  try{
+    var {data:abd2}=await db.from('at_bats').insert(abd).select().single()
+    // Update snapshot with at_bat id for full undo
+    if(HISTORY.length && abd2?.id) HISTORY[HISTORY.length-1].atBatId = abd2.id
+    setSynced(true)
+  }catch(e){setSynced(false)}
   if(runs>0){
     var t=S.isTop?'us':'them'
     S.scores[t]+=runs
@@ -679,10 +702,31 @@ function newHalf(){
   pushState();renderAll();showToast('Half inning ended')
 }
 async function undoLast(){
-  if(!S.lastPitchId)return
-  await db.from('pitches').delete().eq('id',S.lastPitchId)
-  S.lastPitchId=null;S.pitchCount=Math.max(0,S.pitchCount-1)
-  renderCount();showToast('Pitch undone')
+  if(!HISTORY.length){showToast('Nothing to undo');return}
+  var last = HISTORY.pop()
+
+  // Delete from DB
+  try{
+    if(last.pitchId) await db.from('pitches').delete().eq('id',last.pitchId)
+    if(last.atBatId) await db.from('at_bats').delete().eq('id',last.atBatId)
+  }catch(e){console.log('undo delete error:',e)}
+
+  // Restore state snapshot (preserve gameId, game, npInput, pitchType, velo)
+  var prev = last.state
+  S.balls    = prev.balls
+  S.strikes  = prev.strikes
+  S.outs     = prev.outs
+  S.inning   = prev.inning
+  S.isTop    = prev.isTop
+  S.bases    = prev.bases.slice()
+  S.scores   = {us:prev.scores.us, them:prev.scores.them}
+  S.pitchCount = prev.pitchCount
+  S.abNum    = prev.abNum
+  S.lastPitchId = prev.lastPitchId
+
+  await pushState()
+  renderAll()
+  showToast('Undone ↩')
 }
 async function endGame(){
   if(!confirm('End game? Final: Aces '+S.scores.us+' – '+S.scores.them))return
