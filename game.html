@@ -315,9 +315,9 @@ async function init() {
     await loadLiveGame()
   }
 
-  // Check YouTube for live stream
+  // Check YouTube for live stream - every 5 minutes to avoid rate limiting
   checkYouTubeLive()
-  setInterval(checkYouTubeLive, 30000)  // check every 30s
+  setInterval(checkYouTubeLive, 300000)
 
   updateCountdown()
   setInterval(updateCountdown, 30000)
@@ -375,43 +375,50 @@ function showStream(videoId) {
 // ─────────────────────────────────────────────────────────
 async function loadLiveGame() {
   try {
-    var { data } = await db.from('live_game_summary').select('*').single()
-    if (!data) {
-      // No live game — load next scheduled
+    var { data, error } = await db
+      .from('live_game_summary')
+      .select('*')
+
+    if (error || !data || data.length === 0) {
+      console.log('No live game found, loading next game')
       await loadNextGame()
       return
     }
-    liveGame = data
-    updateScoreboard(data)
+
+    var game = data[0]
+    liveGame = game
+    updateScoreboard(game)
     document.getElementById('pregame-screen').style.display = 'none'
 
     // Load recent pitches
     var { data: pitches } = await db
       .from('pitches')
-      .select('*, at_bats(batter_id, players(jersey_num, first_name, last_name))')
-      .eq('game_id', data.id)
+      .select('*')
+      .eq('game_id', game.id)
       .order('created_at', { ascending: false })
       .limit(30)
-    if (pitches) {
+
+    if (pitches && pitches.length > 0) {
       pitches.reverse().forEach(function(p) { addPitchToLog(p, false) })
     }
 
     // Load plays
     var { data: plays } = await db
       .from('at_bats')
-      .select('*, players(jersey_num, first_name, last_name)')
-      .eq('game_id', data.id)
+      .select('*')
+      .eq('game_id', game.id)
       .order('created_at', { ascending: false })
       .limit(20)
-    if (plays) {
+
+    if (plays && plays.length > 0) {
       plays.reverse().forEach(function(ab) { addPlayToFeed(ab, false) })
     }
 
     // Subscribe to real-time
-    subscribeToGame(data.id)
+    subscribeToGame(game.id)
 
   } catch(e) {
-    console.log('No live game:', e.message)
+    console.log('loadLiveGame error:', e.message)
     await loadNextGame()
   }
 }
