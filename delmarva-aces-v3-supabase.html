@@ -1,0 +1,738 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Delmarva Aces 12U</title>
+<!-- Supabase JS (loads from CDN — no build step needed for the standalone version) -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Inter:wght@300;400;500;600&family=Roboto+Mono:wght@400;500&display=swap');
+  :root{--orange:#E8530A;--orange-dim:#C44208;--og:rgba(232,83,10,.18);--black:#0A0C0E;--dark:#111418;--dark2:#181C22;--dark3:#1F242C;--bdr:rgba(255,255,255,.08);--bdr-a:rgba(232,83,10,.35);--text:#F0EDE8;--muted:#7A8290;--mono:'Roboto Mono',monospace;--display:'Oswald',sans-serif;--body:'Inter',sans-serif;}
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+  html{scroll-behavior:smooth;}
+  body{background:var(--black);color:var(--text);font-family:var(--body);line-height:1.6;overflow-x:hidden;}
+  nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(10,12,14,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--bdr);display:flex;align-items:center;justify-content:space-between;padding:0 32px;height:60px;}
+  .nav-brand{display:flex;align-items:center;gap:12px;cursor:pointer;}
+  .nav-logo{width:36px;height:36px;background:var(--orange);border-radius:6px;display:flex;align-items:center;justify-content:center;font-family:var(--display);font-size:20px;font-weight:700;color:white;}
+  .nav-name{font-family:var(--display);font-size:16px;font-weight:600;color:var(--text);letter-spacing:.5px;}
+  .nav-name span{color:var(--orange);}
+  .nav-links{display:flex;gap:4px;}
+  .nav-link{padding:6px 14px;border-radius:6px;font-size:13px;font-weight:500;color:var(--muted);cursor:pointer;border:none;background:none;transition:color .15s,background .15s;}
+  .nav-link:hover{color:var(--text);background:rgba(255,255,255,.06);}
+  .nav-link.active{color:var(--orange);}
+  .live-pill{display:flex;align-items:center;gap:6px;background:rgba(61,220,106,.1);border:1px solid rgba(61,220,106,.3);border-radius:20px;padding:4px 12px;font-family:var(--mono);font-size:11px;color:#3DDC6A;cursor:pointer;display:none;}
+  .live-dot{width:6px;height:6px;border-radius:50%;background:#3DDC6A;animation:blink 1.2s infinite;}
+  @keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+  .page{display:none;padding-top:60px;min-height:100vh;}
+  .page.active{display:block;}
+
+  /* loading state */
+  .loading-overlay{position:fixed;inset:0;background:var(--black);display:flex;align-items:center;justify-content:center;z-index:200;transition:opacity .4s;}
+  .loading-overlay.hidden{opacity:0;pointer-events:none;}
+  .loading-inner{text-align:center;}
+  .loading-logo{font-family:var(--display);font-size:48px;font-weight:700;color:var(--orange);margin-bottom:16px;}
+  .loading-bar{width:200px;height:2px;background:var(--dark3);border-radius:1px;overflow:hidden;margin:0 auto;}
+  .loading-fill{height:100%;background:var(--orange);border-radius:1px;animation:load 1.2s ease-in-out infinite;}
+  @keyframes load{0%{width:0;margin-left:0}50%{width:100%;margin-left:0}100%{width:0;margin-left:100%}}
+  .loading-text{font-family:var(--mono);font-size:11px;color:var(--muted);margin-top:12px;letter-spacing:1px;}
+
+  /* db status badge */
+  .db-status{position:fixed;bottom:16px;right:16px;font-family:var(--mono);font-size:10px;padding:4px 10px;border-radius:4px;z-index:50;opacity:.7;}
+  .db-status.live{background:rgba(61,220,106,.1);border:1px solid rgba(61,220,106,.3);color:#3DDC6A;}
+  .db-status.fallback{background:rgba(232,83,10,.1);border:1px solid rgba(232,83,10,.3);color:var(--orange);}
+
+  /* hero */
+  .hero{position:relative;min-height:calc(100vh - 60px);display:flex;flex-direction:column;justify-content:center;padding:60px 40px;overflow:hidden;}
+  .hero-bg{position:absolute;inset:0;z-index:0;background:radial-gradient(ellipse 60% 50% at 70% 50%,rgba(232,83,10,.07) 0%,transparent 70%),repeating-linear-gradient(0deg,transparent,transparent 39px,rgba(255,255,255,.015) 39px,rgba(255,255,255,.015) 40px),repeating-linear-gradient(90deg,transparent,transparent 39px,rgba(255,255,255,.015) 39px,rgba(255,255,255,.015) 40px);}
+  .hero-bg::after{content:'';position:absolute;inset:0;background:radial-gradient(ellipse 80% 80% at 50% 50%,transparent 60%,var(--black) 100%);}
+  .hero-content{position:relative;z-index:1;max-width:780px;}
+  .hero-eyebrow{display:inline-flex;align-items:center;gap:8px;font-family:var(--mono);font-size:11px;color:var(--orange);letter-spacing:2px;text-transform:uppercase;margin-bottom:20px;}
+  .hero-eyebrow::before{content:'';width:20px;height:1px;background:var(--orange);}
+  .hero-title{font-family:var(--display);font-size:clamp(56px,9vw,96px);font-weight:700;line-height:.92;letter-spacing:-1px;text-transform:uppercase;margin-bottom:24px;}
+  .hero-title .line2{color:var(--orange);}
+  .hero-desc{font-size:16px;color:var(--muted);max-width:480px;margin-bottom:40px;line-height:1.7;}
+  .hero-stats{display:flex;border:1px solid var(--bdr);border-radius:10px;overflow:hidden;width:fit-content;margin-bottom:40px;background:var(--dark2);}
+  .hero-stat{padding:16px 28px;border-right:1px solid var(--bdr);}
+  .hero-stat:last-child{border-right:none;}
+  .hero-stat-num{font-family:var(--display);font-size:32px;font-weight:700;color:var(--orange);line-height:1;margin-bottom:4px;}
+  .hero-stat-label{font-family:var(--mono);font-size:10px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;}
+  .hero-cta{display:flex;gap:12px;flex-wrap:wrap;}
+  .btn-primary{display:inline-flex;align-items:center;gap:8px;background:var(--orange);color:white;padding:12px 24px;border-radius:7px;font-family:var(--display);font-size:14px;font-weight:600;letter-spacing:.5px;text-transform:uppercase;border:none;cursor:pointer;transition:background .15s,transform .1s;}
+  .btn-primary:hover{background:var(--orange-dim);transform:translateY(-1px);}
+  .btn-secondary{display:inline-flex;align-items:center;gap:8px;background:transparent;color:var(--text);padding:12px 24px;border-radius:7px;font-family:var(--display);font-size:14px;font-weight:600;letter-spacing:.5px;text-transform:uppercase;border:1px solid var(--bdr);cursor:pointer;transition:border-color .15s,background .15s;}
+  .btn-secondary:hover{border-color:var(--orange);background:var(--og);}
+
+  /* next game strip */
+  .next-game-strip{background:var(--dark2);border-top:1px solid var(--bdr);border-bottom:1px solid var(--bdr);padding:20px 40px;display:flex;align-items:center;gap:24px;flex-wrap:wrap;}
+  .next-game-label{font-family:var(--mono);font-size:10px;color:var(--orange);letter-spacing:2px;text-transform:uppercase;flex-shrink:0;}
+  .next-game-teams{font-family:var(--display);font-size:20px;font-weight:600;}
+  .next-game-teams span{color:var(--muted);font-weight:400;margin:0 10px;}
+  .next-game-meta{font-family:var(--mono);font-size:12px;color:var(--muted);}
+  .countdown{margin-left:auto;display:flex;gap:12px;}
+  .countdown-unit{text-align:center;}
+  .countdown-num{font-family:var(--mono);font-size:22px;font-weight:500;color:var(--text);line-height:1;display:block;}
+  .countdown-label{font-size:9px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;}
+
+  /* sections */
+  .section{padding:60px 40px;}
+  .section-header{display:flex;align-items:baseline;gap:16px;margin-bottom:28px;}
+  .section-title{font-family:var(--display);font-size:28px;font-weight:600;letter-spacing:.5px;text-transform:uppercase;}
+  .section-rule{flex:1;height:1px;background:var(--bdr);}
+  .section-sub{font-family:var(--mono);font-size:11px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;}
+
+  /* leaders */
+  .leaders-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;}
+  .leader-card{background:var(--dark2);border:1px solid var(--bdr);border-radius:10px;padding:16px 18px;}
+  .leader-cat{font-family:var(--mono);font-size:9px;color:var(--orange);letter-spacing:2px;text-transform:uppercase;margin-bottom:10px;}
+  .leader-name{font-size:13px;font-weight:500;color:var(--text);margin-bottom:4px;}
+  .leader-val{font-family:var(--display);font-size:28px;font-weight:700;color:var(--orange);}
+  .leader-rest{font-size:11px;color:var(--muted);margin-top:6px;line-height:1.6;}
+
+  /* results */
+  .results-grid{display:flex;flex-direction:column;gap:8px;}
+  .result-row{display:flex;align-items:center;background:var(--dark2);border:1px solid var(--bdr);border-radius:8px;padding:14px 20px;gap:16px;cursor:pointer;transition:border-color .15s,background .15s;}
+  .result-row:hover{border-color:var(--bdr-a);background:var(--dark3);}
+  .result-badge{font-family:var(--display);font-size:14px;font-weight:700;width:32px;height:32px;border-radius:5px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+  .result-badge.W{background:rgba(61,220,106,.15);color:#3DDC6A;}
+  .result-badge.L{background:rgba(232,83,10,.15);color:var(--orange);}
+  .result-teams{flex:1;}
+  .result-matchup{font-size:14px;font-weight:500;margin-bottom:2px;}
+  .result-event{font-family:var(--mono);font-size:11px;color:var(--muted);}
+  .result-score{font-family:var(--display);font-size:20px;font-weight:700;letter-spacing:1px;}
+  .result-score .us{color:var(--orange);}
+  .result-date{font-family:var(--mono);font-size:11px;color:var(--muted);min-width:56px;text-align:right;}
+
+  /* roster */
+  .roster-header{background:var(--dark2);border-bottom:1px solid var(--bdr);padding:48px 40px 32px;}
+  .roster-season{font-family:var(--mono);font-size:13px;color:var(--orange);letter-spacing:2px;margin-bottom:6px;}
+  .roster-page-title{font-family:var(--display);font-size:48px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;}
+  .roster-meta{font-family:var(--mono);font-size:12px;color:var(--muted);}
+  .team-stat-bar{display:flex;gap:0;margin-top:20px;border:1px solid var(--bdr);border-radius:8px;overflow:hidden;width:fit-content;background:var(--dark3);}
+  .tsb-item{padding:10px 20px;border-right:1px solid var(--bdr);}
+  .tsb-item:last-child{border-right:none;}
+  .tsb-val{font-family:var(--display);font-size:20px;font-weight:700;color:var(--orange);line-height:1;}
+  .tsb-lbl{font-family:var(--mono);font-size:9px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;}
+  .roster-tabs{display:flex;border-bottom:1px solid var(--bdr);padding:0 40px;background:var(--dark2);}
+  .roster-tab{font-family:var(--mono);font-size:12px;padding:12px 18px;cursor:pointer;border-bottom:2px solid transparent;color:var(--muted);letter-spacing:.5px;text-transform:uppercase;background:none;border-top:none;border-left:none;border-right:none;transition:color .15s;}
+  .roster-tab.active{color:var(--orange);border-bottom-color:var(--orange);}
+  .last-updated{font-family:var(--mono);font-size:10px;color:var(--muted);padding:8px 40px;border-bottom:1px solid var(--bdr);background:var(--dark);}
+
+  /* filters */
+  .roster-filters{padding:14px 40px;border-bottom:1px solid var(--bdr);display:flex;gap:8px;flex-wrap:wrap;align-items:center;}
+  .filter-label{font-family:var(--mono);font-size:10px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-right:4px;}
+  .filter-btn{font-family:var(--mono);font-size:11px;padding:5px 12px;border-radius:5px;border:1px solid var(--bdr);background:transparent;color:var(--muted);cursor:pointer;letter-spacing:.5px;text-transform:uppercase;transition:all .15s;}
+  .filter-btn:hover,.filter-btn.active{border-color:var(--orange);color:var(--orange);background:var(--og);}
+
+  /* table */
+  .table-wrap{padding:20px 40px;overflow-x:auto;}
+  table{width:100%;border-collapse:collapse;min-width:760px;}
+  thead tr{border-bottom:1px solid var(--bdr);}
+  th{font-family:var(--mono);font-size:10px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;padding:10px;text-align:left;font-weight:400;cursor:pointer;user-select:none;white-space:nowrap;}
+  th:hover{color:var(--text);}
+  th.r{text-align:right;}
+  th.c{text-align:center;}
+  tbody tr{border-bottom:1px solid rgba(255,255,255,.04);cursor:pointer;transition:background .1s;}
+  tbody tr:hover,tbody tr.expanded{background:var(--dark2);}
+  td{padding:13px 10px;vertical-align:middle;}
+  .td-num{font-family:var(--display);font-size:18px;font-weight:700;color:var(--orange);text-align:center;width:44px;}
+  .td-name{font-size:14px;font-weight:500;}
+  .td-name .last{font-weight:400;color:var(--muted);}
+  .pos-badge{display:inline-block;font-family:var(--mono);font-size:9px;padding:2px 6px;border-radius:4px;border:1px solid var(--bdr);color:var(--muted);margin-right:3px;}
+  .pos-badge.key{border-color:var(--bdr-a);color:var(--orange);background:var(--og);}
+  .td-s{font-family:var(--mono);font-size:12px;text-align:right;white-space:nowrap;}
+  .td-s.hi{color:var(--orange);font-weight:500;}
+  .td-s.lo{color:var(--muted);}
+  .detail-row td{padding:0;background:var(--dark3);border-bottom:1px solid var(--bdr-a);}
+  .detail-inner{padding:16px 16px 16px 54px;display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;}
+  .dc{background:var(--dark2);border:1px solid var(--bdr);border-radius:7px;padding:10px 14px;}
+  .dc-lbl{font-family:var(--mono);font-size:9px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:4px;}
+  .dc-val{font-family:var(--display);font-size:22px;font-weight:700;color:var(--orange);line-height:1;}
+  .dc-sub{font-size:10px;color:var(--muted);margin-top:2px;}
+
+  footer{border-top:1px solid var(--bdr);padding:32px 40px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:16px;}
+  .footer-brand{font-family:var(--display);font-size:14px;color:var(--muted);}
+  .footer-brand span{color:var(--orange);}
+  .footer-links{display:flex;gap:20px;}
+  .footer-link{font-family:var(--mono);font-size:11px;color:var(--muted);text-decoration:none;transition:color .15s;}
+  .footer-link:hover{color:var(--text);}
+
+  @media(max-width:640px){
+    nav{padding:0 16px;}
+    .hero,.section{padding:40px 20px;}
+    .next-game-strip,.roster-header,.roster-filters,.table-wrap,.last-updated{padding-left:20px;padding-right:20px;}
+    .roster-tabs{padding:0 20px;}
+    .hero-title{font-size:48px;}
+    .countdown,.team-stat-bar{display:none;}
+    footer{padding:24px 20px;}
+  }
+</style>
+</head>
+<body>
+
+<!-- Loading screen -->
+<div class="loading-overlay" id="loading">
+  <div class="loading-inner">
+    <div class="loading-logo">A</div>
+    <div class="loading-bar"><div class="loading-fill"></div></div>
+    <div class="loading-text" id="loading-text">Connecting to database...</div>
+  </div>
+</div>
+
+<!-- DB status badge -->
+<div class="db-status" id="db-status"></div>
+
+<nav>
+  <div class="nav-brand" onclick="showPage('home')">
+    <div class="nav-logo">A</div>
+    <span class="nav-name">Delmarva <span>Aces</span></span>
+  </div>
+  <div class="nav-links">
+    <button class="nav-link active" id="nav-home" onclick="showPage('home')">Home</button>
+    <button class="nav-link" id="nav-roster" onclick="showPage('roster')">Roster</button>
+  </div>
+  <div class="live-pill" id="live-pill" onclick="showPage('home')">
+    <div class="live-dot"></div>LIVE NOW
+  </div>
+</nav>
+
+<!-- ══ HOME ══ -->
+<div class="page active" id="page-home">
+  <section class="hero">
+    <div class="hero-bg"></div>
+    <div class="hero-content">
+      <div class="hero-eyebrow">Delmarva Aces · 12U East · Spring 2026</div>
+      <h1 class="hero-title"><div>Play Hard,</div><div class="line2">Play Smart.</div></h1>
+      <p class="hero-desc">Live game streams, pitch-by-pitch scoring, velocity tracking, and auto-generated highlight clips — all in one place for the Aces family.</p>
+      <div class="hero-stats" id="hero-stats">
+        <div class="hero-stat"><div class="hero-stat-num" id="hs-avg">.457</div><div class="hero-stat-label">Team AVG</div></div>
+        <div class="hero-stat"><div class="hero-stat-num" id="hs-rbi">541</div><div class="hero-stat-label">Team RBI</div></div>
+        <div class="hero-stat"><div class="hero-stat-num" id="hs-sb">276</div><div class="hero-stat-label">Stolen Bases</div></div>
+        <div class="hero-stat"><div class="hero-stat-num" id="hs-hr">116</div><div class="hero-stat-label">Home Runs</div></div>
+      </div>
+      <div class="hero-cta">
+        <button class="btn-primary" onclick="showPage('roster')">▶ Roster &amp; Stats</button>
+        <button class="btn-secondary" id="watch-btn">Watch Last Game</button>
+      </div>
+    </div>
+  </section>
+
+  <div class="next-game-strip">
+    <div class="next-game-label">Next game</div>
+    <div>
+      <div class="next-game-teams" id="next-game-teams">Delmarva Aces <span>vs</span> TBD</div>
+      <div class="next-game-meta" id="next-game-meta">Loading schedule...</div>
+    </div>
+    <div class="countdown">
+      <div class="countdown-unit"><span class="countdown-num" id="cd-d">--</span><span class="countdown-label">Days</span></div>
+      <div class="countdown-unit"><span class="countdown-num" id="cd-h">--</span><span class="countdown-label">Hrs</span></div>
+      <div class="countdown-unit"><span class="countdown-num" id="cd-m">--</span><span class="countdown-label">Min</span></div>
+    </div>
+  </div>
+
+  <section class="section">
+    <div class="section-header">
+      <h2 class="section-title">Season Leaders</h2>
+      <div class="section-rule"></div>
+      <div class="section-sub" id="leaders-sub">Spring 2026</div>
+    </div>
+    <div class="leaders-grid" id="leaders-grid">
+      <!-- populated by JS -->
+    </div>
+  </section>
+
+  <section class="section" style="padding-top:0">
+    <div class="section-header">
+      <h2 class="section-title">Recent Results</h2>
+      <div class="section-rule"></div>
+      <div class="section-sub">2026 Season</div>
+    </div>
+    <div class="results-grid" id="results-grid">
+      <!-- populated by JS -->
+    </div>
+  </section>
+
+  <footer>
+    <div class="footer-brand">Delmarva <span>Aces</span> · 12U East · 2026</div>
+    <div class="footer-links"><a class="footer-link" href="#">Schedule</a><a class="footer-link" href="#">Highlights</a></div>
+  </footer>
+</div>
+
+<!-- ══ ROSTER ══ -->
+<div class="page" id="page-roster">
+  <div class="roster-header">
+    <div class="roster-season">Spring 2026 Season Stats</div>
+    <div class="roster-page-title">Delmarva Aces</div>
+    <div class="roster-meta" id="roster-meta">12U East · Loading...</div>
+    <div class="team-stat-bar">
+      <div class="tsb-item"><div class="tsb-val" id="ts-avg">.457</div><div class="tsb-lbl">Team AVG</div></div>
+      <div class="tsb-item"><div class="tsb-val" id="ts-rbi">541</div><div class="tsb-lbl">RBI</div></div>
+      <div class="tsb-item"><div class="tsb-val" id="ts-r">661</div><div class="tsb-lbl">Runs</div></div>
+      <div class="tsb-item"><div class="tsb-val" id="ts-sb">276</div><div class="tsb-lbl">SB</div></div>
+      <div class="tsb-item"><div class="tsb-val" id="ts-hr">116</div><div class="tsb-lbl">HR</div></div>
+      <div class="tsb-item"><div class="tsb-val" id="ts-era">2.80</div><div class="tsb-lbl">ERA</div></div>
+    </div>
+  </div>
+
+  <div class="roster-tabs">
+    <button class="roster-tab active" id="tab-batting" onclick="switchTab('batting')">Batting</button>
+    <button class="roster-tab" id="tab-pitching" onclick="switchTab('pitching')">Pitching</button>
+  </div>
+
+  <div class="last-updated" id="last-updated">Stats as of Spring 2026 season</div>
+
+  <div class="roster-filters">
+    <span class="filter-label">Sort</span>
+    <span id="batting-filters">
+      <button class="filter-btn active" onclick="sortRoster('num',this,'batting')">No.</button>
+      <button class="filter-btn" onclick="sortRoster('avg',this,'batting')">AVG</button>
+      <button class="filter-btn" onclick="sortRoster('hr',this,'batting')">HR</button>
+      <button class="filter-btn" onclick="sortRoster('rbi',this,'batting')">RBI</button>
+      <button class="filter-btn" onclick="sortRoster('sb',this,'batting')">SB</button>
+      <button class="filter-btn" onclick="sortRoster('ops',this,'batting')">OPS</button>
+    </span>
+    <span id="pitching-filters" style="display:none">
+      <button class="filter-btn active" onclick="sortRoster('num',this,'pitching')">No.</button>
+      <button class="filter-btn" onclick="sortRoster('era',this,'pitching')">ERA</button>
+      <button class="filter-btn" onclick="sortRoster('so_p',this,'pitching')">K</button>
+      <button class="filter-btn" onclick="sortRoster('whip',this,'pitching')">WHIP</button>
+      <button class="filter-btn" onclick="sortRoster('ip',this,'pitching')">IP</button>
+    </span>
+  </div>
+
+  <div class="table-wrap" id="batting-table-wrap">
+    <table>
+      <thead><tr>
+        <th class="c">#</th><th>Player</th><th>Pos</th>
+        <th class="r">GP</th><th class="r">AB</th>
+        <th class="r">AVG</th><th class="r">OBP</th><th class="r">SLG</th><th class="r">OPS</th>
+        <th class="r">H</th><th class="r">HR</th><th class="r">RBI</th>
+        <th class="r">R</th><th class="r">BB</th><th class="r">SO</th><th class="r">SB</th><th class="r">TB</th>
+      </tr></thead>
+      <tbody id="batting-body"></tbody>
+    </table>
+  </div>
+
+  <div class="table-wrap" id="pitching-table-wrap" style="display:none">
+    <table>
+      <thead><tr>
+        <th class="c">#</th><th>Player</th>
+        <th class="r">IP</th><th class="r">GP</th><th class="r">NP</th>
+        <th class="r">H</th><th class="r">R</th><th class="r">ER</th>
+        <th class="r">BB</th><th class="r">SO</th><th class="r">ERA</th><th class="r">WHIP</th>
+      </tr></thead>
+      <tbody id="pitching-body"></tbody>
+    </table>
+  </div>
+
+  <footer>
+    <div class="footer-brand">Delmarva <span>Aces</span> · 12U East · 2026</div>
+    <div class="footer-links"><a class="footer-link" href="#">Schedule</a><a class="footer-link" href="#">Highlights</a></div>
+  </footer>
+</div>
+
+<script>
+// ─────────────────────────────────────────────────────────
+// CONFIG — paste your Supabase values here
+// OR set them as env vars if using Vite/React build
+// ─────────────────────────────────────────────────────────
+var SUPABASE_URL      = 'https://urwwzdlkgfljfvqgfhyb.supabase.co'      // e.g. https://xyzxyz.supabase.co
+var SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVyd3d6ZGxrZ2ZsamZ2cWdmaHliIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIxMzY0MzYsImV4cCI6MjA5NzcxMjQzNn0.s5eOVqI0EaCnP5jDfuVtHeqBonsaIwwqQBrf1heMK1k' // eyJhbG...
+
+// ─────────────────────────────────────────────────────────
+// FALLBACK DATA (real Spring 2026 stats from GameChanger)
+// Used when Supabase isn't configured yet
+// ─────────────────────────────────────────────────────────
+var FALLBACK_PLAYERS = [
+  {num:2,  first:'Declan',  last:'Soares',     pos:['LF'],       gp:52, ab:82,  avg:.415, obp:.529, slg:.573,  ops:1.102, h:34, d:4,  t:0, hr:3,  rbi:30, r:39, bb:20, so:11, hbp:1,  sb:32, tb:47,  xbh:7,  ip:2.1,  gp_p:2,  np:26,  h_a:0,  r_a:0,  er:0,  bb_p:1,  so_p:1,  era:.000,  whip:.429},
+  {num:3,  first:'Jackson', last:'Booher',     pos:['RF','CF'],  gp:53, ab:92,  avg:.533, obp:.635, slg:.804,  ops:1.439, h:49, d:7,  t:0, hr:6,  rbi:39, r:52, bb:30, so:12, hbp:1,  sb:27, tb:74,  xbh:13, ip:37.0, gp_p:13, np:718, h_a:45, r_a:40, er:34, bb_p:22, so_p:53, era:5.514, whip:1.811},
+  {num:4,  first:'Raiden',  last:'Sheets',     pos:['1B','P'],   gp:44, ab:94,  avg:.596, obp:.658, slg:.936,  ops:1.594, h:56, d:5,  t:0, hr:9,  rbi:39, r:58, bb:16, so:2,  hbp:1,  sb:31, tb:88,  xbh:14, ip:31.0, gp_p:13, np:538, h_a:27, r_a:19, er:7,  bb_p:12, so_p:49, era:1.355, whip:1.258},
+  {num:5,  first:'Brody',   last:'Pegelow',    pos:['P','1B'],   gp:54, ab:106, avg:.509, obp:.583, slg:.840,  ops:1.422, h:54, d:5,  t:0, hr:10, rbi:54, r:51, bb:18, so:10, hbp:2,  sb:8,  tb:89,  xbh:15, ip:28.0, gp_p:13, np:536, h_a:32, r_a:44, er:26, bb_p:15, so_p:42, era:5.571, whip:1.679},
+  {num:11, first:'Hudson',  last:'Hartstein',  pos:['3B','P'],   gp:54, ab:127, avg:.409, obp:.493, slg:.953,  ops:1.446, h:52, d:7,  t:1, hr:20, rbi:69, r:78, bb:20, so:12, hbp:1,  sb:26, tb:121, xbh:28, ip:30.0, gp_p:17, np:479, h_a:19, r_a:16, er:9,  bb_p:16, so_p:37, era:1.800, whip:1.167},
+  {num:12, first:'Ridge',   last:'Tervo',      pos:['P'],        gp:1,  ab:1,   avg:.000, obp:.000, slg:.000,  ops:.000,  h:0,  d:0,  t:0, hr:0,  rbi:0,  r:0,  bb:0,  so:0,  hbp:0,  sb:0,  tb:0,   xbh:0,  ip:6.0,  gp_p:2,  np:90,  h_a:3,  r_a:3,  er:2,  bb_p:3,  so_p:10, era:2.000, whip:1.000},
+  {num:13, first:'Brody',   last:'Snyder',     pos:['P','OF'],   gp:54, ab:86,  avg:.326, obp:.469, slg:.547,  ops:1.016, h:28, d:4,  t:0, hr:5,  rbi:27, r:37, bb:20, so:21, hbp:5,  sb:15, tb:47,  xbh:9,  ip:13.0, gp_p:7,  np:198, h_a:10, r_a:4,  er:2,  bb_p:5,  so_p:17, era:.923,  whip:1.154},
+  {num:23, first:'Jake',    last:'Coulbourne', pos:['SS','P'],   gp:54, ab:121, avg:.603, obp:.650, slg:1.364, ops:2.014, h:73, d:8,  t:3, hr:26, rbi:65, r:83, bb:17, so:7,  hbp:1,  sb:31, tb:165, xbh:37, ip:29.0, gp_p:17, np:418, h_a:19, r_a:15, er:11, bb_p:9,  so_p:53, era:2.276, whip:.966},
+  {num:24, first:'Cooper',  last:'Lewis',      pos:['C','1B'],   gp:54, ab:88,  avg:.307, obp:.421, slg:.398,  ops:.818,  h:27, d:5,  t:0, hr:1,  rbi:26, r:38, bb:17, so:11, hbp:1,  sb:18, tb:35,  xbh:6,  ip:12.2, gp_p:9,  np:228, h_a:14, r_a:10, er:3,  bb_p:8,  so_p:15, era:1.421, whip:1.737},
+  {num:27, first:'Wyatt',   last:'Wiltbank',   pos:['CF','P'],   gp:54, ab:113, avg:.363, obp:.497, slg:.460,  ops:.957,  h:41, d:6,  t:1, hr:1,  rbi:26, r:64, bb:30, so:14, hbp:1,  sb:41, tb:52,  xbh:8,  ip:1.2,  gp_p:2,  np:25,  h_a:0,  r_a:1,  er:0,  bb_p:2,  so_p:3,  era:.000,  whip:1.200},
+  {num:47, first:'Mason',   last:'Maloney',    pos:['RF','P'],   gp:54, ab:84,  avg:.369, obp:.477, slg:.464,  ops:.941,  h:31, d:5,  t:0, hr:1,  rbi:32, r:39, bb:16, so:14, hbp:4,  sb:19, tb:39,  xbh:6,  ip:2.1,  gp_p:3,  np:43,  h_a:2,  r_a:3,  er:2,  bb_p:1,  so_p:5,  era:5.143, whip:1.286},
+  {num:50, first:'Hunter',  last:'Washbon',    pos:['SS','OF'],  gp:54, ab:100, avg:.380, obp:.534, slg:.650,  ops:1.184, h:38, d:7,  t:1, hr:6,  rbi:47, r:45, bb:32, so:15, hbp:1,  sb:15, tb:65,  xbh:14, ip:3.0,  gp_p:2,  np:31,  h_a:0,  r_a:0,  er:0,  bb_p:1,  so_p:5,  era:.000,  whip:.333},
+  {num:54, first:'Ayden',   last:'Jester',     pos:['2B','P'],   gp:54, ab:125, avg:.592, obp:.639, slg:1.360, ops:1.999, h:74, d:12, t:0, hr:28, rbi:87, r:76, bb:16, so:3,  hbp:2,  sb:13, tb:170, xbh:40, ip:48.0, gp_p:21, np:732, h_a:40, r_a:35, er:19, bb_p:10, so_p:81, era:2.375, whip:1.042},
+];
+
+var FALLBACK_GAMES = [
+  {W:true,  opp:'Anderson M.',        event:'Perfect Game 12U National', date:'Jun 14', us:14, them:9},
+  {W:true,  opp:'Chesapeake Thunder', event:'Mid-Atlantic Regional',      date:'Jun 10', us:8,  them:3},
+  {W:false, opp:'Carolina Prospects', event:'Mid-Atlantic Regional',      date:'Jun 9',  us:4,  them:7},
+  {W:true,  opp:'DC Grind',           event:'USSSA Virginia',             date:'Jun 1',  us:11, them:2},
+  {W:true,  opp:'Hampton Roads Elite',event:'USSSA Virginia',             date:'May 31', us:6,  them:5},
+];
+
+// ─────────────────────────────────────────────────────────
+// STATE
+// ─────────────────────────────────────────────────────────
+var db = null
+var players = FALLBACK_PLAYERS
+var games = FALLBACK_GAMES
+var usingDB = false
+var currentSort = {batting:'num', pitching:'num'}
+var currentTab = 'batting'
+
+// ─────────────────────────────────────────────────────────
+// INIT — try Supabase, fall back gracefully
+// ─────────────────────────────────────────────────────────
+async function init() {
+  setLoadingText('Connecting to database...')
+
+  var configured = SUPABASE_URL !== 'YOUR_SUPABASE_URL' && SUPABASE_ANON_KEY !== 'YOUR_SUPABASE_ANON_KEY'
+
+  if (configured) {
+    try {
+      db = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+
+      setLoadingText('Loading players...')
+      var { data: dbPlayers, error: pErr } = await db
+        .from('player_season_stats').select('*').order('jersey_num')
+
+      if (!pErr && dbPlayers && dbPlayers.length > 0) {
+        // If DB players have no at_bats yet, keep fallback stats for display
+        // but confirm DB connection is working
+        var mappedPlayers = dbPlayers.map(mapDBPlayer)
+        var hasStats = mappedPlayers.some(function(p){ return p.ab > 0 })
+        if (hasStats) {
+          players = mappedPlayers
+        } else {
+          // Players exist in DB but no games scored yet — keep fallback stats
+          console.log('Players found in DB but no at_bats yet — using fallback stats for display')
+        }
+        usingDB = true
+        setLoadingText('Loading games...')
+
+        var { data: dbGames } = await db
+          .from('games')
+          .select('*, opponents(name)')
+          .eq('status', 'final')
+          .order('game_date', { ascending: false })
+          .limit(5)
+
+        if (dbGames && dbGames.length > 0) games = dbGames.map(mapDBGame)
+
+        try {
+          var { data: nextGame } = await db
+            .from('games')
+            .select('*, opponents(name)')
+            .eq('status', 'scheduled')
+            .gte('game_date', new Date().toISOString().split('T')[0])
+            .order('game_date').limit(1).single()
+          if (nextGame) renderNextGame(nextGame)
+        } catch(e) { /* no scheduled games yet */ }
+
+        try {
+          var { data: liveGame } = await db
+            .from('live_game_summary').select('*').single()
+          if (liveGame) showLivePill(liveGame)
+        } catch(e) { /* no live game */ }
+
+        setDBStatus('live', '● Supabase connected')
+        document.getElementById('last-updated').textContent =
+          'Live stats · Last updated ' + new Date().toLocaleTimeString()
+
+      } else {
+        throw new Error('No data')
+      }
+    } catch(e) {
+      console.warn('Supabase unavailable, using fallback data:', e.message)
+      setDBStatus('fallback', '○ Using cached stats')
+    }
+  } else {
+    setDBStatus('fallback', '○ Add Supabase URL to go live')
+  }
+
+  renderHome()
+  renderBatting()
+  updateCountdown()
+  setInterval(updateCountdown, 30000)
+  hideLoading()
+}
+
+// Map Supabase view columns → local format
+function mapDBPlayer(p) {
+  return {
+    num: p.jersey_num, first: p.first_name, last: p.last_name,
+    pos: p.positions || [],
+    gp: p.games_played || 0, ab: p.at_bats || 0,
+    avg: p.at_bats > 0 ? p.hits / p.at_bats : 0,
+    obp: calcOBP(p), slg: calcSLG(p),
+    ops: calcOBP(p) + calcSLG(p),
+    h: p.hits || 0, d: p.doubles || 0, t: p.triples || 0,
+    hr: p.home_runs || 0, rbi: p.rbi || 0, r: p.runs || 0,
+    bb: p.walks || 0, so: p.strikeouts || 0,
+    hbp: p.hbp || 0, sb: p.stolen_bases || 0,
+    tb: calcTB(p), xbh: (p.doubles||0)+(p.triples||0)+(p.home_runs||0),
+    ip: 0, gp_p: 0, np: 0, h_a: 0, r_a: 0, er: 0,
+    bb_p: 0, so_p: 0, era: 0, whip: 0,
+  }
+}
+function calcOBP(p) {
+  var n = (p.hits||0)+(p.walks||0)+(p.hbp||0)
+  var d = (p.at_bats||0)+(p.walks||0)+(p.hbp||0)
+  return d > 0 ? n/d : 0
+}
+function calcSLG(p) {
+  var tb = (p.singles||p.hits-(p.doubles||0)-(p.triples||0)-(p.home_runs||0)) +
+           (p.doubles||0)*2 + (p.triples||0)*3 + (p.home_runs||0)*4
+  return p.at_bats > 0 ? tb/p.at_bats : 0
+}
+function calcTB(p) {
+  return ((p.hits||0)-(p.doubles||0)-(p.triples||0)-(p.home_runs||0)) +
+         (p.doubles||0)*2 + (p.triples||0)*3 + (p.home_runs||0)*4
+}
+function mapDBGame(g) {
+  var win = g.our_score > g.opp_score
+  var d = new Date(g.game_date)
+  return {
+    W: win, opp: g.opponents?.name || 'Opponent',
+    event: g.tournament || '', us: g.our_score, them: g.opp_score,
+    date: d.toLocaleDateString('en-US',{month:'short',day:'numeric'})
+  }
+}
+
+// ─────────────────────────────────────────────────────────
+// RENDER HOME
+// ─────────────────────────────────────────────────────────
+function renderHome() {
+  // Team totals
+  var totals = players.reduce(function(acc, p) {
+    acc.rbi += p.rbi; acc.r += p.r; acc.sb += p.sb; acc.hr += p.hr
+    acc.h += p.h; acc.ab += p.ab
+    return acc
+  }, {rbi:0, r:0, sb:0, hr:0, h:0, ab:0})
+  var teamAvg = totals.ab > 0 ? (totals.h/totals.ab) : 0
+
+  setText('hs-avg', f3(teamAvg))
+  setText('hs-rbi', totals.rbi)
+  setText('hs-sb', totals.sb)
+  setText('hs-hr', totals.hr)
+  setText('ts-avg', f3(teamAvg))
+  setText('ts-rbi', totals.rbi)
+  setText('ts-r', totals.r)
+  setText('ts-sb', totals.sb)
+  setText('ts-hr', totals.hr)
+  setText('roster-meta', '12U East · '+players.length+' Players · '+
+    Math.max(...players.map(function(p){return p.gp}))+ ' Games Played')
+
+  renderLeaders()
+  renderResults()
+}
+
+function renderLeaders() {
+  // Need at least 3 players with ABs to render leaders
+  var qualified = players.filter(function(p){return p.ab>=1})
+  if (qualified.length < 3) {
+    document.getElementById('leaders-grid').innerHTML =
+      '<div style="color:var(--muted);font-family:var(--mono);font-size:12px;padding:20px 0;">Season leaders will appear here once games are scored.</div>'
+    return
+  }
+  var sorted_avg = players.filter(function(p){return p.ab>=30}).sort(function(a,b){return b.avg-a.avg})
+  if (sorted_avg.length < 3) sorted_avg = players.filter(function(p){return p.ab>=1}).sort(function(a,b){return b.avg-a.avg})
+  var sorted_hr  = players.slice().sort(function(a,b){return b.hr-a.hr})
+  var sorted_rbi = players.slice().sort(function(a,b){return b.rbi-a.rbi})
+  var sorted_sb  = players.slice().sort(function(a,b){return b.sb-a.sb})
+  var pitchers   = players.filter(function(p){return p.ip>=10&&p.era<99})
+    .sort(function(a,b){return a.era-b.era})
+  var sorted_k   = players.filter(function(p){return p.so_p>0}).sort(function(a,b){return b.so_p-a.so_p})
+
+  var cards = [
+    {cat:'Batting AVG', p:sorted_avg[0], val:f3(sorted_avg[0].avg), rest:sorted_avg[1].first[0]+'. '+sorted_avg[1].last+' '+f3(sorted_avg[1].avg)+' · '+sorted_avg[2].first[0]+'. '+sorted_avg[2].last+' '+f3(sorted_avg[2].avg)},
+    {cat:'Home Runs',   p:sorted_hr[0],  val:sorted_hr[0].hr,  unit:'HR',  rest:sorted_hr[1].first[0]+'. '+sorted_hr[1].last+' '+sorted_hr[1].hr+' · '+sorted_hr[2].first[0]+'. '+sorted_hr[2].last+' '+sorted_hr[2].hr},
+    {cat:'RBI',         p:sorted_rbi[0], val:sorted_rbi[0].rbi, unit:'RBI', rest:sorted_rbi[1].first[0]+'. '+sorted_rbi[1].last+' '+sorted_rbi[1].rbi+' · '+sorted_rbi[2].first[0]+'. '+sorted_rbi[2].last+' '+sorted_rbi[2].rbi},
+    {cat:'Stolen Bases',p:sorted_sb[0],  val:sorted_sb[0].sb,  unit:'SB',  rest:sorted_sb[1].first[0]+'. '+sorted_sb[1].last+' '+sorted_sb[1].sb+' · '+sorted_sb[2].first[0]+'. '+sorted_sb[2].last+' '+sorted_sb[2].sb},
+    {cat:'ERA (min 10 IP)',p:pitchers[0], val:pitchers[0].era.toFixed(2), rest:pitchers.slice(1,3).map(function(p){return p.first[0]+'. '+p.last+' '+p.era.toFixed(2)}).join(' · ')},
+    {cat:'Strikeouts',  p:sorted_k[0],   val:sorted_k[0].so_p, unit:'K',   rest:sorted_k.slice(1,3).map(function(p){return p.first[0]+'. '+p.last+' '+p.so_p}).join(' · ')},
+  ]
+
+  document.getElementById('leaders-grid').innerHTML = cards.map(function(c) {
+    return '<div class="leader-card">'+
+      '<div class="leader-cat">'+c.cat+'</div>'+
+      '<div class="leader-name">#'+c.p.num+' '+c.p.first+' '+c.p.last+'</div>'+
+      '<div class="leader-val">'+c.val+(c.unit?'<span style="font-size:14px;color:var(--muted);margin-left:4px;">'+c.unit+'</span>':'')+'</div>'+
+      '<div class="leader-rest">'+c.rest+'</div>'+
+    '</div>'
+  }).join('')
+}
+
+function renderResults() {
+  document.getElementById('results-grid').innerHTML = games.map(function(g) {
+    return '<div class="result-row">'+
+      '<div class="result-badge '+(g.W?'W':'L')+'">'+(g.W?'W':'L')+'</div>'+
+      '<div class="result-teams">'+
+        '<div class="result-matchup">Delmarva Aces vs '+g.opp+'</div>'+
+        '<div class="result-event">'+(g.event||'')+' · '+g.date+'</div>'+
+      '</div>'+
+      '<div class="result-score"><span class="us">'+g.us+'</span> – '+g.them+'</div>'+
+      '<div class="result-date">'+g.date+'</div>'+
+    '</div>'
+  }).join('')
+}
+
+function renderNextGame(g) {
+  var opp = g.opponents?.name || 'TBD'
+  document.getElementById('next-game-teams').innerHTML =
+    'Delmarva Aces <span>vs</span> '+opp
+  var d = new Date(g.game_date)
+  document.getElementById('next-game-meta').textContent =
+    d.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'})+
+    (g.game_time ? ' · '+g.game_time : '')+
+    (g.tournament ? ' · '+g.tournament : '')+
+    (g.location ? ' · '+g.location : '')
+  // update countdown target
+  window._nextGameDate = g.game_date+(g.game_time?'T'+g.game_time:'T09:00:00')
+}
+
+function showLivePill(game) {
+  document.getElementById('live-pill').style.display = 'flex'
+  window._liveGameId = game.id
+  window._liveYoutubeId = game.youtube_stream_id
+}
+
+// ─────────────────────────────────────────────────────────
+// ROSTER TABLES
+// ─────────────────────────────────────────────────────────
+function renderBatting() {
+  var key = currentSort.batting
+  var sorted = players.slice().sort(function(a,b){
+    if(key==='num') return a.num-b.num
+    return b[key]-a[key]
+  })
+  var body = document.getElementById('batting-body')
+  body.innerHTML = ''
+  sorted.forEach(function(p) {
+    var tr = document.createElement('tr')
+    tr.dataset.num = p.num
+    tr.innerHTML =
+      '<td class="td-num">'+p.num+'</td>'+
+      '<td class="td-name">'+p.first+' <span class="last">'+p.last+'</span></td>'+
+      '<td>'+p.pos.map(function(pos,i){return '<span class="pos-badge'+(i===0?' key':'')+'">' +pos+'</span>'}).join('')+'</td>'+
+      td(p.gp,'lo')+td(p.ab,'lo')+
+      td(f3(p.avg),p.avg>=.500?'hi':'')+
+      td(f3(p.obp))+td(f3(p.slg))+
+      td(p.ops.toFixed(3),p.ops>=1.400?'hi':'')+
+      td(p.h)+td(p.hr,p.hr>=10?'hi':'')+
+      td(p.rbi,p.rbi>=50?'hi':'')+
+      td(p.r)+td(p.bb,'lo')+td(p.so,'lo')+
+      td(p.sb,p.sb>=25?'hi':'')+td(p.tb,'lo')
+    tr.addEventListener('click',function(){toggleExpand(p,tr,'batting')})
+    body.appendChild(tr)
+  })
+}
+
+function renderPitching() {
+  var key = currentSort.pitching
+  var pitchers = players.filter(function(p){return p.ip>0})
+  var sorted = pitchers.slice().sort(function(a,b){
+    if(key==='num') return a.num-b.num
+    if(key==='era'||key==='whip') return a[key]-b[key]
+    return b[key]-a[key]
+  })
+  var body = document.getElementById('pitching-body')
+  body.innerHTML = ''
+  sorted.forEach(function(p) {
+    var eraGood = p.ip>=10 && p.era<2.0
+    var tr = document.createElement('tr')
+    tr.dataset.num = p.num
+    tr.innerHTML =
+      '<td class="td-num">'+p.num+'</td>'+
+      '<td class="td-name">'+p.first+' <span class="last">'+p.last+'</span></td>'+
+      td(p.ip.toFixed(1))+td(p.gp_p,'lo')+td(p.np,'lo')+
+      td(p.h_a,'lo')+td(p.r_a,'lo')+td(p.er,'lo')+td(p.bb_p,'lo')+
+      td(p.so_p,p.so_p>=40?'hi':'')+
+      td(p.era.toFixed(3),eraGood?'hi':'')+
+      td(p.whip.toFixed(3))
+    tr.addEventListener('click',function(){toggleExpand(p,tr,'pitching')})
+    body.appendChild(tr)
+  })
+}
+
+function td(val,cls){
+  return '<td class="td-s'+(cls?' '+cls:'')+'">'+(val===undefined||val===null?'—':val)+'</td>'
+}
+
+function toggleExpand(p,tr,tab) {
+  var existing = document.querySelector('.detail-row')
+  var isSame = existing && existing.dataset.num===String(p.num)
+  if(existing){existing.remove();document.querySelectorAll('tbody tr').forEach(function(r){r.classList.remove('expanded')})}
+  if(isSame) return
+  tr.classList.add('expanded')
+  var det = document.createElement('tr')
+  det.className='detail-row'; det.dataset.num=p.num
+  var cols = tab==='batting'?17:12
+  var cards = tab==='batting'
+    ? dc('OBP',f3(p.obp),'On-base %')+dc('SLG',f3(p.slg),'Slugging %')+dc('OPS',p.ops.toFixed(3),'OBP + SLG')+dc('2B',p.d,'Doubles')+dc('3B',p.t,'Triples')+dc('HR',p.hr,'Home runs')+dc('XBH',p.xbh,'Extra base hits')+dc('TB',p.tb,'Total bases')+dc('HBP',p.hbp,'Hit by pitch')
+    : dc('IP',p.ip.toFixed(1),'Innings pitched')+dc('NP',p.np,'Pitches thrown')+dc('ERA',p.era.toFixed(3),'Earned run avg')+dc('WHIP',p.whip.toFixed(3),'WHIP')+dc('K',p.so_p,'Strikeouts')+dc('BB',p.bb_p,'Walks allowed')+dc('H',p.h_a,'Hits allowed')
+  det.innerHTML='<td colspan="'+cols+'"><div class="detail-inner">'+cards+'</div></td>'
+  tr.after(det)
+}
+
+function dc(label,val,sub){
+  return '<div class="dc"><div class="dc-lbl">'+label+'</div><div class="dc-val">'+val+'</div><div class="dc-sub">'+sub+'</div></div>'
+}
+
+function sortRoster(key,btn,tab){
+  currentSort[tab]=key
+  var scope = tab==='batting'?'#batting-filters .filter-btn':'#pitching-filters .filter-btn'
+  document.querySelectorAll(scope).forEach(function(b){b.classList.remove('active')})
+  if(btn) btn.classList.add('active')
+  tab==='batting'?renderBatting():renderPitching()
+}
+
+function switchTab(tab){
+  currentTab=tab
+  document.getElementById('tab-batting').classList.toggle('active',tab==='batting')
+  document.getElementById('tab-pitching').classList.toggle('active',tab==='pitching')
+  document.getElementById('batting-table-wrap').style.display=tab==='batting'?'':'none'
+  document.getElementById('pitching-table-wrap').style.display=tab==='pitching'?'':'none'
+  document.getElementById('batting-filters').style.display=tab==='batting'?'':'none'
+  document.getElementById('pitching-filters').style.display=tab==='pitching'?'':'none'
+  var ex=document.querySelector('.detail-row')
+  if(ex){ex.remove();document.querySelectorAll('tbody tr').forEach(function(r){r.classList.remove('expanded')})}
+  tab==='batting'?renderBatting():renderPitching()
+}
+
+// ─────────────────────────────────────────────────────────
+// UTILITIES
+// ─────────────────────────────────────────────────────────
+function f3(v){return v===0?'.000':('.'+Math.round(v*1000).toString().padStart(3,'0'))}
+function setText(id,val){var el=document.getElementById(id);if(el)el.textContent=val}
+function setLoadingText(txt){setText('loading-text',txt)}
+function setDBStatus(type,msg){
+  var el=document.getElementById('db-status')
+  el.className='db-status '+type; el.textContent=msg
+}
+function hideLoading(){
+  var el=document.getElementById('loading')
+  el.classList.add('hidden')
+  setTimeout(function(){el.style.display='none'},500)
+}
+function showPage(id){
+  document.querySelectorAll('.page').forEach(function(p){p.classList.remove('active')})
+  document.getElementById('page-'+id).classList.add('active')
+  document.querySelectorAll('.nav-link').forEach(function(l){l.classList.remove('active')})
+  var el=document.getElementById('nav-'+id);if(el)el.classList.add('active')
+  window.scrollTo(0,0)
+}
+function updateCountdown(){
+  var target = window._nextGameDate ? new Date(window._nextGameDate) : new Date('2026-06-28T09:00:00')
+  var diff = target - new Date()
+  if(diff<=0) return
+  var d=Math.floor(diff/86400000),h=Math.floor((diff%86400000)/3600000),m=Math.floor((diff%3600000)/60000)
+  setText('cd-d',String(d).padStart(2,'0'))
+  setText('cd-h',String(h).padStart(2,'0'))
+  setText('cd-m',String(m).padStart(2,'0'))
+}
+
+// ─────────────────────────────────────────────────────────
+// GO
+// ─────────────────────────────────────────────────────────
+init()
+</script>
+</body>
+</html>
