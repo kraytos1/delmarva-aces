@@ -421,7 +421,10 @@ async function init() {
     await loadLiveGame()
   }
   checkYouTubeLive()
-  setInterval(checkYouTubeLive, 300000)
+  var ytInterval = setInterval(function(){
+    if(document.getElementById('yt-iframe')) { clearInterval(ytInterval); return }
+    checkYouTubeLive()
+  }, 120000)
   updateCountdown()
   setInterval(updateCountdown, 30000)
 }
