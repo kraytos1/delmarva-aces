@@ -399,14 +399,15 @@ async function startScoring() {
   }).eq('id', gameId)
 
   // Load last at-bat number
-  var { data: lastAB } = await db
-    .from('at_bats')
-    .select('ab_num')
-    .eq('game_id', gameId)
-    .order('ab_num', {ascending:false})
-    .limit(1)
-    .single()
-  state.abNum = lastAB ? (lastAB.ab_num || 0) : 0
+  try {
+    var { data: lastAB } = await db
+      .from('at_bats')
+      .select('ab_num')
+      .eq('game_id', gameId)
+      .order('ab_num', {ascending:false})
+      .limit(1)
+    state.abNum = (lastAB && lastAB.length > 0) ? (lastAB[0].ab_num || 0) : 0
+  } catch(e) { state.abNum = 0 }
 
   // Show scorer
   document.getElementById('setup-screen').style.display = 'none'
@@ -702,13 +703,13 @@ async function endGame(){
 // RENDER
 // ─────────────────────────────────────────────────────────
 function renderCount(){
-  ['b1','b2','b3'].forEach(function(id,i){document.getElementById(id).className='pip'+(i<state.balls?' ball-on':'')})
-  ['s1','s2'].forEach(function(id,i){document.getElementById(id).className='pip'+(i<state.strikes?' strike-on':'')})
-  ['o1','o2'].forEach(function(id,i){document.getElementById(id).className='pip'+(i<state.outs?' out-on':'')})
-  ['o1b','o2b','o3b'].forEach(function(id,i){document.getElementById(id).className='pip'+(i<state.outs?' out-on':'')})
-  document.getElementById('pc-num').textContent=state.pitchCount
-  document.getElementById('top-inning').textContent=(state.isTop?'Top':'Bot')+' '+state.inning+' · '+state.outs+' out'+(state.outs===1?'':'s')
-  document.getElementById('top-score').textContent=state.scores.us+' – '+state.scores.them
+  ;['b1','b2','b3'].forEach(function(id,i){var el=document.getElementById(id);if(el)el.className='pip'+(i<state.balls?' ball-on':'')})
+  ;['s1','s2'].forEach(function(id,i){var el=document.getElementById(id);if(el)el.className='pip'+(i<state.strikes?' strike-on':'')})
+  ;['o1','o2'].forEach(function(id,i){var el=document.getElementById(id);if(el)el.className='pip'+(i<state.outs?' out-on':'')})
+  ;['o1b','o2b','o3b'].forEach(function(id,i){var el=document.getElementById(id);if(el)el.className='pip'+(i<state.outs?' out-on':'')})
+  var pcEl=document.getElementById('pc-num');if(pcEl)pcEl.textContent=state.pitchCount
+  var tiEl=document.getElementById('top-inning');if(tiEl)tiEl.textContent=(state.isTop?'Top':'Bot')+' '+state.inning+' · '+state.outs+' out'+(state.outs===1?'':'s')
+  var tsEl=document.getElementById('top-score');if(tsEl)tsEl.textContent=state.scores.us+' – '+state.scores.them
 }
 
 function renderBases(){
