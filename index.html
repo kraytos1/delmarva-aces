@@ -287,17 +287,23 @@
     <span id="batting-filters">
       <button class="filter-btn active" onclick="sortRoster('num',this,'batting')">No.</button>
       <button class="filter-btn" onclick="sortRoster('avg',this,'batting')">AVG</button>
+      <button class="filter-btn" onclick="sortRoster('ops',this,'batting')">OPS</button>
+      <button class="filter-btn" onclick="sortRoster('opsplus',this,'batting')">OPS+</button>
+      <button class="filter-btn" onclick="sortRoster('woba',this,'batting')">wOBA</button>
+      <button class="filter-btn" onclick="sortRoster('iso',this,'batting')">ISO</button>
       <button class="filter-btn" onclick="sortRoster('hr',this,'batting')">HR</button>
       <button class="filter-btn" onclick="sortRoster('rbi',this,'batting')">RBI</button>
       <button class="filter-btn" onclick="sortRoster('sb',this,'batting')">SB</button>
-      <button class="filter-btn" onclick="sortRoster('ops',this,'batting')">OPS</button>
+      <button class="filter-btn" onclick="sortRoster('bbpct',this,'batting')">BB%</button>
+      <button class="filter-btn" onclick="sortRoster('rating',this,'batting')">⭐ Rating</button>
     </span>
     <span id="pitching-filters" style="display:none">
       <button class="filter-btn active" onclick="sortRoster('num',this,'pitching')">No.</button>
       <button class="filter-btn" onclick="sortRoster('era',this,'pitching')">ERA</button>
-      <button class="filter-btn" onclick="sortRoster('so_p',this,'pitching')">K</button>
       <button class="filter-btn" onclick="sortRoster('whip',this,'pitching')">WHIP</button>
+      <button class="filter-btn" onclick="sortRoster('so_p',this,'pitching')">K</button>
       <button class="filter-btn" onclick="sortRoster('ip',this,'pitching')">IP</button>
+      <button class="filter-btn" onclick="sortRoster('np',this,'pitching')">NP</button>
     </span>
   </div>
 
@@ -305,10 +311,12 @@
     <table>
       <thead><tr>
         <th class="c">#</th><th>Player</th><th>Pos</th>
-        <th class="r">GP</th><th class="r">AB</th>
+        <th class="r">AB</th>
         <th class="r">AVG</th><th class="r">OBP</th><th class="r">SLG</th><th class="r">OPS</th>
-        <th class="r">H</th><th class="r">HR</th><th class="r">RBI</th>
-        <th class="r">R</th><th class="r">BB</th><th class="r">SO</th><th class="r">SB</th><th class="r">TB</th>
+        <th class="r">OPS+</th><th class="r">ISO</th><th class="r">wOBA</th>
+        <th class="r">BB%</th><th class="r">K%</th>
+        <th class="r">HR</th><th class="r">RBI</th><th class="r">SB</th>
+        <th class="r">⭐</th>
       </tr></thead>
       <tbody id="batting-body"></tbody>
     </table>
@@ -319,8 +327,10 @@
       <thead><tr>
         <th class="c">#</th><th>Player</th>
         <th class="r">IP</th><th class="r">GP</th><th class="r">NP</th>
-        <th class="r">H</th><th class="r">R</th><th class="r">ER</th>
-        <th class="r">BB</th><th class="r">SO</th><th class="r">ERA</th><th class="r">WHIP</th>
+        <th class="r">H</th><th class="r">ER</th>
+        <th class="r">BB</th><th class="r">SO</th>
+        <th class="r">K/9</th><th class="r">BB/9</th>
+        <th class="r">ERA</th><th class="r">WHIP</th>
       </tr></thead>
       <tbody id="pitching-body"></tbody>
     </table>
@@ -639,34 +649,123 @@ function showLivePill(game) {
 }
 
 // ─────────────────────────────────────────────────────────
-// ROSTER TABLES
+// ADVANCED STATS ENGINE
 // ─────────────────────────────────────────────────────────
+function calcAdvanced(p, teamPlayers) {
+  var pa = p.ab + p.bb + p.hbp
+  // ISO = SLG - AVG
+  var iso = p.slg - p.avg
+  // BB%
+  var bbPct = pa > 0 ? p.bb / pa : 0
+  // K%
+  var kPct = pa > 0 ? p.so / pa : 0
+  // BABIP = (H - HR) / (AB - SO - HR + SF)  — no SF so approx
+  var babip = (p.ab - p.so - p.hr) > 0 ? (p.h - p.hr) / (p.ab - p.so - p.hr) : 0
+  // wOBA weights: BB=0.69, HBP=0.72, 1B=0.88, 2B=1.24, 3B=1.56, HR=2.08
+  var singles = p.h - p.d - p.t - p.hr
+  var woba = pa > 0
+    ? (0.69*p.bb + 0.72*p.hbp + 0.88*singles + 1.24*p.d + 1.56*p.t + 2.08*p.hr) / pa
+    : 0
+  // OPS+ = 100 × (OBP/teamOBP + SLG/teamSLG - 1)
+  var teamOBP = teamPlayers.reduce(function(a,x){return a+x.obp},0)/teamPlayers.length
+  var teamSLG = teamPlayers.reduce(function(a,x){return a+x.slg},0)/teamPlayers.length
+  var opsPlus = (teamOBP>0&&teamSLG>0)
+    ? Math.round(100 * (p.obp/teamOBP + p.slg/teamSLG - 1))
+    : 100
+  // Aces Rating (0-100 composite)
+  var acesRating = Math.min(100, Math.round(
+    (p.ops / 2.5) * 35 +       // OPS weight
+    (iso / 0.8) * 25 +          // power weight
+    (bbPct / 0.25) * 20 +       // discipline weight
+    (1 - kPct) * 20             // contact weight
+  ))
+  return { iso, bbPct, kPct, babip, woba, opsPlus, acesRating, pa }
+}
+
+// ─────────────────────────────────────────────────────────
+// BADGE ENGINE
+// ─────────────────────────────────────────────────────────
+function getBadges(p, adv) {
+  var badges = []
+  // Batting badges
+  if (p.avg >= .570)                         badges.push({e:'🔥', l:'Elite Contact',   c:'#E8530A'})
+  if (adv.iso >= .600)                       badges.push({e:'💣', l:'Slugger',          c:'#DC2626'})
+  if (p.hr >= 20)                            badges.push({e:'💪', l:'Power Threat',     c:'#9333EA'})
+  if (adv.opsPlus >= 160)                    badges.push({e:'🏆', l:'MVP Candidate',    c:'#F59E0B'})
+  if (adv.bbPct >= .15 && p.sb >= 20)       badges.push({e:'⚡', l:'Table Setter',     c:'#06B6D4'})
+  if (adv.bbPct >= .18)                      badges.push({e:'👁️',  l:'Plate Discipline', c:'#10B981'})
+  if (p.sb >= 35)                            badges.push({e:'🚀', l:'Speedster',        c:'#3B82F6'})
+  if (adv.woba >= .550)                      badges.push({e:'⭐', l:'Elite Hitter',     c:'#EAB308'})
+  if (adv.kPct <= .05 && p.ab >= 50)        badges.push({e:'🎯', l:'Contact King',     c:'#22C55E'})
+  if (p.rbi >= 70)                           badges.push({e:'🏅', l:'Run Producer',     c:'#F97316'})
+  // Pitching badges
+  if (p.era <= 1.50 && p.ip >= 10)          badges.push({e:'🎯', l:'Ace',              c:'#E8530A'})
+  if (p.whip <= 1.00 && p.ip >= 10)         badges.push({e:'🛡️',  l:'Shutdown',         c:'#6366F1'})
+  if (p.so_p >= 70)                          badges.push({e:'🔥', l:'Strikeout Machine',c:'#DC2626'})
+  if (p.ip >= 40)                            badges.push({e:'⚾', l:'Workhorse',        c:'#78716C'})
+  return badges
+}
+
+function renderBadges(badges) {
+  return badges.map(function(b) {
+    return '<span style="display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:600;'+
+      'padding:3px 9px;border-radius:12px;margin:2px 3px 2px 0;letter-spacing:.3px;'+
+      'background:'+b.c+'22;color:'+b.c+';border:1px solid '+b.c+'44;">'+
+      b.e+' '+b.l+'</span>'
+  }).join('')
+}
 function renderBatting() {
   var key = currentSort.batting
   var sorted = players.slice().sort(function(a,b){
     if(key==='num') return a.num-b.num
+    if(key==='iso') return (b.slg-b.avg)-(a.slg-a.avg)
+    if(key==='bbpct'){var bpa=b.ab+b.bb+b.hbp||1,apa=a.ab+a.bb+a.hbp||1;return (b.bb/bpa)-(a.bb/apa)}
+    if(key==='woba') return calcAdvanced(b,players).woba-calcAdvanced(a,players).woba
+    if(key==='opsplus') return calcAdvanced(b,players).opsPlus-calcAdvanced(a,players).opsPlus
+    if(key==='rating') return calcAdvanced(b,players).acesRating-calcAdvanced(a,players).acesRating
     return b[key]-a[key]
   })
   var body = document.getElementById('batting-body')
   body.innerHTML = ''
   sorted.forEach(function(p) {
+    var adv = calcAdvanced(p, players)
+    var badges = getBadges(p, adv)
     var tr = document.createElement('tr')
     tr.dataset.num = p.num
     tr.innerHTML =
       '<td class="td-num">'+p.num+'</td>'+
-      '<td class="td-name">'+p.first+' <span class="last">'+p.last+'</span></td>'+
-      '<td>'+p.pos.map(function(pos,i){return '<span class="pos-badge'+(i===0?' key':'')+'">' +pos+'</span>'}).join('')+'</td>'+
-      td(p.gp,'lo')+td(p.ab,'lo')+
+      '<td class="td-name">'+
+        '<div>'+p.first+' <span class="last">'+p.last+'</span></div>'+
+        (badges.length?'<div style="margin-top:3px;line-height:1.8;">'+renderBadges(badges.slice(0,2))+'</div>':'')+
+      '</td>'+
+      '<td>'+p.pos.map(function(pos,i){return '<span class="pos-badge'+(i===0?' key':'')+'">'+pos+'</span>'}).join('')+'</td>'+
+      td(p.ab,'lo')+
       td(f3(p.avg),p.avg>=.500?'hi':'')+
-      td(f3(p.obp))+td(f3(p.slg))+
+      td(f3(p.obp))+
+      td(f3(p.slg))+
       td(p.ops.toFixed(3),p.ops>=1.400?'hi':'')+
-      td(p.h)+td(p.hr,p.hr>=10?'hi':'')+
+      td(adv.opsPlus,adv.opsPlus>=150?'hi':adv.opsPlus<80?'lo':'')+
+      td(f3(adv.iso),adv.iso>=.500?'hi':'')+
+      td(adv.woba.toFixed(3),adv.woba>=.500?'hi':'')+
+      td(Math.round(adv.bbPct*100)+'%',adv.bbPct>=.15?'hi':'lo')+
+      td(Math.round(adv.kPct*100)+'%',adv.kPct<=.06?'hi':'lo')+
+      td(p.hr,p.hr>=10?'hi':'')+
       td(p.rbi,p.rbi>=50?'hi':'')+
-      td(p.r)+td(p.bb,'lo')+td(p.so,'lo')+
-      td(p.sb,p.sb>=25?'hi':'')+td(p.tb,'lo')
+      td(p.sb,p.sb>=25?'hi':'')+
+      '<td class="td-s" style="text-align:center;">'+
+        '<div style="display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:50%;'+
+        'background:'+ratingColor(adv.acesRating)+';font-family:var(--mono);font-size:11px;font-weight:500;color:white;">'+
+        adv.acesRating+'</div></td>'
     tr.addEventListener('click',function(){toggleExpand(p,tr,'batting')})
     body.appendChild(tr)
   })
+}
+
+function ratingColor(r){
+  if(r>=80) return '#E8530A'
+  if(r>=65) return '#F59E0B'
+  if(r>=50) return '#3B82F6'
+  return '#6B7280'
 }
 
 function renderPitching() {
@@ -680,17 +779,30 @@ function renderPitching() {
   var body = document.getElementById('pitching-body')
   body.innerHTML = ''
   sorted.forEach(function(p) {
+    var adv = calcAdvanced(p, players)
+    var badges = getBadges(p, adv).filter(function(b){
+      return ['Ace','Shutdown','Strikeout Machine','Workhorse'].indexOf(b.l)>=0
+    })
     var eraGood = p.ip>=10 && p.era<2.0
+    // K/9
+    var k9 = p.ip>0 ? (p.so_p / p.ip * 9).toFixed(1) : '—'
+    // BB/9
+    var bb9 = p.ip>0 ? (p.bb_p / p.ip * 9).toFixed(1) : '—'
     var tr = document.createElement('tr')
     tr.dataset.num = p.num
     tr.innerHTML =
       '<td class="td-num">'+p.num+'</td>'+
-      '<td class="td-name">'+p.first+' <span class="last">'+p.last+'</span></td>'+
+      '<td class="td-name">'+
+        '<div>'+p.first+' <span class="last">'+p.last+'</span></div>'+
+        (badges.length?'<div style="margin-top:3px;line-height:1.8;">'+renderBadges(badges.slice(0,2))+'</div>':'')+
+      '</td>'+
       td(p.ip.toFixed(1))+td(p.gp_p,'lo')+td(p.np,'lo')+
-      td(p.h_a,'lo')+td(p.r_a,'lo')+td(p.er,'lo')+td(p.bb_p,'lo')+
+      td(p.h_a,'lo')+td(p.er,'lo')+td(p.bb_p,'lo')+
       td(p.so_p,p.so_p>=40?'hi':'')+
-      td(p.era.toFixed(3),eraGood?'hi':'')+
-      td(p.whip.toFixed(3))
+      td(k9,parseFloat(k9)>=10?'hi':'')+
+      td(bb9,parseFloat(bb9)<=3?'hi':'lo')+
+      td(p.era.toFixed(2),eraGood?'hi':'')+
+      td(p.whip.toFixed(3),p.whip<=1.1&&p.ip>=10?'hi':'')
     tr.addEventListener('click',function(){toggleExpand(p,tr,'pitching')})
     body.appendChild(tr)
   })
@@ -708,11 +820,41 @@ function toggleExpand(p,tr,tab) {
   tr.classList.add('expanded')
   var det = document.createElement('tr')
   det.className='detail-row'; det.dataset.num=p.num
-  var cols = tab==='batting'?17:12
+  var adv = calcAdvanced(p, players)
+  var badges = getBadges(p, adv)
+  var cols = tab==='batting'?16:12
+
+  var badgeHtml = badges.length
+    ? '<div style="margin-bottom:14px;">'+renderBadges(badges)+'</div>'
+    : ''
+
   var cards = tab==='batting'
-    ? dc('OBP',f3(p.obp),'On-base %')+dc('SLG',f3(p.slg),'Slugging %')+dc('OPS',p.ops.toFixed(3),'OBP + SLG')+dc('2B',p.d,'Doubles')+dc('3B',p.t,'Triples')+dc('HR',p.hr,'Home runs')+dc('XBH',p.xbh,'Extra base hits')+dc('TB',p.tb,'Total bases')+dc('HBP',p.hbp,'Hit by pitch')
-    : dc('IP',p.ip.toFixed(1),'Innings pitched')+dc('NP',p.np,'Pitches thrown')+dc('ERA',p.era.toFixed(3),'Earned run avg')+dc('WHIP',p.whip.toFixed(3),'WHIP')+dc('K',p.so_p,'Strikeouts')+dc('BB',p.bb_p,'Walks allowed')+dc('H',p.h_a,'Hits allowed')
-  det.innerHTML='<td colspan="'+cols+'"><div class="detail-inner">'+cards+'</div></td>'
+    ? dc('OPS+',adv.opsPlus,'vs team avg')+
+      dc('wOBA',adv.woba.toFixed(3),'weighted OBA')+
+      dc('ISO',f3(adv.iso),'isolated power')+
+      dc('BB%',Math.round(adv.bbPct*100)+'%','walk rate')+
+      dc('K%',Math.round(adv.kPct*100)+'%','strikeout rate')+
+      dc('BABIP',f3(adv.babip),'luck indicator')+
+      dc('2B',p.d,'doubles')+
+      dc('3B',p.t,'triples')+
+      dc('HR',p.hr,'home runs')+
+      dc('XBH',p.xbh,'extra base hits')+
+      dc('TB',p.tb,'total bases')+
+      dc('HBP',p.hbp,'hit by pitch')
+    : dc('K/9',(p.ip>0?(p.so_p/p.ip*9).toFixed(1):'—'),'strikeouts per 9')+
+      dc('BB/9',(p.ip>0?(p.bb_p/p.ip*9).toFixed(1):'—'),'walks per 9')+
+      dc('K/BB',(p.bb_p>0?(p.so_p/p.bb_p).toFixed(2):'—'),'K to BB ratio')+
+      dc('ERA',p.era.toFixed(2),'earned run avg')+
+      dc('WHIP',p.whip.toFixed(3),'WHIP')+
+      dc('NP',p.np,'total pitches')+
+      dc('H',p.h_a,'hits allowed')+
+      dc('ER',p.er,'earned runs')
+
+  det.innerHTML='<td colspan="'+cols+'">'+
+    '<div class="detail-inner" style="flex-direction:column;padding:16px 16px 16px 54px;">'+
+    badgeHtml+
+    '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:8px;">'+cards+'</div>'+
+    '</div></td>'
   tr.after(det)
 }
 
