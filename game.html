@@ -433,22 +433,23 @@ async function loadNextGame() {
       .select('*, opponents(name)')
       .eq('status', 'scheduled')
       .gte('game_date', today)
-      .order('game_date').limit(1).single()
+      .order('game_date')
+      .limit(1)
 
-    if (data) {
-      var opp = data.opponents?.name || 'TBD'
-      document.getElementById('ng-teams').innerHTML =
-        'Delmarva Aces <span style="color:var(--muted);font-weight:400;margin:0 8px;">vs</span> '+opp
-      var d = new Date(data.game_date)
-      document.getElementById('ng-meta').textContent =
-        d.toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',timeZone:'UTC'})+
-        (data.tournament?' · '+data.tournament:'')
-      document.getElementById('next-game-card').style.display = 'block'
-      document.getElementById('countdown-row').style.display = 'flex'
-      window._nextGameDate = data.game_date+'T'+(data.game_time||'09:00:00')
-      updateCountdown()
-    }
-  } catch(e) { console.log('No next game') }
+    if (!data || data.length === 0) return
+    var game = data[0]
+    var opp = game.opponents?.name || 'TBD'
+    document.getElementById('ng-teams').innerHTML =
+      'Delmarva Aces <span style="color:var(--muted);font-weight:400;margin:0 8px;">vs</span> '+opp
+    var d = new Date(game.game_date)
+    document.getElementById('ng-meta').textContent =
+      d.toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',timeZone:'UTC'})+
+      (game.tournament?' · '+game.tournament:'')
+    document.getElementById('next-game-card').style.display = 'block'
+    document.getElementById('countdown-row').style.display = 'flex'
+    window._nextGameDate = game.game_date+'T'+(game.game_time||'09:00:00')
+    updateCountdown()
+  } catch(e) { console.log('No next game:', e.message) }
 }
 
 // ─────────────────────────────────────────────────────────
