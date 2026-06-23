@@ -206,21 +206,93 @@
     <div class="field-panel">
       <div class="field-row">
         <div class="field-svg-wrap">
-          <svg viewBox="0 0 130 130" width="130" height="130">
-            <rect width="130" height="130" fill="#0A0C0E"/>
-            <polygon points="65,105 15,105 65,20 115,105" fill="#2d5a1b" opacity=".7"/>
-            <polygon points="65,105 40,72 65,40 90,72" fill="#8B6914" opacity=".8"/>
-            <!-- bases -->
-            <rect id="base-home" x="59" y="97" width="12" height="12" rx="1" fill="#888" transform="rotate(45,65,103)"/>
-            <rect id="base-1b" x="87" y="65" width="11" height="11" rx="1" fill="#333" transform="rotate(45,92,70)" style="cursor:pointer;" onclick="toggleBase(1)"/>
-            <rect id="base-2b" x="59" y="33" width="11" height="11" rx="1" fill="#333" transform="rotate(45,65,38)" style="cursor:pointer;" onclick="toggleBase(2)"/>
-            <rect id="base-3b" x="32" y="65" width="11" height="11" rx="1" fill="#333" transform="rotate(45,37,70)" style="cursor:pointer;" onclick="toggleBase(3)"/>
-            <!-- pitcher -->
-            <circle cx="65" cy="72" r="4" fill="#8B6914" opacity=".9"/>
-            <!-- runner indicators -->
-            <circle id="runner-1b" cx="92" cy="70" r="5" fill="#f0c040" opacity="0" style="pointer-events:none;"/>
-            <circle id="runner-2b" cx="65" cy="38" r="5" fill="#f0c040" opacity="0" style="pointer-events:none;"/>
-            <circle id="runner-3b" cx="37" cy="70" r="5" fill="#f0c040" opacity="0" style="pointer-events:none;"/>
+          <svg viewBox="0 0 220 180" width="220" height="180" style="display:block;">
+            <defs>
+              <radialGradient id="fg" cx="50%" cy="85%" r="65%">
+                <stop offset="0%" stop-color="#1e4a0f"/>
+                <stop offset="100%" stop-color="#0d2408"/>
+              </radialGradient>
+              <radialGradient id="dirt" cx="50%" cy="60%" r="55%">
+                <stop offset="0%" stop-color="#5a3a1a"/>
+                <stop offset="100%" stop-color="#3a2210"/>
+              </radialGradient>
+              <radialGradient id="mound" cx="50%" cy="50%" r="50%">
+                <stop offset="0%" stop-color="#6b4520"/>
+                <stop offset="100%" stop-color="#4a2e12"/>
+              </radialGradient>
+              <filter id="glow-orange">
+                <feGaussianBlur stdDeviation="2.5" result="blur"/>
+                <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+              </filter>
+              <filter id="glow-white">
+                <feGaussianBlur stdDeviation="1.5" result="blur"/>
+                <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+              </filter>
+            </defs>
+
+            <!-- Background sky/track -->
+            <rect width="220" height="180" fill="#0A0C0E"/>
+
+            <!-- Outfield grass wedge -->
+            <polygon points="110,10 5,175 215,175" fill="url(#fg)"/>
+
+            <!-- Grass stripe texture (alternating dark/light bands) -->
+            <polygon points="110,10 5,175 40,175" fill="#163308" opacity=".4"/>
+            <polygon points="110,10 40,175 75,175" fill="#1e4a0f" opacity=".3"/>
+            <polygon points="110,10 75,175 110,175" fill="#163308" opacity=".4"/>
+            <polygon points="110,10 110,175 145,175" fill="#1e4a0f" opacity=".3"/>
+            <polygon points="110,10 145,175 180,175" fill="#163308" opacity=".4"/>
+            <polygon points="110,10 180,175 215,175" fill="#1e4a0f" opacity=".3"/>
+
+            <!-- Infield dirt diamond -->
+            <polygon points="110,42 158,90 110,138 62,90" fill="url(#dirt)"/>
+
+            <!-- Foul lines -->
+            <line x1="110" y1="138" x2="5" y2="175" stroke="#ffffff" stroke-width=".6" opacity=".35"/>
+            <line x1="110" y1="138" x2="215" y2="175" stroke="#ffffff" stroke-width=".6" opacity=".35"/>
+
+            <!-- Pitcher's mound -->
+            <ellipse cx="110" cy="90" rx="10" ry="7" fill="url(#mound)" opacity=".9"/>
+            <ellipse cx="110" cy="90" rx="3" ry="2" fill="#7a5025"/>
+
+            <!-- Base paths (dirt lines) -->
+            <line x1="110" y1="138" x2="158" y2="90" stroke="#7a5025" stroke-width="8" opacity=".3"/>
+            <line x1="158" y1="90" x2="110" y2="42" stroke="#7a5025" stroke-width="8" opacity=".3"/>
+            <line x1="110" y1="42" x2="62" y2="90" stroke="#7a5025" stroke-width="8" opacity=".3"/>
+            <line x1="62" y1="90" x2="110" y2="138" stroke="#7a5025" stroke-width="8" opacity=".3"/>
+
+            <!-- Runner glow halos (behind bases) -->
+            <circle id="halo-1b" cx="158" cy="90" r="11" fill="#E8530A" opacity="0" filter="url(#glow-orange)"/>
+            <circle id="halo-2b" cx="110" cy="42" r="11" fill="#E8530A" opacity="0" filter="url(#glow-orange)"/>
+            <circle id="halo-3b" cx="62"  cy="90" r="11" fill="#E8530A" opacity="0" filter="url(#glow-orange)"/>
+
+            <!-- Bases -->
+            <!-- Home plate -->
+            <polygon points="110,149 104,143 104,135 116,135 116,143" fill="#e8e8e8" opacity=".9"/>
+            <!-- 1st base -->
+            <rect id="base-1b" x="150" y="82" width="16" height="16" rx="2" fill="#2a2a2a" stroke="#555" stroke-width=".5" style="cursor:pointer;" onclick="toggleBase(1)" transform="rotate(45,158,90)"/>
+            <!-- 2nd base -->
+            <rect id="base-2b" x="102" y="34" width="16" height="16" rx="2" fill="#2a2a2a" stroke="#555" stroke-width=".5" style="cursor:pointer;" onclick="toggleBase(2)" transform="rotate(45,110,42)"/>
+            <!-- 3rd base -->
+            <rect id="base-3b" x="54"  y="82" width="16" height="16" rx="2" fill="#2a2a2a" stroke="#555" stroke-width=".5" style="cursor:pointer;" onclick="toggleBase(3)" transform="rotate(45,62,90)"/>
+
+            <!-- Runners (orange circles with white center dot) -->
+            <g id="runner-1b" opacity="0" style="pointer-events:none;transition:opacity .3s;">
+              <circle cx="158" cy="90" r="7" fill="#E8530A"/>
+              <circle cx="158" cy="90" r="2.5" fill="white"/>
+            </g>
+            <g id="runner-2b" opacity="0" style="pointer-events:none;transition:opacity .3s;">
+              <circle cx="110" cy="42" r="7" fill="#E8530A"/>
+              <circle cx="110" cy="42" r="2.5" fill="white"/>
+            </g>
+            <g id="runner-3b" opacity="0" style="pointer-events:none;transition:opacity .3s;">
+              <circle cx="62"  cy="90" r="7" fill="#E8530A"/>
+              <circle cx="62"  cy="90" r="2.5" fill="white"/>
+            </g>
+
+            <!-- Batter label at home -->
+            <text id="field-batter" x="110" y="168" text-anchor="middle"
+              font-family="'Roboto Mono',monospace" font-size="8" fill="#E8530A" opacity=".9"></text>
           </svg>
         </div>
         <div class="at-bat-info">
@@ -500,6 +572,13 @@ function updateScoreboard(game) {
   ;['b1','b2','b3'].forEach(function(id,i){document.getElementById(id).className='pip'+(i<b?' ball-on':'')})
   ;['s1','s2'].forEach(function(id,i){document.getElementById(id).className='pip'+(i<s?' strike-on':'')})
   ;['o1','o2'].forEach(function(id,i){document.getElementById(id).className='pip'+(i<o?' out-on':'')})
+
+  // Update batter name on field if available
+  var batterEl = document.getElementById('field-batter')
+  var batterName = document.getElementById('ab-batter').textContent
+  if (batterEl && batterName && batterName !== '—') {
+    batterEl.textContent = batterName.split(' ').pop()
+  }
 }
 
 var typeColors = {FB:'fb',CB:'cb',SL:'sl',CH:'ch'}
@@ -568,6 +647,32 @@ function addPlayToFeed(ab, isNew) {
 
   var playCount = feed.querySelectorAll('.play-item').length
   setText('play-count', playCount+' play'+(playCount===1?'':'s'))
+
+  // Update bases on viewer side if this is a new real-time play
+  if (isNew) {
+    applyViewerBaserunnerLogic(result)
+  }
+}
+
+function applyViewerBaserunnerLogic(result) {
+  var o = (result||'').toLowerCase()
+  var b = bases.slice()
+  if(o==='home_run'){b=[false,false,false];}
+  else if(o==='triple'){b=[false,false,true];}
+  else if(o==='double'){b=[false,true,b[0]];}
+  else if(o==='single'||o.indexOf('single')>=0){b=[true,b[0],b[1]];}
+  else if(o==='walk'||o==='intentional_walk'||o==='hbp'){
+    if(b[0]&&b[1]&&b[2]){}
+    else if(b[0]&&b[1]){b=[true,true,true];}
+    else if(b[0]){b=[true,true,b[2]];}
+    else{b=[true,b[1],b[2]];}
+  }
+  else if(o==='error'||o==='fielders_choice'){b=[true,b[0],b[1]];}
+  else if(o==='sac_fly'){if(b[2])b[2]=false;}
+  else if(o==='stolen_base'){if(!b[1]&&b[0]){b=[false,true,b[2]];}else if(!b[2]&&b[1]){b=[b[0],false,true];}else if(b[2]){b[2]=false;}}
+  else if(o.indexOf('strikeout')>=0||o.indexOf('groundout')>=0||o.indexOf('flyout')>=0||o.indexOf('lineout')>=0||o.indexOf('popout')>=0||o.indexOf('dp')>=0){}
+  bases = b
+  renderBases()
 }
 
 // ─────────────────────────────────────────────────────────
@@ -579,11 +684,21 @@ function toggleBase(b) {
 }
 
 function renderBases() {
-  var ids = {1:'base-1b',2:'base-2b',3:'base-3b'}
-  var runners = {1:'runner-1b',2:'runner-2b',3:'runner-3b'}
+  var baseColors = {
+    'base-1b': bases[0] ? '#E8530A' : '#2a2a2a',
+    'base-2b': bases[1] ? '#E8530A' : '#2a2a2a',
+    'base-3b': bases[2] ? '#E8530A' : '#2a2a2a',
+  }
+  var runnerIds = {1:'runner-1b', 2:'runner-2b', 3:'runner-3b'}
+  var haloIds   = {1:'halo-1b',   2:'halo-2b',   3:'halo-3b'}
   for (var i=1; i<=3; i++) {
-    document.getElementById(ids[i]).style.fill = bases[i-1]?'#f0c040':'#333'
-    document.getElementById(runners[i]).style.opacity = bases[i-1]?'1':'0'
+    var baseEl  = document.getElementById('base-'+['1b','2b','3b'][i-1])
+    var runEl   = document.getElementById(runnerIds[i])
+    var haloEl  = document.getElementById(haloIds[i])
+    var on = bases[i-1]
+    if (baseEl)  baseEl.style.fill  = on ? '#E8530A' : '#2a2a2a'
+    if (runEl)   runEl.style.opacity = on ? '1' : '0'
+    if (haloEl)  haloEl.style.opacity = on ? '0.4' : '0'
   }
 }
 
