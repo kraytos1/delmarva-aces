@@ -203,73 +203,57 @@ body{background:var(--black);color:var(--text);font-family:var(--body);}
   <!-- Field + AB panel -->
   <div class="mid-row">
     <div class="field-wrap">
-      <svg viewBox="0 0 170 160" width="170" height="160">
-        <defs>
-          <radialGradient id="gf" cx="50%" cy="85%" r="65%">
-            <stop offset="0%" stop-color="#1e4a0f"/>
-            <stop offset="100%" stop-color="#0d2408"/>
-          </radialGradient>
-          <radialGradient id="gd" cx="50%" cy="60%" r="55%">
-            <stop offset="0%" stop-color="#5a3a1a"/>
-            <stop offset="100%" stop-color="#3a2210"/>
-          </radialGradient>
-        </defs>
-        <rect width="170" height="160" fill="#0A0C0E"/>
-        <polygon points="85,8 170,155 0,155" fill="url(#gf)"/>
-        <!-- stripes -->
-        <polygon points="85,8 0,155 30,155" fill="#163308" opacity=".4"/>
-        <polygon points="85,8 30,155 60,155" fill="#1e4a0f" opacity=".3"/>
-        <polygon points="85,8 60,155 85,155" fill="#163308" opacity=".4"/>
-        <polygon points="85,8 85,155 115,155" fill="#1e4a0f" opacity=".3"/>
-        <polygon points="85,8 115,155 145,155" fill="#163308" opacity=".4"/>
-        <polygon points="85,8 145,155 170,155" fill="#1e4a0f" opacity=".3"/>
-        <!-- dirt -->
-        <polygon points="85,38 126,80 85,122 44,80" fill="url(#gd)"/>
-        <!-- foul lines -->
-        <line x1="85" y1="122" x2="0" y2="155" stroke="#fff" stroke-width=".5" opacity=".3"/>
-        <line x1="85" y1="122" x2="170" y2="155" stroke="#fff" stroke-width=".5" opacity=".3"/>
-        <!-- mound -->
-        <ellipse cx="85" cy="80" rx="8" ry="5" fill="#6b4520" opacity=".9"/>
-        <!-- halos -->
-        <circle id="h1" cx="126" cy="80" r="10" fill="#E8530A" opacity="0"/>
-        <circle id="h2" cx="85"  cy="38" r="10" fill="#E8530A" opacity="0"/>
-        <circle id="h3" cx="44"  cy="80" r="10" fill="#E8530A" opacity="0"/>
-        <!-- base paths -->
-        <line x1="85" y1="122" x2="126" y2="80" stroke="#7a5025" stroke-width="7" opacity=".25"/>
-        <line x1="126" y1="80" x2="85" y2="38" stroke="#7a5025" stroke-width="7" opacity=".25"/>
-        <line x1="85" y1="38" x2="44" y2="80" stroke="#7a5025" stroke-width="7" opacity=".25"/>
-        <line x1="44" y1="80" x2="85" y2="122" stroke="#7a5025" stroke-width="7" opacity=".25"/>
-        <!-- home plate -->
-        <polygon points="85,132 80,127 80,120 90,120 90,127" fill="#ddd" opacity=".85"/>
-        <!-- bases -->
-        <rect id="b1b" x="119" y="73" width="14" height="14" rx="2" fill="#222" stroke="#444" stroke-width=".5" onclick="toggleBase(1)" style="cursor:pointer;" transform="rotate(45,126,80)"/>
-        <rect id="b2b" x="78"  y="31" width="14" height="14" rx="2" fill="#222" stroke="#444" stroke-width=".5" onclick="toggleBase(2)" style="cursor:pointer;" transform="rotate(45,85,38)"/>
-        <rect id="b3b" x="37"  y="73" width="14" height="14" rx="2" fill="#222" stroke="#444" stroke-width=".5" onclick="toggleBase(3)" style="cursor:pointer;" transform="rotate(45,44,80)"/>
-        <!-- position labels -->
-        <text id="pos-ss" x="68" y="68" text-anchor="middle" font-family="'Roboto Mono',monospace" font-size="8" fill="#4a7a3a" opacity=".9">SS</text>
-        <text id="pos-2b" x="104" y="68" text-anchor="middle" font-family="'Roboto Mono',monospace" font-size="8" fill="#4a7a3a" opacity=".9">2B</text>
-        <text id="pos-3b" x="30" y="95" text-anchor="middle" font-family="'Roboto Mono',monospace" font-size="8" fill="#4a7a3a" opacity=".9">3B</text>
-        <text id="pos-1b" x="140" y="95" text-anchor="middle" font-family="'Roboto Mono',monospace" font-size="8" fill="#4a7a3a" opacity=".9">1B</text>
-        <text id="pos-cf" x="85" y="22" text-anchor="middle" font-family="'Roboto Mono',monospace" font-size="8" fill="#4a7a3a" opacity=".9">CF</text>
-        <text id="pos-lf" x="20" y="135" text-anchor="middle" font-family="'Roboto Mono',monospace" font-size="8" fill="#4a7a3a" opacity=".9">LF</text>
-        <text id="pos-rf" x="150" y="135" text-anchor="middle" font-family="'Roboto Mono',monospace" font-size="8" fill="#4a7a3a" opacity=".9">RF</text>
-        <text id="pos-p" x="85" y="84" text-anchor="middle" font-family="'Roboto Mono',monospace" font-size="7" fill="#7a5a2a" opacity=".9">P</text>
-        <text id="pos-c" x="85" y="148" text-anchor="middle" font-family="'Roboto Mono',monospace" font-size="8" fill="#4a7a3a" opacity=".9">C</text>
-        <!-- runners -->
+      <svg viewBox="0 0 200 200" width="175" height="175" style="display:block;background:#060c04;">
+        <rect width="200" height="200" fill="#1a4a0d"/>
+        <rect x="0"   y="0" width="25" height="200" fill="#163008" opacity=".5"/>
+        <rect x="25"  y="0" width="25" height="200" fill="#1e5510" opacity=".4"/>
+        <rect x="50"  y="0" width="25" height="200" fill="#163008" opacity=".5"/>
+        <rect x="75"  y="0" width="25" height="200" fill="#1e5510" opacity=".4"/>
+        <rect x="100" y="0" width="25" height="200" fill="#163008" opacity=".5"/>
+        <rect x="125" y="0" width="25" height="200" fill="#1e5510" opacity=".4"/>
+        <rect x="150" y="0" width="25" height="200" fill="#163008" opacity=".5"/>
+        <rect x="175" y="0" width="25" height="200" fill="#1e5510" opacity=".4"/>
+        <polygon points="100,185 0,20 0,200" fill="#0d2408"/>
+        <polygon points="100,185 200,20 200,200" fill="#0d2408"/>
+        <line x1="100" y1="185" x2="0"   y2="20"  stroke="#fff" stroke-width="1" opacity=".4"/>
+        <line x1="100" y1="185" x2="200" y2="20"  stroke="#fff" stroke-width="1" opacity=".4"/>
+        <circle cx="100" cy="108" r="62" fill="#7a5025"/>
+        <polygon points="100,47 150,108 100,168 50,108" fill="#1e5510"/>
+        <line x1="100" y1="185" x2="150" y2="108" stroke="#7a5025" stroke-width="7" opacity=".8"/>
+        <line x1="150" y1="108" x2="100" y2="47"  stroke="#7a5025" stroke-width="7" opacity=".8"/>
+        <line x1="100" y1="47"  x2="50"  y2="108" stroke="#7a5025" stroke-width="7" opacity=".8"/>
+        <line x1="50"  y1="108" x2="100" y2="185" stroke="#7a5025" stroke-width="7" opacity=".8"/>
+        <circle cx="100" cy="108" r="8" fill="#8B6420"/>
+        <circle cx="100" cy="108" r="3" fill="#9a7030"/>
+        <rect x="83"  y="176" width="10" height="14" rx="1" fill="none" stroke="#fff" stroke-width=".5" opacity=".4"/>
+        <rect x="107" y="176" width="10" height="14" rx="1" fill="none" stroke="#fff" stroke-width=".5" opacity=".4"/>
+        <polygon points="100,196 93,189 93,183 107,183 107,189" fill="#e8e8e8" opacity=".9"/>
+        <circle id="h1" cx="150" cy="108" r="10" fill="#E8530A" opacity="0"/>
+        <circle id="h2" cx="100" cy="47"  r="10" fill="#E8530A" opacity="0"/>
+        <circle id="h3" cx="50"  cy="108" r="10" fill="#E8530A" opacity="0"/>
+        <rect id="b1b" x="143" y="101" width="14" height="14" rx="2" fill="#e8e8e8" stroke="#aaa" stroke-width=".5" onclick="toggleBase(1)" style="cursor:pointer;" transform="rotate(45,150,108)"/>
+        <rect id="b2b" x="93"  y="40"  width="14" height="14" rx="2" fill="#e8e8e8" stroke="#aaa" stroke-width=".5" onclick="toggleBase(2)" style="cursor:pointer;" transform="rotate(45,100,47)"/>
+        <rect id="b3b" x="43"  y="101" width="14" height="14" rx="2" fill="#e8e8e8" stroke="#aaa" stroke-width=".5" onclick="toggleBase(3)" style="cursor:pointer;" transform="rotate(45,50,108)"/>
         <g id="r1b" opacity="0" style="transition:opacity .25s;pointer-events:none;">
-          <circle cx="126" cy="80" r="7" fill="#E8530A"/>
-          <circle cx="126" cy="80" r="2.5" fill="white"/>
+          <circle cx="150" cy="108" r="7" fill="#E8530A"/>
+          <circle cx="150" cy="108" r="2.5" fill="white"/>
         </g>
         <g id="r2b" opacity="0" style="transition:opacity .25s;pointer-events:none;">
-          <circle cx="85" cy="38" r="7" fill="#E8530A"/>
-          <circle cx="85" cy="38" r="2.5" fill="white"/>
+          <circle cx="100" cy="47"  r="7" fill="#E8530A"/>
+          <circle cx="100" cy="47"  r="2.5" fill="white"/>
         </g>
         <g id="r3b" opacity="0" style="transition:opacity .25s;pointer-events:none;">
-          <circle cx="44" cy="80" r="7" fill="#E8530A"/>
-          <circle cx="44" cy="80" r="2.5" fill="white"/>
+          <circle cx="50"  cy="108" r="7" fill="#E8530A"/>
+          <circle cx="50"  cy="108" r="2.5" fill="white"/>
         </g>
-        <!-- batter name at home -->
-        <text id="fld-batter" x="85" y="156" text-anchor="middle" font-family="'Roboto Mono',monospace" font-size="7.5" fill="#E8530A" opacity=".9"></text>
+        <text x="100" y="18"  text-anchor="middle" font-family="'Roboto Mono',monospace" font-size="8" fill="#3a6a2a" font-weight="600">CF</text>
+        <text x="22"  y="40"  text-anchor="middle" font-family="'Roboto Mono',monospace" font-size="8" fill="#3a6a2a" font-weight="600">LF</text>
+        <text x="178" y="40"  text-anchor="middle" font-family="'Roboto Mono',monospace" font-size="8" fill="#3a6a2a" font-weight="600">RF</text>
+        <text x="68"  y="90"  text-anchor="middle" font-family="'Roboto Mono',monospace" font-size="7" fill="#3a6a2a">SS</text>
+        <text x="132" y="90"  text-anchor="middle" font-family="'Roboto Mono',monospace" font-size="7" fill="#3a6a2a">2B</text>
+        <text x="30"  y="112" text-anchor="middle" font-family="'Roboto Mono',monospace" font-size="7" fill="#3a6a2a">3B</text>
+        <text x="170" y="112" text-anchor="middle" font-family="'Roboto Mono',monospace" font-size="7" fill="#3a6a2a">1B</text>
+        <text id="fld-batter" x="100" y="199" text-anchor="middle" font-family="'Roboto Mono',monospace" font-size="7" fill="#E8530A" opacity=".9"></text>
       </svg>
     </div>
 
@@ -759,7 +743,7 @@ function renderBases(){
     var be=document.getElementById(b.id)
     var he=document.getElementById(b.hid)
     var re=document.getElementById(b.rid)
-    if(be)be.style.fill=b.on?'#E8530A':'#222'
+    if(be)be.style.fill=b.on?'#E8530A':'#e8e8e8'
     if(he)he.style.opacity=b.on?'0.35':'0'
     if(re)re.style.opacity=b.on?'1':'0'
   })
