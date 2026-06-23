@@ -1,0 +1,738 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no"/>
+<title>Aces · Scorer</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Inter:wght@300;400;500;600&family=Roboto+Mono:wght@400;500&display=swap');
+  :root{--orange:#E8530A;--og:rgba(232,83,10,.18);--black:#0A0C0E;--dark:#111418;--dark2:#181C22;--dark3:#1F242C;--bdr:rgba(255,255,255,.08);--bdr-a:rgba(232,83,10,.35);--text:#F0EDE8;--muted:#7A8290;--green:#3DDC6A;--mono:'Roboto Mono',monospace;--display:'Oswald',sans-serif;--body:'Inter',sans-serif;}
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+  body{background:var(--black);color:var(--text);font-family:var(--body);overflow-x:hidden;min-height:100vh;}
+
+  /* ── SETUP SCREEN ── */
+  .setup-screen{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;padding:24px;}
+  .setup-logo{font-family:var(--display);font-size:32px;font-weight:700;color:var(--orange);margin-bottom:8px;}
+  .setup-title{font-family:var(--display);font-size:20px;font-weight:600;margin-bottom:24px;color:var(--muted);}
+  .setup-card{background:var(--dark2);border:1px solid var(--bdr);border-radius:12px;padding:20px;width:100%;max-width:400px;}
+  .setup-label{font-family:var(--mono);font-size:10px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:8px;}
+  .setup-input{width:100%;background:var(--dark3);border:1px solid var(--bdr);border-radius:6px;padding:10px 12px;color:var(--text);font-size:14px;font-family:var(--body);margin-bottom:16px;outline:none;}
+  .setup-input:focus{border-color:var(--orange);}
+  .setup-btn{width:100%;background:var(--orange);color:white;border:none;border-radius:7px;padding:14px;font-family:var(--display);font-size:16px;font-weight:600;letter-spacing:.5px;text-transform:uppercase;cursor:pointer;margin-top:4px;}
+  .setup-btn:active{opacity:.8;}
+  .setup-select{width:100%;background:var(--dark3);border:1px solid var(--bdr);border-radius:6px;padding:10px 12px;color:var(--text);font-size:14px;font-family:var(--body);margin-bottom:16px;outline:none;appearance:none;}
+  .setup-divider{height:1px;background:var(--bdr);margin:16px 0;}
+  .yt-input-row{display:flex;gap:8px;}
+  .yt-input-row .setup-input{flex:1;margin-bottom:0;}
+  .yt-save-btn{background:var(--dark3);border:1px solid var(--bdr);border-radius:6px;padding:10px 14px;color:var(--muted);font-size:12px;cursor:pointer;white-space:nowrap;}
+
+  /* ── SCORER SCREEN ── */
+  .scorer{display:none;flex-direction:column;min-height:100vh;}
+
+  /* top bar */
+  .top-bar{background:#1a2332;padding:8px 12px;display:flex;align-items:center;justify-content:space-between;}
+  .top-game{font-family:var(--display);font-size:13px;font-weight:600;color:var(--text);}
+  .top-score{font-family:var(--display);font-size:18px;font-weight:700;color:var(--orange);}
+  .top-inning{font-family:var(--mono);font-size:11px;color:var(--muted);}
+  .sync-dot{width:7px;height:7px;border-radius:50%;background:var(--green);animation:blink 1.5s infinite;flex-shrink:0;}
+  .sync-dot.error{background:#e74c3c;animation:none;}
+  @keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+
+  /* count display */
+  .count-bar{background:var(--dark2);padding:8px 12px;display:flex;align-items:center;border-bottom:1px solid var(--bdr);}
+  .bso-grp{display:flex;align-items:center;gap:5px;margin-right:14px;}
+  .bso-lbl{font-family:var(--mono);font-size:11px;color:var(--muted);font-weight:500;width:12px;}
+  .pip{width:13px;height:13px;border-radius:50%;border:2px solid var(--bdr);background:var(--dark3);cursor:pointer;}
+  .pip.ball-on{background:#1a7ac4;border-color:#1a7ac4;}
+  .pip.strike-on{background:#e74c3c;border-color:#e74c3c;}
+  .pip.out-on{background:#888;border-color:#666;}
+  .pc-lbl{margin-left:auto;font-family:var(--mono);font-size:12px;color:var(--muted);}
+  .pc-lbl strong{color:var(--text);font-size:14px;}
+
+  /* bases + score */
+  .bases-row{padding:8px 12px;display:flex;align-items:center;gap:12px;border-bottom:1px solid var(--bdr);background:var(--dark);}
+  .diamond{position:relative;width:64px;height:64px;flex-shrink:0;}
+  .base{position:absolute;width:16px;height:16px;background:var(--dark3);border:2px solid var(--bdr);transform:rotate(45deg);cursor:pointer;transition:background .1s,border-color .1s;}
+  .base.on{background:#f0c040;border-color:#c09000;}
+  .base-1b{right:0;top:50%;margin-top:-8px;}
+  .base-2b{left:50%;top:0;margin-left:-8px;}
+  .base-3b{left:0;top:50%;margin-top:-8px;}
+  .base-home{left:50%;bottom:0;margin-left:-8px;background:#888;border-color:#666;cursor:default;}
+  .outs-col{display:flex;flex-direction:column;gap:5px;}
+  .outs-lbl{font-family:var(--mono);font-size:10px;color:var(--muted);}
+  .score-block{display:flex;gap:16px;margin-left:auto;}
+  .score-team{text-align:center;}
+  .score-tname{font-family:var(--mono);font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;}
+  .score-num{font-family:var(--display);font-size:24px;font-weight:700;color:var(--text);line-height:1.1;}
+  .score-adj{display:flex;gap:4px;margin-top:3px;justify-content:center;}
+  .score-adj button{font-size:11px;padding:2px 7px;border:1px solid var(--bdr);border-radius:3px;cursor:pointer;background:var(--dark2);color:var(--muted);}
+
+  /* velo entry */
+  .velo-entry{padding:8px 12px;border-bottom:1px solid var(--bdr);background:var(--dark2);}
+  .velo-lbl{font-family:var(--mono);font-size:9px;color:var(--orange);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:4px;}
+  .velo-display{font-size:26px;font-weight:500;color:var(--text);min-height:32px;font-family:var(--display);margin-bottom:6px;}
+  .velo-display span{font-size:14px;color:var(--muted);font-weight:400;}
+  .numpad{display:grid;grid-template-columns:repeat(3,1fr);gap:5px;}
+  .numpad button{padding:10px 4px;font-size:17px;font-weight:500;border:1px solid var(--bdr);border-radius:6px;cursor:pointer;background:var(--dark3);color:var(--text);transition:background .1s;}
+  .numpad button:active{background:var(--dark2);}
+  .nclr{font-size:12px;color:var(--muted);}
+  .nok{background:#1a2332!important;color:white!important;border-color:#1a2332!important;font-size:13px!important;}
+
+  /* pitch actions */
+  .pitch-actions{padding:8px 12px;flex:1;}
+  .pa-lbl{font-family:var(--mono);font-size:9px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:6px;}
+  .type-row{display:grid;grid-template-columns:repeat(4,1fr);gap:5px;margin-bottom:10px;}
+  .type-btn{padding:8px 4px;font-size:12px;font-weight:600;border:1px solid var(--bdr);border-radius:6px;cursor:pointer;background:var(--dark3);color:var(--muted);font-family:var(--mono);}
+  .type-btn.sel{background:#1a2332;color:white;border-color:#1a2332;}
+  .result-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;}
+  .res-btn{padding:14px 4px;font-size:13px;font-weight:500;border:1px solid var(--bdr);border-radius:8px;cursor:pointer;background:var(--dark2);color:var(--text);text-align:center;transition:background .1s;}
+  .res-btn:active{background:var(--dark3);}
+  .rb{border-color:#1a7ac4;color:#1a7ac4;}
+  .rs{border-color:#e74c3c;color:#e74c3c;}
+  .rf{border-color:#BA7517;color:#854f0b;}
+  .rh{border-color:#27ae60;color:#1a6b3c;background:rgba(39,174,96,.08);}
+  .ro{border-color:#888;color:#666;}
+  .rw{border-color:#7F77DD;color:#3C3489;font-size:11px;}
+
+  /* bottom bar */
+  .bottom-bar{background:var(--dark2);border-top:1px solid var(--bdr);padding:8px 12px;display:flex;gap:8px;align-items:center;}
+  .bb-btn{font-size:12px;padding:7px 12px;border:1px solid var(--bdr);border-radius:5px;cursor:pointer;background:var(--dark3);color:var(--muted);}
+  .bb-btn.danger{border-color:#e74c3c;color:#e74c3c;}
+  .bb-btn.end{border-color:var(--orange);color:var(--orange);}
+
+  /* modal */
+  .modal-wrap{position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:flex-end;justify-content:center;z-index:200;}
+  .modal{background:var(--dark2);border-radius:16px 16px 0 0;padding:16px;width:100%;max-width:480px;max-height:85vh;overflow-y:auto;}
+  .modal-title{font-size:14px;font-weight:500;margin-bottom:14px;display:flex;justify-content:space-between;align-items:center;}
+  .modal-close{font-size:20px;cursor:pointer;color:var(--muted);background:none;border:none;}
+  .outcome-section{margin-bottom:12px;}
+  .outcome-lbl{font-family:var(--mono);font-size:9px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:6px;}
+  .outcome-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:5px;}
+  .outcome-btn{padding:12px 4px;font-size:12px;font-weight:500;border:1px solid var(--bdr);border-radius:7px;cursor:pointer;background:var(--dark3);color:var(--text);text-align:center;}
+  .outcome-btn:active{background:var(--dark2);}
+  .oh{border-color:#27ae60;color:#1a6b3c;}
+  .od{border-color:#e74c3c;color:#e74c3c;}
+  .os{border-color:#888;color:#666;}
+  .clip-tag{font-size:9px;color:var(--muted);display:block;margin-top:2px;}
+
+  /* toast */
+  .toast{position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:#27ae60;color:white;padding:8px 20px;border-radius:20px;font-family:var(--mono);font-size:12px;opacity:0;transition:opacity .3s;pointer-events:none;z-index:300;}
+  .toast.show{opacity:1;}
+</style>
+</head>
+<body>
+
+<!-- ── SETUP SCREEN ── -->
+<div class="setup-screen" id="setup-screen">
+  <div class="setup-logo">A</div>
+  <div class="setup-title">Aces Scorer</div>
+
+  <div class="setup-card">
+    <div class="setup-label">Game</div>
+    <select class="setup-select" id="game-select">
+      <option value="">Loading games...</option>
+    </select>
+
+    <div class="setup-label">YouTube Stream ID (optional)</div>
+    <div style="font-family:var(--mono);font-size:10px;color:var(--muted);margin-bottom:8px;">
+      From youtube.com/watch?v=<strong style="color:var(--orange);">THIS_PART</strong>
+    </div>
+    <div class="yt-input-row" style="margin-bottom:16px;">
+      <input class="setup-input" id="yt-stream-id" placeholder="e.g. qePhApm8lFA" style="margin-bottom:0;"/>
+      <button class="yt-save-btn" onclick="saveYTStream()">Set</button>
+    </div>
+
+    <div class="setup-divider"></div>
+
+    <div class="setup-label">Your name (scorer)</div>
+    <input class="setup-input" id="scorer-name" placeholder="e.g. Chris Booher" value=""/>
+
+    <button class="setup-btn" onclick="startScoring()">▶ Start Scoring</button>
+  </div>
+</div>
+
+<!-- ── SCORER SCREEN ── -->
+<div class="scorer" id="scorer">
+
+  <div class="top-bar">
+    <div>
+      <div class="top-game" id="top-game">Delmarva Aces vs —</div>
+      <div class="top-inning" id="top-inning">Top 1 · 0 outs</div>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;">
+      <div class="top-score" id="top-score">0 – 0</div>
+      <div class="sync-dot" id="sync-dot"></div>
+    </div>
+  </div>
+
+  <div class="count-bar">
+    <div class="bso-grp">
+      <span class="bso-lbl">B</span>
+      <div class="pip" id="b1" onclick="manualCount('b',0)"></div>
+      <div class="pip" id="b2" onclick="manualCount('b',1)"></div>
+      <div class="pip" id="b3" onclick="manualCount('b',2)"></div>
+    </div>
+    <div class="bso-grp">
+      <span class="bso-lbl">S</span>
+      <div class="pip" id="s1" onclick="manualCount('s',0)"></div>
+      <div class="pip" id="s2" onclick="manualCount('s',1)"></div>
+    </div>
+    <div class="bso-grp">
+      <span class="bso-lbl">O</span>
+      <div class="pip" id="o1" onclick="manualCount('o',0)"></div>
+      <div class="pip" id="o2" onclick="manualCount('o',1)"></div>
+    </div>
+    <div class="pc-lbl">PC <strong id="pc-num">0</strong></div>
+  </div>
+
+  <div class="bases-row">
+    <div class="diamond">
+      <div class="base base-home"></div>
+      <div class="base base-1b" id="base1" onclick="toggleBase(1)"></div>
+      <div class="base base-2b" id="base2" onclick="toggleBase(2)"></div>
+      <div class="base base-3b" id="base3" onclick="toggleBase(3)"></div>
+    </div>
+    <div class="outs-col">
+      <span class="outs-lbl">Outs</span>
+      <div style="display:flex;gap:6px;">
+        <div class="pip" id="o1b" onclick="setOuts(1)"></div>
+        <div class="pip" id="o2b" onclick="setOuts(2)"></div>
+        <div class="pip" id="o3b" onclick="setOuts(3)"></div>
+      </div>
+    </div>
+    <div class="score-block">
+      <div class="score-team">
+        <div class="score-tname">Aces</div>
+        <div class="score-num" id="score-us">0</div>
+        <div class="score-adj">
+          <button onclick="adjScore('us',-1)">−</button>
+          <button onclick="adjScore('us',1)">+</button>
+        </div>
+      </div>
+      <div class="score-team">
+        <div class="score-tname">Opp</div>
+        <div class="score-num" id="score-them">0</div>
+        <div class="score-adj">
+          <button onclick="adjScore('them',-1)">−</button>
+          <button onclick="adjScore('them',1)">+</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="velo-entry">
+    <div class="velo-lbl">📡 Velo — glance at PR app, tap speed</div>
+    <div class="velo-display" id="velo-display">– – <span>mph</span></div>
+    <div class="numpad">
+      <button onclick="numTap('7')">7</button><button onclick="numTap('8')">8</button><button onclick="numTap('9')">9</button>
+      <button onclick="numTap('4')">4</button><button onclick="numTap('5')">5</button><button onclick="numTap('6')">6</button>
+      <button onclick="numTap('1')">1</button><button onclick="numTap('2')">2</button><button onclick="numTap('3')">3</button>
+      <button class="nclr" onclick="numClear()">CLR</button>
+      <button onclick="numTap('0')">0</button>
+      <button class="nok" onclick="veloConfirm()">SET ✓</button>
+    </div>
+  </div>
+
+  <div class="pitch-actions">
+    <div class="pa-lbl">Pitch type</div>
+    <div class="type-row">
+      <button class="type-btn sel" id="pt-FB" onclick="selType('FB')">FB</button>
+      <button class="type-btn" id="pt-CB" onclick="selType('CB')">CB</button>
+      <button class="type-btn" id="pt-SL" onclick="selType('SL')">SL</button>
+      <button class="type-btn" id="pt-CH" onclick="selType('CH')">CH</button>
+    </div>
+    <div class="pa-lbl">Result</div>
+    <div class="result-grid">
+      <button class="res-btn rb" onclick="quickLog('ball')">Ball</button>
+      <button class="res-btn rs" onclick="quickLog('strike_called')">Strike ✓</button>
+      <button class="res-btn rs" onclick="quickLog('strike_swinging')">Strike ✗</button>
+      <button class="res-btn rf" onclick="quickLog('foul')">Foul</button>
+      <button class="res-btn rh" onclick="openModal('hit')">Hit / reach</button>
+      <button class="res-btn ro" onclick="openModal('out')">Out / K</button>
+      <button class="res-btn rw" onclick="openModal('special')">Walk / HBP / WP</button>
+      <button class="res-btn ro" onclick="openModal('baserunner')">Baserunner</button>
+    </div>
+  </div>
+
+  <div class="bottom-bar">
+    <button class="bb-btn" onclick="newBatter()">Next batter</button>
+    <button class="bb-btn" onclick="newHalfInning()">End half</button>
+    <button class="bb-btn danger" onclick="undoLast()">Undo</button>
+    <button class="bb-btn end" onclick="endGame()" style="margin-left:auto;">End game</button>
+  </div>
+
+</div>
+
+<!-- Modal -->
+<div id="modal-container"></div>
+<div class="toast" id="toast"></div>
+
+<script>
+// ─────────────────────────────────────────────────────────
+// CONFIG
+// ─────────────────────────────────────────────────────────
+var SUPABASE_URL      = 'https://urwwzdlkgfljfvqgfhyb.supabase.co'
+var SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVyd3d6ZGxrZ2ZsamZ2cWdmaHliIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIxMzY0MzYsImV4cCI6MjA5NzcxMjQzNn0.s5eOVqI0EaCnP5jDfuVtHeqBonsaIwwqQBrf1heMK1k'
+
+var db = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+
+// ─────────────────────────────────────────────────────────
+// STATE
+// ─────────────────────────────────────────────────────────
+var state = {
+  gameId: null, game: null,
+  balls:0, strikes:0, outs:0,
+  inning:1, isTop:true,
+  bases:[false,false,false],
+  scores:{us:0,them:0},
+  pitchCount:0, abNum:0,
+  currentAtBatId: null,
+  veloInput:'', pendingVelo:null,
+  pitchType:'FB',
+  lastPitch: null
+}
+
+var CLIP_OUTCOMES = ['single','double','triple','home_run','strikeout_looking','strikeout_swinging','walk','hbp','double_play']
+
+var MODALS = {
+  hit:{title:'Hit / reach base',sections:[
+    {label:'Extra base hits',cls:'oh',items:[
+      {l:'Home Run',v:'home_run'},{l:'Triple',v:'triple'},{l:'Double',v:'double'}]},
+    {label:'Singles & reach',cls:'',items:[
+      {l:'Single',v:'single'},{l:'Infield single',v:'single'},{l:'Bunt single',v:'single'},
+      {l:'Error',v:'error'},{l:"Fielder's choice",v:'fielders_choice'},{l:'Dropped 3rd',v:'dropped_third'}]},
+    {label:'Walk',cls:'oh',items:[
+      {l:'Walk (BB)',v:'walk'},{l:'Int. walk',v:'intentional_walk'},{l:'HBP',v:'hbp'}]}
+  ]},
+  out:{title:'Out / strikeout',sections:[
+    {label:'Strikeout',cls:'od',items:[
+      {l:'K looking',v:'strikeout_looking'},{l:'K swinging',v:'strikeout_swinging'},{l:'Dropped 3rd K',v:'dropped_third_k'}]},
+    {label:'Ground out',cls:'os',items:[
+      {l:'1-3',v:'groundout'},{l:'3u',v:'groundout'},{l:'4-3',v:'groundout'},
+      {l:'5-3',v:'groundout'},{l:'6-3',v:'groundout'},{l:'DP',v:'double_play'}]},
+    {label:'Fly / line out',cls:'os',items:[
+      {l:'Fly out',v:'flyout'},{l:'Line out',v:'lineout'},{l:'Pop out',v:'popout'},
+      {l:'Sac fly',v:'sac_fly'},{l:'Sac bunt',v:'sac_bunt'}]}
+  ]},
+  special:{title:'Special / no pitch',sections:[
+    {label:'Pitcher',cls:'',items:[
+      {l:'Wild pitch',v:'wild_pitch'},{l:'Balk',v:'balk'},{l:'Int. walk',v:'intentional_walk'}]},
+    {label:'Catcher',cls:'',items:[
+      {l:'Passed ball',v:'passed_ball'},{l:'Catcher int.',v:'catcher_interference'}]}
+  ]},
+  baserunner:{title:'Baserunner event',sections:[
+    {label:'Advance',cls:'oh',items:[
+      {l:'Stolen base',v:'stolen_base'},{l:'WP advance',v:'wp_advance'},{l:'PB advance',v:'pb_advance'},{l:'Balk advance',v:'balk_advance'}]},
+    {label:'Out on bases',cls:'od',items:[
+      {l:'Caught stealing',v:'caught_stealing'},{l:'Pickoff 1B',v:'pickoff'},{l:'Pickoff 2B',v:'pickoff'},{l:'Out advancing',v:'out_advancing'}]}
+  ]}
+}
+
+// ─────────────────────────────────────────────────────────
+// SETUP
+// ─────────────────────────────────────────────────────────
+async function loadGames() {
+  try {
+    var today = new Date()
+    today.setDate(today.getDate() - 1)
+    var { data } = await db
+      .from('games')
+      .select('*, opponents(name)')
+      .in('status',['scheduled','live'])
+      .gte('game_date', today.toISOString().split('T')[0])
+      .order('game_date')
+      .limit(10)
+
+    var sel = document.getElementById('game-select')
+    if (!data || data.length === 0) {
+      sel.innerHTML = '<option value="">No upcoming games — add in Supabase</option>'
+      return
+    }
+    sel.innerHTML = data.map(function(g) {
+      var opp = g.opponents?.name || 'Opponent'
+      var d = new Date(g.game_date)
+      var dateStr = d.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric',timeZone:'UTC'})
+      return '<option value="'+g.id+'">'+dateStr+' vs '+opp+'</option>'
+    }).join('')
+
+    // Pre-fill YT stream id if set
+    if (data[0].youtube_stream_id) {
+      document.getElementById('yt-stream-id').value = data[0].youtube_stream_id
+    }
+  } catch(e) {
+    console.error('loadGames error:', e)
+  }
+}
+
+async function saveYTStream() {
+  var gameId = document.getElementById('game-select').value
+  var ytId = document.getElementById('yt-stream-id').value.trim()
+  if (!gameId || !ytId) return
+  await db.from('games').update({youtube_stream_id: ytId}).eq('id', gameId)
+  showToast('YouTube stream ID saved!')
+}
+
+async function startScoring() {
+  var gameId = document.getElementById('game-select').value
+  if (!gameId) { alert('Please select a game'); return }
+
+  // Load game
+  var { data: game } = await db
+    .from('games')
+    .select('*, opponents(name)')
+    .eq('id', gameId)
+    .single()
+
+  state.gameId = gameId
+  state.game = game
+  state.scores.us = game.our_score || 0
+  state.scores.them = game.opp_score || 0
+  state.inning = game.inning || 1
+  state.isTop = game.half !== 'bottom'
+  state.outs = game.outs || 0
+
+  // Set game to live
+  await db.from('games').update({
+    status: 'live',
+    stream_start_utc: new Date().toISOString()
+  }).eq('id', gameId)
+
+  // Load last at-bat number
+  var { data: lastAB } = await db
+    .from('at_bats')
+    .select('ab_num')
+    .eq('game_id', gameId)
+    .order('ab_num', {ascending:false})
+    .limit(1)
+    .single()
+  state.abNum = lastAB ? (lastAB.ab_num || 0) : 0
+
+  // Show scorer
+  document.getElementById('setup-screen').style.display = 'none'
+  document.getElementById('scorer').style.display = 'flex'
+
+  // Update UI
+  var opp = game.opponents?.name || 'Opponent'
+  document.getElementById('top-game').textContent = 'Aces vs '+opp
+  renderAll()
+  showToast('Game started! Good luck ⚾')
+}
+
+// ─────────────────────────────────────────────────────────
+// PITCH LOGGING — posts to Supabase
+// ─────────────────────────────────────────────────────────
+async function quickLog(result) {
+  state.pitchCount++
+
+  var ballsBefore = state.balls
+  var strikesBefore = state.strikes
+
+  // Update count
+  if (result==='ball') {
+    state.balls = Math.min(state.balls+1, 3)
+    if (state.balls===3) { state.balls=0; state.strikes=0 }
+  } else if (result==='strike_called'||result==='strike_swinging') {
+    state.strikes = Math.min(state.strikes+1, 2)
+    if (state.strikes===2) { state.balls=0; state.strikes=0 }
+  } else if (result==='foul') {
+    if (state.strikes<2) state.strikes++
+  }
+
+  // Get stream offset (seconds since game started)
+  var ytOffset = state.game?.stream_start_utc
+    ? Math.floor((Date.now() - new Date(state.game.stream_start_utc)) / 1000)
+    : null
+
+  // Post to Supabase
+  var pitchData = {
+    game_id: state.gameId,
+    at_bat_id: state.currentAtBatId,
+    pitch_num: state.pitchCount,
+    pitch_type: state.pitchType,
+    velocity_mph: state.pendingVelo,
+    result: result,
+    inning: state.inning,
+    half: state.isTop ? 'top' : 'bottom',
+    balls_before: ballsBefore,
+    strikes_before: strikesBefore,
+    yt_offset_sec: ytOffset
+  }
+
+  try {
+    var { data } = await db.from('pitches').insert(pitchData).select().single()
+    state.lastPitch = data
+    setSyncStatus(true)
+  } catch(e) {
+    console.error('Pitch log error:', e)
+    setSyncStatus(false)
+  }
+
+  // Reset velo
+  state.pendingVelo = null
+  document.getElementById('velo-display').innerHTML = '– – <span>mph</span>'
+
+  // Push game state
+  await pushGameState()
+  renderAll()
+}
+
+async function logAtBat(result, outcome, rbi, runsScored) {
+  state.abNum++
+
+  var ytOffset = state.game?.stream_start_utc
+    ? Math.floor((Date.now() - new Date(state.game.stream_start_utc)) / 1000)
+    : null
+
+  var isClip = CLIP_OUTCOMES.indexOf(result) >= 0
+
+  var abData = {
+    game_id: state.gameId,
+    inning: state.inning,
+    half: state.isTop ? 'top' : 'bottom',
+    ab_num: state.abNum,
+    balls: state.balls,
+    strikes: state.strikes,
+    result: result,
+    rbi: rbi || 0,
+    runs_scored: runsScored || 0,
+    notes: outcome,
+    yt_offset_sec: ytOffset,
+    clip_status: isClip ? 'queued' : 'none'
+  }
+
+  try {
+    var { data } = await db.from('at_bats').insert(abData).select().single()
+    state.currentAtBatId = null
+    setSyncStatus(true)
+    if (isClip) showToast('📹 Clip queued!')
+  } catch(e) {
+    console.error('At-bat log error:', e)
+    setSyncStatus(false)
+  }
+}
+
+async function pushGameState() {
+  if (!state.gameId) return
+  try {
+    await db.from('games').update({
+      our_score: state.scores.us,
+      opp_score: state.scores.them,
+      inning: state.inning,
+      half: state.isTop ? 'top' : 'bottom',
+      balls: state.balls,
+      strikes: state.strikes,
+      outs: state.outs
+    }).eq('id', state.gameId)
+  } catch(e) { console.error('Game state push error:', e) }
+}
+
+// ─────────────────────────────────────────────────────────
+// OUTCOME MODAL
+// ─────────────────────────────────────────────────────────
+function openModal(type) {
+  var def = MODALS[type]; if (!def) return
+  var html = '<div class="modal-wrap" onclick="closeModal(event)"><div class="modal" onclick="event.stopPropagation()">'
+  html += '<div class="modal-title">'+def.title+'<button class="modal-close" onclick="closeModal()">×</button></div>'
+  def.sections.forEach(function(sec) {
+    html += '<div class="outcome-section"><div class="outcome-lbl">'+sec.label+'</div><div class="outcome-grid">'
+    sec.items.forEach(function(item) {
+      var isClip = CLIP_OUTCOMES.indexOf(item.v) >= 0
+      html += '<button class="outcome-btn '+(sec.cls||'')+'" onclick="pickOutcome(\''+item.v+'\',\''+item.l+'\')">'+
+        item.l+(isClip?'<span class="clip-tag">📹 clip</span>':'')+'</button>'
+    })
+    html += '</div></div>'
+  })
+  html += '</div></div>'
+  document.getElementById('modal-container').innerHTML = html
+}
+
+function closeModal(e) {
+  if (!e || e.target.classList.contains('modal-wrap'))
+    document.getElementById('modal-container').innerHTML = ''
+}
+
+function pickOutcome(result, label) {
+  document.getElementById('modal-container').innerHTML = ''
+
+  // Apply baserunner logic
+  var runs = applyBaserunnerLogic(result)
+
+  // Determine if out
+  var isOut = /(strikeout|groundout|flyout|lineout|popout|sac_fly|sac_bunt|double_play|caught_stealing|pickoff|out_advancing|dropped_third_k)/i.test(result)
+  var isHit = /(single|double|triple|home_run|walk|hbp|intentional_walk|error|fielders_choice|dropped_third$)/i.test(result)
+
+  if (isOut) { state.outs = Math.min(state.outs+1, 3); state.balls=0; state.strikes=0 }
+  if (isHit) { state.balls=0; state.strikes=0 }
+
+  // Log pitch as in_play if hit/out (not a special event)
+  if (isHit || isOut) quickLog('in_play')
+
+  // Log at-bat
+  logAtBat(result, label, 0, runs)
+
+  if (runs > 0) {
+    var scoringTeam = state.isTop ? 'us' : 'them'
+    state.scores[scoringTeam] += runs
+    showToast(runs===1?'Run scores! 🏃':''+runs+' runs score! 🏃')
+  }
+
+  if (state.outs >= 3) {
+    setTimeout(function() {
+      if (confirm('3 outs — end half inning?')) newHalfInning()
+    }, 300)
+  }
+
+  pushGameState()
+  renderAll()
+}
+
+function applyBaserunnerLogic(outcome) {
+  var b = state.bases.slice()
+  var runs = 0
+  var o = outcome.toLowerCase()
+
+  if(o==='home_run'){runs=(b[0]?1:0)+(b[1]?1:0)+(b[2]?1:0)+1;b=[false,false,false];}
+  else if(o==='triple'){runs=(b[0]?1:0)+(b[1]?1:0)+(b[2]?1:0);b=[false,false,true];}
+  else if(o==='double'){runs=(b[1]?1:0)+(b[2]?1:0);b=[false,true,b[0]];}
+  else if(o==='single'||o==='infield single'||o==='bunt single'){runs=b[2]?1:0;b=[true,b[0],b[1]];}
+  else if(o==='walk'||o==='intentional_walk'||o==='hbp'){
+    if(b[0]&&b[1]&&b[2]){runs=1;}
+    else if(b[0]&&b[1]){b=[true,true,true];}
+    else if(b[0]){b=[true,true,b[2]];}
+    else{b=[true,b[1],b[2]];}
+  }
+  else if(o==='error'||o==='fielders_choice'){runs=b[2]?1:0;b=[true,b[0],b[1]];}
+  else if(o==='sac_fly'){runs=b[2]?1:0;if(runs)b[2]=false;}
+  else if(o==='stolen_base'){if(!b[1]&&b[0]){b=[false,true,b[2]];}else if(!b[2]&&b[1]){b=[b[0],false,true];}else if(b[2]){runs=1;b[2]=false;}}
+  else if(o==='wp_advance'||o==='pb_advance'||o==='balk_advance'){runs=b[2]?1:0;b=[b[0],b[0],b[1]];if(runs)b[2]=false;}
+  else if(o==='caught_stealing'||o.indexOf('pickoff')>=0||o==='out_advancing'){if(b[0])b[0]=false;else if(b[1])b[1]=false;else if(b[2])b[2]=false;}
+
+  state.bases = b
+  return runs
+}
+
+// ─────────────────────────────────────────────────────────
+// VELO
+// ─────────────────────────────────────────────────────────
+function numTap(d){
+  if(state.veloInput.length>=3)return
+  state.veloInput+=d
+  document.getElementById('velo-display').innerHTML=state.veloInput+' <span>mph</span>'
+}
+function numClear(){
+  state.veloInput='';state.pendingVelo=null
+  document.getElementById('velo-display').innerHTML='– – <span>mph</span>'
+}
+function veloConfirm(){
+  var v=parseInt(state.veloInput)
+  if(!v||v<20||v>110){numClear();return}
+  state.pendingVelo=v
+  document.getElementById('velo-display').innerHTML='<span style="color:#27ae60;">✓ </span>'+v+' <span>mph — tap result</span>'
+  state.veloInput=''
+}
+
+// ─────────────────────────────────────────────────────────
+// CONTROLS
+// ─────────────────────────────────────────────────────────
+function selType(t){
+  state.pitchType=t
+  ['FB','CB','SL','CH'].forEach(function(x){
+    document.getElementById('pt-'+x).className='type-btn'+(x===t?' sel':'')
+  })
+}
+function toggleBase(b){state.bases[b-1]=!state.bases[b-1];renderBases()}
+function setOuts(n){state.outs=state.outs===n?n-1:n;renderCount()}
+function manualCount(type,idx){
+  if(type==='b')state.balls=state.balls===idx+1?idx:idx+1
+  else if(type==='s')state.strikes=state.strikes===idx+1?idx:idx+1
+  renderCount()
+}
+function adjScore(team,delta){
+  state.scores[team]=Math.max(0,state.scores[team]+delta)
+  document.getElementById('score-'+team).textContent=state.scores[team]
+  document.getElementById('top-score').textContent=state.scores.us+' – '+state.scores.them
+  pushGameState()
+}
+
+function newBatter(){
+  state.balls=0;state.strikes=0;state.pitchCount=0
+  state.pendingVelo=null;state.veloInput=''
+  state.currentAtBatId=null
+  document.getElementById('velo-display').innerHTML='– – <span>mph</span>'
+  renderCount()
+}
+
+function newHalfInning(){
+  state.balls=0;state.strikes=0;state.outs=0
+  state.bases=[false,false,false]
+  state.pendingVelo=null;state.veloInput=''
+  state.pitchCount=0;state.currentAtBatId=null
+  document.getElementById('velo-display').innerHTML='– – <span>mph</span>'
+  state.isTop=!state.isTop
+  if(!state.isTop)state.inning++
+  pushGameState()
+  renderAll()
+  showToast('Half inning ended')
+}
+
+async function undoLast(){
+  // Delete last pitch from Supabase
+  if(state.lastPitch){
+    await db.from('pitches').delete().eq('id',state.lastPitch.id)
+    state.lastPitch=null
+    state.pitchCount=Math.max(0,state.pitchCount-1)
+    renderCount()
+    showToast('Last pitch undone')
+  }
+}
+
+async function endGame(){
+  if(!confirm('End the game? Final score: Aces '+state.scores.us+' – '+state.scores.them)) return
+  await db.from('games').update({
+    status:'final',
+    our_score:state.scores.us,
+    opp_score:state.scores.them
+  }).eq('id',state.gameId)
+  showToast('Game ended! Final: '+state.scores.us+' – '+state.scores.them)
+  setTimeout(function(){window.location='/'},2000)
+}
+
+// ─────────────────────────────────────────────────────────
+// RENDER
+// ─────────────────────────────────────────────────────────
+function renderCount(){
+  ['b1','b2','b3'].forEach(function(id,i){document.getElementById(id).className='pip'+(i<state.balls?' ball-on':'')})
+  ['s1','s2'].forEach(function(id,i){document.getElementById(id).className='pip'+(i<state.strikes?' strike-on':'')})
+  ['o1','o2'].forEach(function(id,i){document.getElementById(id).className='pip'+(i<state.outs?' out-on':'')})
+  ['o1b','o2b','o3b'].forEach(function(id,i){document.getElementById(id).className='pip'+(i<state.outs?' out-on':'')})
+  document.getElementById('pc-num').textContent=state.pitchCount
+  document.getElementById('top-inning').textContent=(state.isTop?'Top':'Bot')+' '+state.inning+' · '+state.outs+' out'+(state.outs===1?'':'s')
+  document.getElementById('top-score').textContent=state.scores.us+' – '+state.scores.them
+}
+
+function renderBases(){
+  [1,2,3].forEach(function(b){
+    document.getElementById('base'+b).className='base base-'+b+'b'+(state.bases[b-1]?' on':'')
+  })
+}
+
+function renderAll(){renderCount();renderBases()}
+
+function setSyncStatus(ok){
+  document.getElementById('sync-dot').className='sync-dot'+(ok?'':' error')
+}
+
+function showToast(msg){
+  var t=document.getElementById('toast')
+  t.textContent=msg;t.classList.add('show')
+  setTimeout(function(){t.classList.remove('show')},2000)
+}
+
+// ─────────────────────────────────────────────────────────
+// INIT
+// ─────────────────────────────────────────────────────────
+loadGames()
+</script>
+</body>
+</html>
