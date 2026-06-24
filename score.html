@@ -532,6 +532,8 @@ async function startScoring() {
   document.getElementById('top-game').textContent='Aces vs '+opp
   renderAll()
   updateBatterDisplay()
+  updateSyncIndicator()
+  flushQueue()
   showToast('Game on! ⚾')
 }
 
@@ -576,6 +578,87 @@ function getCurrentBatterId() {
   var idx = S.currentBatterIdx % S.acesLineup.length
   return S.acesLineup[idx]?.playerId || null
 }
+
+/* ── OFFLINE QUEUE ── */
+var QUEUE_KEY = 'aces_offline_queue'
+var isOnline = navigator.onLine
+
+window.addEventListener('online',  function(){ isOnline=true;  flushQueue(); updateSyncIndicator() })
+window.addEventListener('offline', function(){ isOnline=false; updateSyncIndicator() })
+
+function getQueue() {
+  try { return JSON.parse(localStorage.getItem(QUEUE_KEY)||'[]') } catch(e){ return [] }
+}
+function saveQueue(q) {
+  try { localStorage.setItem(QUEUE_KEY, JSON.stringify(q)) } catch(e){}
+}
+function queueItem(table, data) {
+  var q = getQueue()
+  var item = {id:'q_'+Date.now()+'_'+Math.random().toString(36).slice(2), table, data, ts:Date.now()}
+  q.push(item)
+  saveQueue(q)
+  updateSyncIndicator()
+  return item.id
+}
+
+async function flushQueue() {
+  var q = getQueue()
+  if (!q.length) return
+  var failed = []
+  for (var i=0; i<q.length; i++) {
+    var item = q[i]
+    try {
+      var {data, error} = await db.from(item.table).insert(item.data).select().single()
+      if (error) throw error
+      // Update HISTORY with real DB id if we can match it
+      if (data?.id) {
+        HISTORY.forEach(function(h){
+          if(h.localId === item.id) {
+            if(item.table==='pitches') h.pitchId = data.id
+            if(item.table==='at_bats') h.atBatId = data.id
+          }
+        })
+      }
+    } catch(e) {
+      failed.push(item)
+    }
+  }
+  saveQueue(failed)
+  if (failed.length < q.length) {
+    var synced = q.length - failed.length
+    showToast('Synced '+synced+' pitch'+(synced===1?'':'es')+' ✓')
+  }
+  updateSyncIndicator()
+}
+
+function updateSyncIndicator() {
+  var dot = document.getElementById('sync-dot')
+  if (!dot) return
+  var q = getQueue()
+  if (!isOnline || q.length > 0) {
+    dot.className = 'sync-dot err'
+    dot.title = isOnline ? 'Syncing '+q.length+' queued...' : 'Offline — '+q.length+' queued'
+    // Show queue count next to dot
+    var countEl = document.getElementById('sync-count')
+    if (!countEl) {
+      countEl = document.createElement('span')
+      countEl.id = 'sync-count'
+      countEl.style.cssText = 'font-family:var(--mono);font-size:10px;color:#e74c3c;margin-left:2px;'
+      dot.parentNode.insertBefore(countEl, dot.nextSibling)
+    }
+    countEl.textContent = q.length > 0 ? q.length : ''
+  } else {
+    dot.className = 'sync-dot'
+    dot.title = 'Connected'
+    var countEl2 = document.getElementById('sync-count')
+    if (countEl2) countEl2.textContent = ''
+  }
+}
+
+// Retry every 30 seconds
+setInterval(function(){
+  if (isOnline) flushQueue()
+}, 30000)
 
 /* ── PITCH LOGGING ── */
 async function quickLog(result) {
@@ -624,12 +707,18 @@ async function quickLog(result) {
     velocity_mph:S.velo,result:result,inning:S.inning,
     half:S.isTop?'top':'bottom',balls_before:bBefore,strikes_before:sBefore,yt_offset_sec:offset}
   try{
-    var {data}=await db.from('pitches').insert(pd).select().single()
+    if (!isOnline) throw new Error('offline')
+    var {data,error}=await db.from('pitches').insert(pd).select().single()
+    if(error) throw error
     S.lastPitchId=data?.id
-    // Update the snapshot we saved with the real DB id
     if(HISTORY.length && data?.id) HISTORY[HISTORY.length-1].pitchId = data.id
     setSynced(true)
-  }catch(e){setSynced(false)}
+  }catch(e){
+    // Queue locally if offline or failed
+    var localId = queueItem('pitches', pd)
+    if(HISTORY.length) HISTORY[HISTORY.length-1].localId = localId
+    setSynced(false)
+  }
 
   // Auto-trigger outcomes
   if(autoWalk){
@@ -679,10 +768,16 @@ async function logAB(result, label, skipPitchLog) {
     yt_offset_sec:offset,clip_status:CLIP.includes(result)?'queued':'none'
   }
   try{
-    var {data:abd2}=await db.from('at_bats').insert(abd).select().single()
+    if (!isOnline) throw new Error('offline')
+    var {data:abd2,error}=await db.from('at_bats').insert(abd).select().single()
+    if(error) throw error
     if(HISTORY.length && abd2?.id) HISTORY[HISTORY.length-1].atBatId = abd2.id
     setSynced(true)
-  }catch(e){setSynced(false)}
+  }catch(e){
+    var localId2 = queueItem('at_bats', abd)
+    if(HISTORY.length) HISTORY[HISTORY.length-1].localId = localId2
+    setSynced(false)
+  }
   if(runs>0){
     var t=S.isTop?'us':'them'
     S.scores[t]+=runs
@@ -748,10 +843,22 @@ function applyBaserunners(r) {
 }
 
 async function pushState() {
-  if(!S.gameId)return
-  try{await db.from('games').update({our_score:S.scores.us,opp_score:S.scores.them,
-    inning:S.inning,half:S.isTop?'top':'bottom',outs:S.outs,
-    balls:S.balls,strikes:S.strikes}).eq('id',S.gameId)}catch(e){}
+  if(!S.gameId) return
+  // Always save state locally first
+  try { localStorage.setItem('aces_game_state_'+S.gameId, JSON.stringify({
+    our_score:S.scores.us, opp_score:S.scores.them,
+    inning:S.inning, half:S.isTop?'top':'bottom',
+    outs:S.outs, balls:S.balls, strikes:S.strikes
+  })) } catch(e){}
+  // Then try to push to Supabase
+  try{
+    if(!isOnline) return
+    await db.from('games').update({
+      our_score:S.scores.us,opp_score:S.scores.them,
+      inning:S.inning,half:S.isTop?'top':'bottom',
+      outs:S.outs,balls:S.balls,strikes:S.strikes
+    }).eq('id',S.gameId)
+  }catch(e){}
 }
 
 /* ── VELO ── */
