@@ -408,7 +408,14 @@ var S = {
   pitchCount:0, abNum:0,
   velo:null, pitchType:'FB',
   npInput:'',
-  lastPitchId:null
+  lastPitchId:null,
+  // Lineup
+  acesLineup:[],        // full lineup array from lineup.html
+  currentBatterIdx:0,   // which spot in the order we're on
+  currentPitcherId:null,// our pitcher's player ID
+  currentPitcherName:'',
+  oppPitcher:'',
+  pitcherPitchCount:0   // running count for current pitcher
 }
 
 // State history for undo — each entry is a snapshot + DB ids to delete
@@ -488,11 +495,72 @@ async function startScoring() {
     var {data:last}=await db.from('at_bats').select('ab_num').eq('game_id',gid).order('ab_num',{ascending:false}).limit(1)
     S.abNum=(last&&last.length)?(last[0].ab_num||0):0
   }catch(e){S.abNum=0}
+
+  // ── LOAD LINEUP ──
+  if(g.notes) {
+    try {
+      var saved = JSON.parse(g.notes)
+      S.acesLineup = saved.aces_lineup || []
+      S.currentPitcherId = saved.aces_pitcher_id || null
+      S.oppPitcher = saved.opp_pitcher || ''
+
+      // Find pitcher name
+      if(S.currentPitcherId && S.acesLineup.length) {
+        var pitcherEntry = S.acesLineup.find(function(e){return e.playerId===S.currentPitcherId})
+        S.currentPitcherName = pitcherEntry ? pitcherEntry.playerName : ''
+      }
+
+      // Figure out where in the order we are based on at_bats already logged
+      if(S.abNum > 0 && S.acesLineup.length > 0) {
+        S.currentBatterIdx = S.abNum % S.acesLineup.length
+      }
+    } catch(e) { console.log('Lineup parse error:', e) }
+  }
+
   document.getElementById('setup').style.display='none'
   document.getElementById('scorer').style.display='flex'
   var opp=g.opponents?.name||'Opponent'
   document.getElementById('top-game').textContent='Aces vs '+opp
-  renderAll(); showToast('Game on! ⚾')
+  renderAll()
+  updateBatterDisplay()
+  showToast('Game on! ⚾')
+}
+
+/* ── LINEUP DISPLAY ── */
+function updateBatterDisplay() {
+  if(!S.acesLineup.length) return
+  var idx = S.currentBatterIdx % S.acesLineup.length
+  var batter = S.acesLineup[idx]
+  if(!batter) return
+
+  // Update at-bat panel
+  var name = batter.playerName || '—'
+  var num  = batter.jerseyNum  ? '#'+batter.jerseyNum : ''
+  var pos  = batter.position   || ''
+  setText('ab-batter', name)
+  setText('ab-stats', num+(pos?' · '+pos:''))
+
+  // Update field batter label
+  var fldBatter = document.getElementById('fld-batter')
+  if(fldBatter) fldBatter.textContent = batter.playerName ? batter.playerName.split(' ').pop() : ''
+
+  // Update pitcher display
+  var pitcherName = S.currentPitcherName || (S.isTop ? S.oppPitcher : '') || '—'
+  setText('ab-pitcher', pitcherName)
+  setText('ab-pc', 'PC '+S.pitcherPitchCount)
+}
+
+function advanceBatter() {
+  if(!S.acesLineup.length) return
+  S.currentBatterIdx = (S.currentBatterIdx + 1) % S.acesLineup.length
+  S.pitchCount = 0  // reset per-batter pitch count
+  updateBatterDisplay()
+}
+
+function getCurrentBatterId() {
+  if(!S.acesLineup.length) return null
+  var idx = S.currentBatterIdx % S.acesLineup.length
+  return S.acesLineup[idx]?.playerId || null
 }
 
 /* ── PITCH LOGGING ── */
@@ -501,6 +569,7 @@ async function quickLog(result) {
   saveSnapshot(null, null)
 
   S.pitchCount++
+  S.pitcherPitchCount++
   var bBefore=S.balls, sBefore=S.strikes
   var autoWalk=false, autoK=false, autoKLooking=false
 
@@ -535,7 +604,9 @@ async function quickLog(result) {
   }
 
   var offset=S.game?.stream_start_utc?Math.floor((Date.now()-new Date(S.game.stream_start_utc))/1000):null
-  var pd={game_id:S.gameId,pitch_num:S.pitchCount,pitch_type:S.pitchType,
+  var pd={game_id:S.gameId,
+    pitcher_id: S.isTop ? null : S.currentPitcherId,  // our pitcher only when we're pitching (bottom half)
+    pitch_num:S.pitchCount,pitch_type:S.pitchType,
     velocity_mph:S.velo,result:result,inning:S.inning,
     half:S.isTop?'top':'bottom',balls_before:bBefore,strikes_before:sBefore,yt_offset_sec:offset}
   try{
@@ -581,12 +652,15 @@ async function logAB(result, label, skipPitchLog) {
     await quickLog('in_play')
   }
   var offset=S.game?.stream_start_utc?Math.floor((Date.now()-new Date(S.game.stream_start_utc))/1000):null
-  var abd={game_id:S.gameId,inning:S.inning,half:S.isTop?'top':'bottom',
+  var abd={
+    game_id:S.gameId,
+    batter_id: S.isTop ? getCurrentBatterId() : null,
+    inning:S.inning,half:S.isTop?'top':'bottom',
     ab_num:S.abNum,result:result,rbi:0,runs_scored:runs,notes:label,
-    yt_offset_sec:offset,clip_status:CLIP.includes(result)?'queued':'none'}
+    yt_offset_sec:offset,clip_status:CLIP.includes(result)?'queued':'none'
+  }
   try{
     var {data:abd2}=await db.from('at_bats').insert(abd).select().single()
-    // Update snapshot with at_bat id for full undo
     if(HISTORY.length && abd2?.id) HISTORY[HISTORY.length-1].atBatId = abd2.id
     setSynced(true)
   }catch(e){setSynced(false)}
@@ -596,6 +670,8 @@ async function logAB(result, label, skipPitchLog) {
     showToast(runs===1?'Run scores! 🏃':''+runs+' runs score! 🏃')
   }
   if(CLIP.includes(result)) setTimeout(function(){showToast('📹 Clip queued!')},800)
+  // Auto-advance batter when Aces are hitting
+  if(S.isTop && S.acesLineup.length) advanceBatter()
   if(S.outs>=3){setTimeout(function(){if(confirm('3 outs — end half?'))newHalf()},300)}
   await pushState(); renderAll()
 }
@@ -694,7 +770,9 @@ function adjScore(t,d){S.scores[t]=Math.max(0,S.scores[t]+d);renderCount();pushS
 function newBatter(){
   S.balls=0;S.strikes=0;S.pitchCount=0;S.velo=null
   document.getElementById('velo-val').textContent='—'
-  renderCount()
+  // Manual advance (e.g. sub or skip)
+  if(S.isTop && S.acesLineup.length) advanceBatter()
+  else renderCount()
 }
 function newHalf(){
   S.balls=0;S.strikes=0;S.outs=0;S.bases=[false,false,false];S.pitchCount=0;S.velo=null
@@ -765,7 +843,8 @@ function renderBases(){
     if(re)re.style.opacity=b.on?'1':'0'
   })
 }
-function renderAll(){renderCount();renderBases()}
+function renderAll(){renderCount();renderBases();updateBatterDisplay()}
+function setText(id,val){var el=document.getElementById(id);if(el)el.textContent=val}
 function setSynced(ok){document.getElementById('sync-dot').className='sync-dot'+(ok?'':' err')}
 function showToast(msg){
   var t=document.getElementById('toast')
