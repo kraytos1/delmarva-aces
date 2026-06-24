@@ -6,6 +6,7 @@
 <title>Delmarva Aces 12U</title>
 <!-- Supabase JS (loads from CDN — no build step needed for the standalone version) -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="config.js"></script>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Inter:wght@300;400;500;600&family=Roboto+Mono:wght@400;500&display=swap');
   :root{--orange:#E8530A;--orange-dim:#C44208;--og:rgba(232,83,10,.18);--black:#0A0C0E;--dark:#111418;--dark2:#181C22;--dark3:#1F242C;--bdr:rgba(255,255,255,.08);--bdr-a:rgba(232,83,10,.35);--text:#F0EDE8;--muted:#7A8290;--mono:'Roboto Mono',monospace;--display:'Oswald',sans-serif;--body:'Inter',sans-serif;}
@@ -388,8 +389,8 @@ var monthFilter = 'all'
 // CONFIG — paste your Supabase values here
 // OR set them as env vars if using Vite/React build
 // ─────────────────────────────────────────────────────────
-var SUPABASE_URL      = 'https://urwwzdlkgfljfvqgfhyb.supabase.co'
-var SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVyd3d6ZGxrZ2ZsamZ2cWdmaHliIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIxMzY0MzYsImV4cCI6MjA5NzcxMjQzNn0.s5eOVqI0EaCnP5jDfuVtHeqBonsaIwwqQBrf1heMK1k'
+var SUPABASE_URL      = ACES_CONFIG.supabaseUrl
+var SUPABASE_ANON_KEY = ACES_CONFIG.supabaseKey
 
 // ─────────────────────────────────────────────────────────
 // FALLBACK DATA (real Spring 2026 stats from GameChanger)
@@ -435,7 +436,8 @@ var currentTab = 'batting'
 async function init() {
   setLoadingText('Connecting to database...')
 
-  var configured = SUPABASE_URL !== 'YOUR_SUPABASE_URL' && SUPABASE_ANON_KEY !== 'YOUR_SUPABASE_ANON_KEY'
+  var configured = ACES_CONFIG.supabaseUrl && ACES_CONFIG.supabaseKey &&
+    ACES_CONFIG.supabaseUrl !== 'your_supabase_url_here'
 
   if (configured) {
     try {

@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>Delmarva Aces · Live</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="config.js"></script>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Inter:wght@300;400;500;600&family=Roboto+Mono:wght@400;500&display=swap');
 :root{
@@ -405,10 +406,10 @@ nav{background:rgba(10,12,14,.95);border-bottom:1px solid var(--bdr);display:fle
 </div>
 
 <script>
-var SUPABASE_URL      = 'https://urwwzdlkgfljfvqgfhyb.supabase.co'
-var SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVyd3d6ZGxrZ2ZsamZ2cWdmaHliIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIxMzY0MzYsImV4cCI6MjA5NzcxMjQzNn0.s5eOVqI0EaCnP5jDfuVtHeqBonsaIwwqQBrf1heMK1k'
-var YT_CHANNEL_ID     = 'UC6nY8Jns2vJYu3ZyDTUDnJw'  // @AcesEast12u
-var YT_API_KEY        = 'AIzaSyDqxQVhuhZHHaycgMA34vqfemQnqAAy_RQ'  // optional — add YouTube Data API key for auto-detection
+var SUPABASE_URL      = ACES_CONFIG.supabaseUrl
+var SUPABASE_ANON_KEY = ACES_CONFIG.supabaseKey
+var YT_CHANNEL_ID     = ACES_CONFIG.ytChannelId
+var YT_API_KEY        = ACES_CONFIG.ytApiKey
 
 var db = null
 var liveGame = null
@@ -416,7 +417,7 @@ var bases = [false,false,false]
 var totalPitches = 0
 
 async function init() {
-  if (SUPABASE_URL !== 'YOUR_SUPABASE_URL') {
+  if (ACES_CONFIG.supabaseUrl && ACES_CONFIG.supabaseKey) {
     db = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
     await loadLiveGame()
   }

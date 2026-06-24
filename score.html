@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no"/>
 <title>Aces · Scorer</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="config.js"></script>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Oswald:wght@400;600;700&family=Inter:wght@400;500;600&family=Roboto+Mono:wght@400;500&display=swap');
 :root{
@@ -379,8 +380,8 @@ body{background:var(--black);color:var(--text);font-family:var(--body);}
 <div class="toast" id="toast"></div>
 
 <script>
-var SUPABASE_URL      = 'https://urwwzdlkgfljfvqgfhyb.supabase.co'
-var SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVyd3d6ZGxrZ2ZsamZ2cWdmaHliIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIxMzY0MzYsImV4cCI6MjA5NzcxMjQzNn0.s5eOVqI0EaCnP5jDfuVtHeqBonsaIwwqQBrf1heMK1k'
+var SUPABASE_URL      = ACES_CONFIG.supabaseUrl
+var SUPABASE_ANON_KEY = ACES_CONFIG.supabaseKey
 var db = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
 
 var S = {
