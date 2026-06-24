@@ -469,6 +469,14 @@ async function loadLiveGame() {
     updateScoreboard(game)
     document.getElementById('pregame-screen').style.display = 'none'
 
+    // Load lineup from game notes
+    if (game.notes) {
+      try {
+        var lineup = JSON.parse(game.notes)
+        loadLineupIntoCards(lineup, game)
+      } catch(e) {}
+    }
+
     try {
       var {data:pitches} = await db.from('pitches').select('*')
         .eq('game_id', game.id).order('created_at',{ascending:false}).limit(30)
@@ -484,6 +492,68 @@ async function loadLiveGame() {
     subscribeToGame(game.id)
     setBadge('live', 'Live · scoring')
   } catch(e) { await loadNextGame() }
+}
+
+function loadLineupIntoCards(lineup, game) {
+  // Pitcher card
+  var pitcherName = '—'
+  var pitcherNum = 'P'
+  if (lineup.aces_lineup && lineup.aces_pitcher_id) {
+    var pitcherEntry = lineup.aces_lineup.find(function(e){
+      return e.playerId === lineup.aces_pitcher_id
+    })
+    if (pitcherEntry) {
+      pitcherName = pitcherEntry.playerName || '—'
+      pitcherNum = pitcherEntry.jerseyNum ? '#'+pitcherEntry.jerseyNum : 'P'
+    }
+  }
+  setText('p-name', pitcherName)
+  setText('p-avatar', pitcherNum)
+  document.getElementById('p-avatar').title = pitcherName
+
+  // Batter card — first batter in lineup
+  var batterName = '—'
+  var batterNum = 'B'
+  if (lineup.aces_lineup && lineup.aces_lineup.length) {
+    var first = lineup.aces_lineup[0]
+    batterName = first.playerName || '—'
+    batterNum = first.jerseyNum ? '#'+first.jerseyNum : 'B'
+  }
+  setText('b-name', batterName)
+  setText('b-avatar', batterNum)
+
+  // Populate field name overlays
+  if (lineup.aces_lineup) {
+    var posMap = {
+      'CF':'name-cf','LF':'name-lf','RF':'name-rf',
+      'SS':'name-ss','2B':'name-2b','3B':'name-3b',
+      '1B':'name-1b'
+    }
+    lineup.aces_lineup.forEach(function(entry) {
+      var elId = posMap[entry.position]
+      if (elId && entry.playerName) {
+        var el = document.getElementById(elId)
+        if (el) el.textContent = entry.playerName.split(' ').pop() // last name only
+      }
+    })
+  }
+}
+
+// Update batter card when new at-bat comes in
+function updateBatterCard(ab) {
+  if (!liveGame?.notes) return
+  try {
+    var lineup = JSON.parse(liveGame.notes)
+    if (!lineup.aces_lineup || !ab.batter_id) return
+    var batter = lineup.aces_lineup.find(function(e){return e.playerId === ab.batter_id})
+    if (batter) {
+      setText('b-name', batter.playerName || '—')
+      setText('b-avatar', batter.jerseyNum ? '#'+batter.jerseyNum : 'B')
+      // Update batter name on field
+      var fldEl = document.getElementById('ov-batter')
+      if (fldEl) fldEl.textContent = batter.playerName ? batter.playerName.split(' ').pop() : ''
+    }
+  } catch(e) {}
 }
 
 async function loadNextGame() {
@@ -519,7 +589,12 @@ function subscribeToGame(gameId) {
 
   db.channel('ab:'+gameId)
     .on('postgres_changes',{event:'INSERT',schema:'public',table:'at_bats',filter:'game_id=eq.'+gameId},
-      function(p){addPlay(p.new,true);applyViewerBases(p.new.result)})
+      function(p){
+        addPlay(p.new,true)
+        applyViewerBases(p.new.result)
+        updateBatterCard(p.new)
+        setText('p-count', totalPitches)
+      })
     .subscribe()
 
   console.log('Subscribed to game:', gameId)

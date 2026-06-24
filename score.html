@@ -545,7 +545,9 @@ function updateBatterDisplay() {
   if(fldBatter) fldBatter.textContent = batter.playerName ? batter.playerName.split(' ').pop() : ''
 
   // Update pitcher display
-  var pitcherName = S.currentPitcherName || (S.isTop ? S.oppPitcher : '') || '—'
+  // Top half = Aces batting, opponent pitching
+  // Bottom half = Aces pitching, opponent batting
+  var pitcherName = S.isTop ? (S.oppPitcher || 'Opp. Pitcher') : (S.currentPitcherName || '—')
   setText('ab-pitcher', pitcherName)
   setText('ab-pc', 'PC '+S.pitcherPitchCount)
 }
@@ -605,7 +607,7 @@ async function quickLog(result) {
 
   var offset=S.game?.stream_start_utc?Math.floor((Date.now()-new Date(S.game.stream_start_utc))/1000):null
   var pd={game_id:S.gameId,
-    pitcher_id: S.isTop ? null : S.currentPitcherId,  // our pitcher only when we're pitching (bottom half)
+    pitcher_id: !S.isTop ? S.currentPitcherId : null,  // our pitcher only when bottom half
     pitch_num:S.pitchCount,pitch_type:S.pitchType,
     velocity_mph:S.velo,result:result,inning:S.inning,
     half:S.isTop?'top':'bottom',balls_before:bBefore,strikes_before:sBefore,yt_offset_sec:offset}
@@ -654,7 +656,7 @@ async function logAB(result, label, skipPitchLog) {
   var offset=S.game?.stream_start_utc?Math.floor((Date.now()-new Date(S.game.stream_start_utc))/1000):null
   var abd={
     game_id:S.gameId,
-    batter_id: S.isTop ? getCurrentBatterId() : null,
+    batter_id: S.isTop ? getCurrentBatterId() : null,  // our batter only when top half
     inning:S.inning,half:S.isTop?'top':'bottom',
     ab_num:S.abNum,result:result,rbi:0,runs_scored:runs,notes:label,
     yt_offset_sec:offset,clip_status:CLIP.includes(result)?'queued':'none'
@@ -670,7 +672,7 @@ async function logAB(result, label, skipPitchLog) {
     showToast(runs===1?'Run scores! 🏃':''+runs+' runs score! 🏃')
   }
   if(CLIP.includes(result)) setTimeout(function(){showToast('📹 Clip queued!')},800)
-  // Auto-advance batter when Aces are hitting
+  // Auto-advance Aces batter when we're hitting (top half)
   if(S.isTop && S.acesLineup.length) advanceBatter()
   if(S.outs>=3){setTimeout(function(){if(confirm('3 outs — end half?'))newHalf()},300)}
   await pushState(); renderAll()
