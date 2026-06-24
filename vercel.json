@@ -1,5 +1,6 @@
 {
   "rewrites": [
-    { "source": "/player/:num", "destination": "/player.html" }
+    { "source": "/player/:num",     "destination": "/player.html" },
+    { "source": "/boxscore/:id",    "destination": "/boxscore.html" }
   ]
 }

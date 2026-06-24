@@ -997,7 +997,12 @@ function renderSchedule() {
       html += '<div class="result-score" style="min-width:80px;text-align:center;">'
       html += '<span class="'+(win?'us':'')+'" style="'+(win?'':'color:var(--muted)')+'">'+(win?g.our_score:g.opp_score)+'</span>'
       html += ' – '+(win?g.opp_score:g.our_score)+'</div>'
-      html += '<div style="font-family:var(--mono);font-size:11px;color:var(--muted);min-width:110px;text-align:right;">'+dateStr+'</div>'
+      html += '<div style="display:flex;align-items:center;gap:10px;min-width:160px;justify-content:flex-end;">'
+      html += '<div style="font-family:var(--mono);font-size:11px;color:var(--muted);">'+dateStr+'</div>'
+      if (g.id) {
+        html += '<a href="/boxscore/'+g.id+'" style="font-family:var(--mono);font-size:10px;color:var(--orange);text-decoration:none;border:1px solid var(--bdr-a);border-radius:4px;padding:3px 8px;white-space:nowrap;">Box score</a>'
+      }
+      html += '</div>'
       html += '</div>'
     })
     html += '</div>'
