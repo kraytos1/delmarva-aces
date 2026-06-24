@@ -296,17 +296,24 @@ async function init() {
   var num = parseInt(window.location.pathname.split('/').pop())
   if (isNaN(num)) { showNotFound(); return }
 
-  // Try Supabase first
-  var p = null
+  // Start with fallback stats
+  var p = buildFromFallback(num)
+
+  // Overlay Supabase player data (name, positions, grad year) on top
   try {
     var {data} = await db.from('players')
       .select('*').eq('jersey_num', num).single()
-    if (data) p = mapDBPlayer(data)
+    if (data) {
+      if (!p) p = {}
+      p.jerseyNum = data.jersey_num
+      p.first     = data.first_name  || p.first || '—'
+      p.last      = data.last_name   || p.last  || '—'
+      p.pos       = data.positions   || p.pos   || []
+      p.grad      = data.grad_year   || p.grad  || '—'
+    }
   } catch(e) {}
 
-  // Fall back to hardcoded
-  if (!p) p = buildFromFallback(num)
-  if (!p) { showNotFound(); return }
+  if (!p || !p.first) { showNotFound(); return }
 
   renderProfile(p)
   renderCharts(p)
