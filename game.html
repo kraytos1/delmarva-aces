@@ -599,7 +599,20 @@ function subscribeToGame(gameId) {
 
   db.channel('game:'+gameId)
     .on('postgres_changes',{event:'UPDATE',schema:'public',table:'games',filter:'id=eq.'+gameId},
-      function(p){updateScoreboard(p.new)})
+      async function(p) {
+        // Re-fetch full game data from view to get team_name, opponent_name etc
+        try {
+          var {data} = await db.from('live_game_summary').select('*').eq('id', gameId).single()
+          if (data) {
+            liveGame = data
+            updateScoreboard(data)
+          } else {
+            updateScoreboard(p.new)
+          }
+        } catch(e) {
+          updateScoreboard(p.new)
+        }
+      })
     .subscribe()
 
   db.channel('ab:'+gameId)
@@ -637,6 +650,10 @@ function updateScoreboard(game) {
     bases = [!!game.base_1b, !!game.base_2b, !!game.base_3b]
     renderBases()
   }
+
+  // Always update liveGame.half so lineup cards use freshest value
+  if (liveGame) liveGame.half = game.half
+
   var isTop = game.half === 'top' || !game.half
   if (liveGame && liveGame.notes) {
     try {
