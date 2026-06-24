@@ -478,24 +478,34 @@ async function init() {
 
         var { data: dbGames } = await db
           .from('games')
-          .select('*, opponents(name)')
+          .select('id,game_date,our_score,opp_score,status,tournament,location,is_home,opponent_id,inning,half')
           .eq('status', 'final')
           .order('game_date', { ascending: false })
           .limit(100)
 
         if (dbGames && dbGames.length > 0) {
+          // Load opponents separately
+          var {data:opps} = await db.from('opponents').select('id,name')
+          var oppMap = {}
+          if(opps) opps.forEach(function(o){oppMap[o.id]=o.name})
+          dbGames.forEach(function(g){g.opponents={name:oppMap[g.opponent_id]||'Opponent'}})
           allGames = dbGames
           games = dbGames.slice(0,5).map(mapDBGame)
         }
 
         try {
-          var { data: nextGame } = await db
+          var { data: nextGames } = await db
             .from('games')
-            .select('*, opponents(name)')
+            .select('id,game_date,our_score,opp_score,status,tournament,location,is_home,opponent_id,game_time')
             .eq('status', 'scheduled')
             .gte('game_date', new Date().toISOString().split('T')[0])
-            .order('game_date').limit(1).single()
-          if (nextGame) renderNextGame(nextGame)
+            .order('game_date').limit(1)
+          if (nextGames && nextGames.length) {
+            var ng = nextGames[0]
+            var {data:opps2} = await db.from('opponents').select('id,name').eq('id',ng.opponent_id)
+            if(opps2&&opps2.length) ng.opponents = {name:opps2[0].name}
+            renderNextGame(ng)
+          }
         } catch(e) { /* no scheduled games yet */ }
 
         try {
