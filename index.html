@@ -499,9 +499,9 @@ async function init() {
         } catch(e) { /* no scheduled games yet */ }
 
         try {
-          var { data: liveGame } = await db
-            .from('live_game_summary').select('*').single()
-          if (liveGame) showLivePill(liveGame)
+          var { data: liveGames } = await db
+            .from('live_game_summary').select('*').limit(1)
+          if (liveGames && liveGames.length) showLivePill(liveGames[0])
         } catch(e) { /* no live game */ }
 
         setDBStatus('live', '● Supabase connected')
@@ -598,7 +598,6 @@ function renderHome() {
 }
 
 function renderLeaders() {
-  // Need at least 3 players with ABs to render leaders
   var qualified = players.filter(function(p){return p.ab>=1})
   if (qualified.length < 3) {
     document.getElementById('leaders-grid').innerHTML =
@@ -614,14 +613,21 @@ function renderLeaders() {
     .sort(function(a,b){return a.era-b.era})
   var sorted_k   = players.filter(function(p){return p.so_p>0}).sort(function(a,b){return b.so_p-a.so_p})
 
-  var cards = [
-    {cat:'Batting AVG', p:sorted_avg[0], val:f3(sorted_avg[0].avg), rest:sorted_avg[1].first[0]+'. '+sorted_avg[1].last+' '+f3(sorted_avg[1].avg)+' · '+sorted_avg[2].first[0]+'. '+sorted_avg[2].last+' '+f3(sorted_avg[2].avg)},
-    {cat:'Home Runs',   p:sorted_hr[0],  val:sorted_hr[0].hr,  unit:'HR',  rest:sorted_hr[1].first[0]+'. '+sorted_hr[1].last+' '+sorted_hr[1].hr+' · '+sorted_hr[2].first[0]+'. '+sorted_hr[2].last+' '+sorted_hr[2].hr},
-    {cat:'RBI',         p:sorted_rbi[0], val:sorted_rbi[0].rbi, unit:'RBI', rest:sorted_rbi[1].first[0]+'. '+sorted_rbi[1].last+' '+sorted_rbi[1].rbi+' · '+sorted_rbi[2].first[0]+'. '+sorted_rbi[2].last+' '+sorted_rbi[2].rbi},
-    {cat:'Stolen Bases',p:sorted_sb[0],  val:sorted_sb[0].sb,  unit:'SB',  rest:sorted_sb[1].first[0]+'. '+sorted_sb[1].last+' '+sorted_sb[1].sb+' · '+sorted_sb[2].first[0]+'. '+sorted_sb[2].last+' '+sorted_sb[2].sb},
-    {cat:'ERA (min 10 IP)',p:pitchers[0], val:pitchers[0].era.toFixed(2), rest:pitchers.slice(1,3).map(function(p){return p.first[0]+'. '+p.last+' '+p.era.toFixed(2)}).join(' · ')},
-    {cat:'Strikeouts',  p:sorted_k[0],   val:sorted_k[0].so_p, unit:'K',   rest:sorted_k.slice(1,3).map(function(p){return p.first[0]+'. '+p.last+' '+p.so_p}).join(' · ')},
-  ]
+  function pName(p,stat) {
+    if(!p) return ''
+    return p.first[0]+'. '+p.last+' '+stat
+  }
+  function rest3(arr, fn) {
+    return arr.slice(1,3).filter(Boolean).map(fn).join(' · ')
+  }
+
+  var cards = []
+  if(sorted_avg[0]) cards.push({cat:'Batting AVG', p:sorted_avg[0], val:f3(sorted_avg[0].avg), rest:rest3(sorted_avg,function(p){return pName(p,f3(p.avg))})})
+  if(sorted_hr[0])  cards.push({cat:'Home Runs',   p:sorted_hr[0],  val:sorted_hr[0].hr,  unit:'HR',  rest:rest3(sorted_hr, function(p){return pName(p,p.hr)})})
+  if(sorted_rbi[0]) cards.push({cat:'RBI',         p:sorted_rbi[0], val:sorted_rbi[0].rbi, unit:'RBI', rest:rest3(sorted_rbi,function(p){return pName(p,p.rbi)})})
+  if(sorted_sb[0])  cards.push({cat:'Stolen Bases',p:sorted_sb[0],  val:sorted_sb[0].sb,  unit:'SB',  rest:rest3(sorted_sb, function(p){return pName(p,p.sb)})})
+  if(pitchers[0])   cards.push({cat:'ERA (min 10 IP)',p:pitchers[0], val:pitchers[0].era.toFixed(2), rest:rest3(pitchers,function(p){return pName(p,p.era.toFixed(2))})})
+  if(sorted_k[0])   cards.push({cat:'Strikeouts',  p:sorted_k[0],   val:sorted_k[0].so_p, unit:'K',   rest:rest3(sorted_k, function(p){return pName(p,p.so_p)})})
 
   document.getElementById('leaders-grid').innerHTML = cards.map(function(c) {
     return '<div class="leader-card">'+
