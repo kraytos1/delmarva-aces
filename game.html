@@ -474,6 +474,20 @@ async function loadLiveGame() {
       try {
         var lineup = JSON.parse(game.notes)
         loadLineupIntoCards(lineup, game)
+
+        // Figure out current batter from number of at-bats already logged
+        try {
+          var {data:abCount} = await db.from('at_bats')
+            .select('id').eq('game_id', game.id)
+          if (abCount && abCount.length && lineup.aces_lineup && lineup.aces_lineup.length) {
+            var currentIdx = abCount.length % lineup.aces_lineup.length
+            var currentBatter = lineup.aces_lineup[currentIdx]
+            if (currentBatter) {
+              setText('b-name', currentBatter.playerName || '—')
+              setText('b-avatar', currentBatter.jerseyNum ? '#'+currentBatter.jerseyNum : 'B')
+            }
+          }
+        } catch(e) {}
       } catch(e) {}
     }
 

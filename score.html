@@ -544,10 +544,10 @@ function updateBatterDisplay() {
   var fldBatter = document.getElementById('fld-batter')
   if(fldBatter) fldBatter.textContent = batter.playerName ? batter.playerName.split(' ').pop() : ''
 
-  // Update pitcher display
   // Top half = Aces batting, opponent pitching
   // Bottom half = Aces pitching, opponent batting
-  var pitcherName = S.isTop ? (S.oppPitcher || 'Opp. Pitcher') : (S.currentPitcherName || '—')
+  var oppPitcherDisplay = S.oppPitcher || 'Opp. Pitcher'
+  var pitcherName = S.isTop ? oppPitcherDisplay : (S.currentPitcherName || '—')
   setText('ab-pitcher', pitcherName)
   setText('ab-pc', 'PC '+S.pitcherPitchCount)
 }
