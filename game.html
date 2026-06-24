@@ -634,18 +634,33 @@ function updateFieldOverlays(lineup, isTop) {
     var el = document.getElementById(elId)
     if (el) el.textContent = ''
   })
-  if (!isTop && lineup.aces_lineup) {
+
+  if (!isTop) {
     // Bottom half — Aces pitching — show Aces players on field
-    lineup.aces_lineup.forEach(function(entry) {
-      if (!entry.playerName || !entry.position) return
-      var elId = posMap[entry.position]
-      if (elId) {
-        var el = document.getElementById(elId)
-        if (el) el.textContent = entry.playerName.split(' ').pop()
-      }
-    })
+    if (lineup.aces_lineup) {
+      lineup.aces_lineup.forEach(function(entry) {
+        if (!entry.playerName || !entry.position) return
+        var elId = posMap[entry.position]
+        if (elId) {
+          var el = document.getElementById(elId)
+          if (el) el.textContent = entry.playerName.split(' ').pop()
+        }
+      })
+    }
+  } else {
+    // Top half — Aces batting — show opponent fielders by position from opp_lineup
+    if (lineup.opp_lineup) {
+      lineup.opp_lineup.forEach(function(entry) {
+        if (!entry.name || !entry.position) return
+        var elId = posMap[entry.position]
+        if (elId) {
+          var el = document.getElementById(elId)
+          // Show just number or short name
+          if (el) el.textContent = entry.name.split(' ').pop()
+        }
+      })
+    }
   }
-  // Top half — Aces batting — field is empty (opponent fielding)
 }
 
 function updatePlayerCards(lineup, isTop) {
@@ -655,6 +670,7 @@ function updatePlayerCards(lineup, isTop) {
     var pe = lineup.aces_lineup.find(function(e){return e.playerId===lineup.aces_pitcher_id&&e.playerName})
     if (pe) { ourPitcherName=pe.playerName; ourPitcherNum='#'+pe.jerseyNum }
   }
+
   if (isTop) {
     // Aces batting — left=opp pitcher, right=current Aces batter
     setText('p-name', oppPitcherName)
@@ -665,9 +681,11 @@ function updatePlayerCards(lineup, isTop) {
     setText('p-name', ourPitcherName)
     setText('p-avatar', ourPitcherNum)
     setText('p-meta', 'pitching')
-    setText('b-name', '—')
+    // Show first opponent batter
+    var firstOpp = lineup.opp_lineup && lineup.opp_lineup.find(function(e){return e.name})
+    setText('b-name', firstOpp ? firstOpp.name : 'Opp. Batter')
     setText('b-avatar', 'B')
-    setText('b-meta', 'opp. batter')
+    setText('b-meta', 'at bat')
   }
 }
 
