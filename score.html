@@ -782,9 +782,15 @@ function newBatter(){
 }
 function newHalf(){
   S.balls=0;S.strikes=0;S.outs=0;S.bases=[false,false,false];S.pitchCount=0;S.velo=null
+  S.pitcherPitchCount=0
   document.getElementById('velo-val').textContent='—'
-  S.isTop=!S.isTop;if(!S.isTop)S.inning++
-  pushState();renderAll();showToast('Half inning ended')
+  var wasTop = S.isTop
+  S.isTop=!S.isTop
+  // Inning increments when going from bottom back to top
+  if(S.isTop && !wasTop) S.inning++
+  // Reset batter index when starting new half
+  if(S.isTop) S.currentBatterIdx=0
+  pushState();renderAll();showToast((S.isTop?'Top':'Bot')+' '+S.inning+' — batter up!')
 }
 async function undoLast(){
   if(!HISTORY.length){showToast('Nothing to undo');return}

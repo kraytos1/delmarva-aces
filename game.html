@@ -509,67 +509,17 @@ async function loadLiveGame() {
 }
 
 function loadLineupIntoCards(lineup, game) {
-  // Pitcher card — when Aces are batting (top), show opponent pitcher
-  // When Aces are pitching (bottom), show our pitcher
   var isTop = !game.half || game.half === 'top'
+  updateFieldOverlays(lineup, isTop)
+  updatePlayerCards(lineup, isTop)
 
-  // Our pitcher
-  var ourPitcherName = '—'
-  var ourPitcherNum = 'P'
-  if (lineup.aces_pitcher_id && lineup.aces_lineup) {
-    var pitcherEntry = lineup.aces_lineup.find(function(e){
-      return e.playerId === lineup.aces_pitcher_id && e.playerName
-    })
-    if (pitcherEntry) {
-      ourPitcherName = pitcherEntry.playerName
-      ourPitcherNum = '#'+pitcherEntry.jerseyNum
+  // Set initial batter — first non-empty lineup entry
+  if (isTop && lineup.aces_lineup) {
+    var first = lineup.aces_lineup.find(function(e){return e.playerName})
+    if (first) {
+      setText('b-name', first.playerName)
+      setText('b-avatar', '#'+first.jerseyNum)
     }
-  }
-
-  // Opponent pitcher
-  var oppPitcherName = lineup.opp_pitcher || 'Opp. Pitcher'
-
-  // Display based on half inning
-  if (isTop) {
-    // Aces batting — show opp pitcher on left, our batter on right
-    setText('p-name', oppPitcherName)
-    setText('p-avatar', 'P')
-    document.getElementById('p-meta').textContent = 'opponent'
-  } else {
-    // Aces pitching — show our pitcher on left
-    setText('p-name', ourPitcherName)
-    setText('p-avatar', ourPitcherNum)
-    document.getElementById('p-meta').textContent = ourPitcherName !== '—' ? 'pitching' : ''
-  }
-
-  // First batter in lineup (skip empty entries)
-  var firstBatter = lineup.aces_lineup && lineup.aces_lineup.find(function(e){return e.playerName})
-  if (firstBatter) {
-    setText('b-name', firstBatter.playerName)
-    setText('b-avatar', '#'+firstBatter.jerseyNum)
-  }
-
-  // Populate field name overlays — skip empty entries
-  if (lineup.aces_lineup) {
-    var posMap = {
-      'CF':'name-cf','LF':'name-lf','RF':'name-rf',
-      'SS':'name-ss','2B':'name-2b','3B':'name-3b',
-      '1B':'name-1b'
-    }
-    // First clear all overlays
-    Object.values(posMap).forEach(function(elId){
-      var el = document.getElementById(elId)
-      if (el) el.textContent = ''
-    })
-    // Then populate with real players only
-    lineup.aces_lineup.forEach(function(entry) {
-      if (!entry.playerName || !entry.position) return
-      var elId = posMap[entry.position]
-      if (elId) {
-        var el = document.getElementById(elId)
-        if (el) el.textContent = entry.playerName.split(' ').pop()
-      }
-    })
   }
 }
 
@@ -662,6 +612,63 @@ function updateScoreboard(game) {
   ovPip('ov-b1','ov-b2','ov-b3',b,'#1a7ac4')
   ovPip('ov-s1','ov-s2',null,s,'#e74c3c')
   ovPip('ov-o1','ov-o2',null,o,'#666')
+
+  // Swap field overlays based on half inning
+  var isTop = game.half === 'top' || !game.half
+  if (liveGame && liveGame.notes) {
+    try {
+      var lineup = JSON.parse(liveGame.notes)
+      updateFieldOverlays(lineup, isTop)
+      updatePlayerCards(lineup, isTop)
+    } catch(e) {}
+  }
+}
+
+function updateFieldOverlays(lineup, isTop) {
+  var posMap = {
+    'CF':'name-cf','LF':'name-lf','RF':'name-rf',
+    'SS':'name-ss','2B':'name-2b','3B':'name-3b','1B':'name-1b'
+  }
+  // Clear all overlays first
+  Object.values(posMap).forEach(function(elId){
+    var el = document.getElementById(elId)
+    if (el) el.textContent = ''
+  })
+  if (!isTop && lineup.aces_lineup) {
+    // Bottom half — Aces pitching — show Aces players on field
+    lineup.aces_lineup.forEach(function(entry) {
+      if (!entry.playerName || !entry.position) return
+      var elId = posMap[entry.position]
+      if (elId) {
+        var el = document.getElementById(elId)
+        if (el) el.textContent = entry.playerName.split(' ').pop()
+      }
+    })
+  }
+  // Top half — Aces batting — field is empty (opponent fielding)
+}
+
+function updatePlayerCards(lineup, isTop) {
+  var oppPitcherName = lineup.opp_pitcher || 'Opp. Pitcher'
+  var ourPitcherName = '—', ourPitcherNum = 'P'
+  if (lineup.aces_pitcher_id && lineup.aces_lineup) {
+    var pe = lineup.aces_lineup.find(function(e){return e.playerId===lineup.aces_pitcher_id&&e.playerName})
+    if (pe) { ourPitcherName=pe.playerName; ourPitcherNum='#'+pe.jerseyNum }
+  }
+  if (isTop) {
+    // Aces batting — left=opp pitcher, right=current Aces batter
+    setText('p-name', oppPitcherName)
+    setText('p-avatar', 'P')
+    setText('p-meta', 'opponent')
+  } else {
+    // Aces pitching — left=our pitcher, right=opp batter
+    setText('p-name', ourPitcherName)
+    setText('p-avatar', ourPitcherNum)
+    setText('p-meta', 'pitching')
+    setText('b-name', '—')
+    setText('b-avatar', 'B')
+    setText('b-meta', 'opp. batter')
+  }
 }
 
 function pip(id,on,type){
