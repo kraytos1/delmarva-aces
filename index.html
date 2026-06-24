@@ -180,7 +180,7 @@
 <!-- Loading screen -->
 <div class="loading-overlay" id="loading">
   <div class="loading-inner">
-    <div class="loading-logo">A</div>
+    <img src="/logo.png" alt="Aces" style="width:72px;height:72px;object-fit:contain;margin-bottom:16px;"/>
     <div class="loading-bar"><div class="loading-fill"></div></div>
     <div class="loading-text" id="loading-text">Connecting to database...</div>
   </div>
@@ -443,6 +443,12 @@ var currentTab = 'batting'
 // INIT — try Supabase, fall back gracefully
 // ─────────────────────────────────────────────────────────
 async function init() {
+  // Safety timeout — never hang on loading screen more than 6 seconds
+  var loadTimeout = setTimeout(function(){
+    console.warn('Load timeout — showing fallback data')
+    renderHome(); renderBatting(); updateCountdown(); hideLoading()
+  }, 6000)
+
   setLoadingText('Connecting to database...')
 
   var configured = ACES_CONFIG.supabaseUrl && ACES_CONFIG.supabaseKey &&
@@ -517,6 +523,7 @@ async function init() {
   renderBatting()
   updateCountdown()
   setInterval(updateCountdown, 30000)
+  clearTimeout(loadTimeout)
   hideLoading()
 }
 
