@@ -1,0 +1,5 @@
+{
+  "rewrites": [
+    { "source": "/player/:num", "destination": "/player.html" }
+  ]
+}

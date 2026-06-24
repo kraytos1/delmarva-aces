@@ -1,0 +1,517 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Player Profile · Delmarva Aces</title>
+<link rel="manifest" href="/manifest.json"/>
+<meta name="theme-color" content="#E8530A"/>
+<link rel="apple-touch-icon" href="/icon-192.png"/>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="/config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Inter:wght@300;400;500;600&family=Roboto+Mono:wght@400;500&display=swap');
+:root{
+  --orange:#E8530A;--og:rgba(232,83,10,.15);
+  --black:#0A0C0E;--dark:#111418;--dark2:#181C22;--dark3:#1F242C;
+  --bdr:rgba(255,255,255,.08);--bdr-a:rgba(232,83,10,.4);
+  --text:#F0EDE8;--muted:#7A8290;--green:#3DDC6A;
+  --mono:'Roboto Mono',monospace;--display:'Oswald',sans-serif;--body:'Inter',sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--black);color:var(--text);font-family:var(--body);min-height:100vh;}
+
+/* NAV */
+nav{background:rgba(10,12,14,.95);border-bottom:1px solid var(--bdr);display:flex;align-items:center;justify-content:space-between;padding:0 20px;height:52px;position:sticky;top:0;z-index:50;}
+.nav-brand{display:flex;align-items:center;gap:10px;cursor:pointer;text-decoration:none;}
+.nav-logo{width:32px;height:32px;background:var(--orange);border-radius:5px;display:flex;align-items:center;justify-content:center;font-family:var(--display);font-size:17px;font-weight:700;color:white;}
+.nav-name{font-family:var(--display);font-size:15px;font-weight:600;color:var(--text);}
+.nav-name span{color:var(--orange);}
+.nav-back{font-family:var(--mono);font-size:11px;color:var(--muted);text-decoration:none;}
+.nav-back:hover{color:var(--text);}
+
+/* HERO */
+.hero{background:var(--dark2);border-bottom:1px solid var(--bdr);padding:32px 24px 24px;}
+.hero-inner{max-width:900px;margin:0 auto;display:flex;align-items:flex-start;gap:24px;}
+.player-avatar{width:80px;height:80px;border-radius:50%;background:var(--dark3);border:3px solid var(--bdr-a);display:flex;align-items:center;justify-content:center;font-family:var(--display);font-size:32px;font-weight:700;color:var(--orange);flex-shrink:0;}
+.hero-info{flex:1;}
+.hero-number{font-family:var(--mono);font-size:13px;color:var(--orange);letter-spacing:2px;margin-bottom:4px;}
+.hero-name{font-family:var(--display);font-size:clamp(28px,5vw,48px);font-weight:700;line-height:1;margin-bottom:8px;}
+.hero-meta{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:12px;}
+.hero-tag{font-family:var(--mono);font-size:11px;color:var(--muted);display:flex;align-items:center;gap:4px;}
+.hero-tag span{color:var(--text);}
+.badges-row{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;}
+.badge{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:600;padding:4px 10px;border-radius:12px;letter-spacing:.3px;}
+
+/* STAT BAR */
+.stat-bar{background:var(--dark3);border-bottom:1px solid var(--bdr);}
+.stat-bar-inner{max-width:900px;margin:0 auto;display:flex;overflow-x:auto;}
+.stat-item{padding:14px 20px;border-right:1px solid var(--bdr);text-align:center;flex-shrink:0;}
+.stat-item:last-child{border-right:none;}
+.stat-val{font-family:var(--display);font-size:22px;font-weight:700;color:var(--orange);line-height:1;}
+.stat-lbl{font-family:var(--mono);font-size:9px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;margin-top:3px;}
+
+/* MAIN CONTENT */
+.content{max-width:900px;margin:0 auto;padding:24px;}
+.section{margin-bottom:32px;}
+.section-title{font-family:var(--display);font-size:18px;font-weight:600;letter-spacing:.5px;text-transform:uppercase;margin-bottom:16px;display:flex;align-items:center;gap:12px;}
+.section-title::after{content:'';flex:1;height:1px;background:var(--bdr);}
+
+/* STATS GRID */
+.stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;}
+.stat-card{background:var(--dark2);border:1px solid var(--bdr);border-radius:10px;padding:14px 16px;}
+.sc-lbl{font-family:var(--mono);font-size:9px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:6px;}
+.sc-val{font-family:var(--display);font-size:26px;font-weight:700;color:var(--orange);line-height:1;}
+.sc-sub{font-size:11px;color:var(--muted);margin-top:4px;}
+.sc-hi{border-color:var(--bdr-a);}
+
+/* CHARTS */
+.charts-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+.chart-card{background:var(--dark2);border:1px solid var(--bdr);border-radius:10px;padding:16px;}
+.chart-title{font-family:var(--mono);font-size:10px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:12px;}
+.chart-wrap{position:relative;height:160px;}
+@media(max-width:600px){.charts-grid{grid-template-columns:1fr;}}
+
+/* PITCHING */
+.pitch-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;}
+
+/* CLIPS */
+.clips-placeholder{background:var(--dark2);border:1px dashed var(--bdr-a);border-radius:10px;padding:40px 24px;text-align:center;}
+.clips-icon{font-size:40px;margin-bottom:12px;opacity:.4;}
+.clips-title{font-family:var(--display);font-size:18px;font-weight:600;margin-bottom:6px;}
+.clips-sub{font-family:var(--mono);font-size:11px;color:var(--muted);line-height:1.8;}
+
+/* SHARE */
+.share-btn{display:inline-flex;align-items:center;gap:8px;background:var(--dark3);border:1px solid var(--bdr);border-radius:7px;padding:8px 16px;font-family:var(--mono);font-size:11px;color:var(--muted);cursor:pointer;transition:border-color .15s,color .15s;}
+.share-btn:hover{border-color:var(--orange);color:var(--orange);}
+
+/* RATING CIRCLE */
+.rating-circle{width:56px;height:56px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:16px;font-weight:700;color:white;flex-shrink:0;}
+
+/* NOT FOUND */
+.not-found{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:60vh;text-align:center;gap:12px;}
+.nf-icon{font-size:48px;opacity:.3;}
+.nf-title{font-family:var(--display);font-size:24px;font-weight:600;}
+.nf-sub{font-family:var(--mono);font-size:12px;color:var(--muted);}
+
+/* ACES RATING */
+.aces-rating-wrap{display:flex;align-items:center;gap:16px;background:var(--dark2);border:1px solid var(--bdr-a);border-radius:10px;padding:16px 20px;margin-bottom:24px;}
+.ar-label{font-family:var(--mono);font-size:10px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:2px;}
+.ar-desc{font-size:12px;color:var(--muted);line-height:1.5;}
+</style>
+</head>
+<body>
+
+<nav>
+  <a class="nav-brand" href="/">
+    <div class="nav-logo">A</div>
+    <span class="nav-name">Delmarva <span>Aces</span></span>
+  </a>
+  <a class="nav-back" href="/">← Roster</a>
+</nav>
+
+<div id="loading" style="display:flex;align-items:center;justify-content:center;min-height:60vh;">
+  <div style="text-align:center;">
+    <div style="font-family:var(--display);font-size:40px;font-weight:700;color:var(--orange);margin-bottom:12px;">A</div>
+    <div style="font-family:var(--mono);font-size:11px;color:var(--muted);letter-spacing:2px;">Loading player...</div>
+  </div>
+</div>
+
+<div id="player-content" style="display:none;">
+
+  <!-- HERO -->
+  <div class="hero">
+    <div class="hero-inner">
+      <div class="player-avatar" id="p-avatar">—</div>
+      <div class="hero-info">
+        <div class="hero-number" id="p-number">#—</div>
+        <div class="hero-name" id="p-name">—</div>
+        <div class="hero-meta">
+          <div class="hero-tag">⚾ <span id="p-pos">—</span></div>
+          <div class="hero-tag">🎓 <span id="p-grad">Class of —</span></div>
+          <div class="hero-tag">📍 <span>Delmarva Aces 12U East</span></div>
+        </div>
+        <div class="badges-row" id="p-badges"></div>
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:8px;">
+        <button class="share-btn" onclick="shareProfile()">🔗 Share profile</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- KEY STATS BAR -->
+  <div class="stat-bar">
+    <div class="stat-bar-inner">
+      <div class="stat-item"><div class="stat-val" id="sb-avg">—</div><div class="stat-lbl">AVG</div></div>
+      <div class="stat-item"><div class="stat-val" id="sb-ops">—</div><div class="stat-lbl">OPS</div></div>
+      <div class="stat-item"><div class="stat-val" id="sb-hr">—</div><div class="stat-lbl">HR</div></div>
+      <div class="stat-item"><div class="stat-val" id="sb-rbi">—</div><div class="stat-lbl">RBI</div></div>
+      <div class="stat-item"><div class="stat-val" id="sb-sb">—</div><div class="stat-lbl">SB</div></div>
+      <div class="stat-item"><div class="stat-val" id="sb-gp">—</div><div class="stat-lbl">GP</div></div>
+    </div>
+  </div>
+
+  <div class="content">
+
+    <!-- ACES RATING -->
+    <div class="aces-rating-wrap">
+      <div class="rating-circle" id="p-rating-circle">—</div>
+      <div>
+        <div class="ar-label">Aces Rating</div>
+        <div style="font-family:var(--display);font-size:28px;font-weight:700;color:var(--orange);" id="p-rating-val">—</div>
+        <div class="ar-desc" id="p-rating-desc">Composite score based on OPS, ISO, BB%, and contact rate</div>
+      </div>
+    </div>
+
+    <!-- BATTING STATS -->
+    <div class="section">
+      <div class="section-title">Batting · Spring 2026</div>
+      <div class="stats-grid" id="batting-stats"></div>
+    </div>
+
+    <!-- ADVANCED STATS -->
+    <div class="section">
+      <div class="section-title">Advanced</div>
+      <div class="stats-grid" id="advanced-stats"></div>
+    </div>
+
+    <!-- CHARTS -->
+    <div class="section" id="charts-section">
+      <div class="section-title">Season Charts</div>
+      <div class="charts-grid">
+        <div class="chart-card">
+          <div class="chart-title">OPS by month</div>
+          <div class="chart-wrap"><canvas id="ops-chart"></canvas></div>
+        </div>
+        <div class="chart-card">
+          <div class="chart-title">Pitch velocity</div>
+          <div class="chart-wrap"><canvas id="velo-chart"></canvas></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PITCHING (shown only if player has pitched) -->
+    <div class="section" id="pitching-section" style="display:none;">
+      <div class="section-title">Pitching · Spring 2026</div>
+      <div class="pitch-grid" id="pitching-stats"></div>
+    </div>
+
+    <!-- HIGHLIGHT CLIPS -->
+    <div class="section">
+      <div class="section-title">Highlights</div>
+      <div class="clips-placeholder" id="clips-area">
+        <div class="clips-icon">🎬</div>
+        <div class="clips-title">Highlight clips coming soon</div>
+        <div class="clips-sub">
+          Once we score live games, highlight clips are automatically<br>
+          extracted from the YouTube stream and appear here.
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<div id="not-found" style="display:none;">
+  <div class="not-found">
+    <div class="nf-icon">⚾</div>
+    <div class="nf-title">Player not found</div>
+    <div class="nf-sub">No player with that jersey number</div>
+    <a href="/" style="font-family:var(--mono);font-size:12px;color:var(--orange);margin-top:8px;">← Back to roster</a>
+  </div>
+</div>
+
+<script>
+var db = supabase.createClient(ACES_CONFIG.supabaseUrl, ACES_CONFIG.supabaseKey)
+
+// Fallback stats from GameChanger
+var FALLBACK = {
+  2:  {first:'Declan', last:'Soares',     pos:['LF'],       grad:2032,gp:52,ab:82, avg:.415,obp:.529,slg:.573,ops:1.102,h:34,d:4, t:0,hr:3, rbi:30,r:39,bb:20,so:11,sb:32,tb:47, hbp:1, ip:2.1, gp_p:2, np:26, era:0,   whip:.429,so_p:1, bb_p:1},
+  3:  {first:'Jackson',last:'Booher',     pos:['RF','CF'],  grad:2032,gp:53,ab:92, avg:.533,obp:.635,slg:.804,ops:1.439,h:49,d:7, t:0,hr:6, rbi:39,r:52,bb:30,so:12,sb:27,tb:74, hbp:1, ip:37.0,gp_p:13,np:718,era:5.514,whip:1.811,so_p:53,bb_p:22},
+  4:  {first:'Raiden', last:'Sheets',     pos:['1B','P'],   grad:2032,gp:44,ab:94, avg:.596,obp:.658,slg:.936,ops:1.594,h:56,d:5, t:0,hr:9, rbi:39,r:58,bb:16,so:2, sb:31,tb:88, hbp:1, ip:31.0,gp_p:13,np:538,era:1.355,whip:1.258,so_p:49,bb_p:12},
+  5:  {first:'Brody',  last:'Pegelow',    pos:['P','1B'],   grad:2032,gp:54,ab:106,avg:.509,obp:.583,slg:.840,ops:1.422,h:54,d:5, t:0,hr:10,rbi:54,r:51,bb:18,so:10,sb:8, tb:89, hbp:2, ip:28.0,gp_p:13,np:536,era:5.571,whip:1.679,so_p:42,bb_p:15},
+  11: {first:'Hudson', last:'Hartstein',  pos:['3B','P'],   grad:2032,gp:54,ab:127,avg:.409,obp:.493,slg:.953,ops:1.446,h:52,d:7, t:1,hr:20,rbi:69,r:78,bb:20,so:12,sb:26,tb:121,hbp:1, ip:30.0,gp_p:17,np:479,era:1.800,whip:1.167,so_p:37,bb_p:16},
+  12: {first:'Ridge',  last:'Tervo',      pos:['P'],        grad:2032,gp:1, ab:1,  avg:.000,obp:.000,slg:.000,ops:.000, h:0, d:0, t:0,hr:0, rbi:0, r:0, bb:0, so:0, sb:0, tb:0,  hbp:0, ip:6.0, gp_p:2, np:90, era:2.000,whip:1.000,so_p:10,bb_p:3},
+  13: {first:'Brody',  last:'Snyder',     pos:['P','OF'],   grad:2032,gp:54,ab:86, avg:.326,obp:.469,slg:.547,ops:1.016,h:28,d:4, t:0,hr:5, rbi:27,r:37,bb:20,so:21,sb:15,tb:47, hbp:5, ip:13.0,gp_p:7, np:198,era:.923, whip:1.154,so_p:17,bb_p:5},
+  23: {first:'Jake',   last:'Coulbourne', pos:['SS','P'],   grad:2032,gp:54,ab:121,avg:.603,obp:.650,slg:1.364,ops:2.014,h:73,d:8, t:3,hr:26,rbi:65,r:83,bb:17,so:7, sb:31,tb:165,hbp:1, ip:29.0,gp_p:17,np:418,era:2.276,whip:.966, so_p:53,bb_p:9},
+  24: {first:'Cooper', last:'Lewis',      pos:['C','1B'],   grad:2032,gp:54,ab:88, avg:.307,obp:.421,slg:.398,ops:.818, h:27,d:5, t:0,hr:1, rbi:26,r:38,bb:17,so:11,sb:18,tb:35, hbp:1, ip:12.2,gp_p:9, np:228,era:1.421,whip:1.737,so_p:15,bb_p:8},
+  27: {first:'Wyatt',  last:'Wiltbank',   pos:['CF','P'],   grad:2032,gp:54,ab:113,avg:.363,obp:.497,slg:.460,ops:.957, h:41,d:6, t:1,hr:1, rbi:26,r:64,bb:30,so:14,sb:41,tb:52, hbp:1, ip:1.2, gp_p:2, np:25, era:.000, whip:1.200,so_p:3, bb_p:2},
+  47: {first:'Mason',  last:'Maloney',    pos:['RF','P'],   grad:2032,gp:54,ab:84, avg:.369,obp:.477,slg:.464,ops:.941, h:31,d:5, t:0,hr:1, rbi:32,r:39,bb:16,so:14,sb:19,tb:39, hbp:4, ip:2.1, gp_p:3, np:43, era:5.143,whip:1.286,so_p:5, bb_p:1},
+  50: {first:'Hunter', last:'Washbon',    pos:['SS','OF'],  grad:2032,gp:54,ab:100,avg:.380,obp:.534,slg:.650,ops:1.184,h:38,d:7, t:1,hr:6, rbi:47,r:45,bb:32,so:15,sb:15,tb:65, hbp:1, ip:3.0, gp_p:2, np:31, era:.000, whip:.333, so_p:5, bb_p:1},
+  54: {first:'Ayden',  last:'Jester',     pos:['2B','P'],   grad:2032,gp:54,ab:125,avg:.592,obp:.639,slg:1.360,ops:1.999,h:74,d:12,t:0,hr:28,rbi:87,r:76,bb:16,so:3, sb:13,tb:170,hbp:2, ip:48.0,gp_p:21,np:732,era:2.375,whip:1.042,so_p:81,bb_p:10},
+}
+
+// Team averages for OPS+
+var TEAM_OBP = 0.527, TEAM_SLG = 0.769
+
+function calcAdv(p) {
+  var pa = p.ab + p.bb + p.hbp
+  var iso = p.slg - p.avg
+  var bbPct = pa > 0 ? p.bb / pa : 0
+  var kPct  = pa > 0 ? p.so / pa : 0
+  var singles = p.h - p.d - p.t - p.hr
+  var woba = pa > 0
+    ? (0.69*p.bb + 0.72*(p.hbp||0) + 0.88*singles + 1.24*p.d + 1.56*p.t + 2.08*p.hr) / pa : 0
+  var opsPlus = (TEAM_OBP>0&&TEAM_SLG>0)
+    ? Math.round(100*(p.obp/TEAM_OBP + p.slg/TEAM_SLG - 1)) : 100
+  var acesRating = Math.min(100, Math.round(
+    (p.ops/2.5)*35 + (iso/0.8)*25 + (bbPct/0.25)*20 + (1-kPct)*20
+  ))
+  return {iso,bbPct,kPct,woba,opsPlus,acesRating,pa}
+}
+
+function getBadges(p, adv) {
+  var badges = []
+  if(p.avg>=.570)                    badges.push({e:'🔥',l:'Elite Contact',  c:'#E8530A'})
+  if(adv.iso>=.600)                  badges.push({e:'💣',l:'Slugger',        c:'#DC2626'})
+  if(p.hr>=20)                       badges.push({e:'💪',l:'Power Threat',   c:'#9333EA'})
+  if(adv.opsPlus>=160)               badges.push({e:'🏆',l:'MVP Candidate',  c:'#F59E0B'})
+  if(adv.bbPct>=.15&&p.sb>=20)      badges.push({e:'⚡',l:'Table Setter',   c:'#06B6D4'})
+  if(adv.bbPct>=.18)                 badges.push({e:'👁️', l:'Plate Discipline',c:'#10B981'})
+  if(p.sb>=35)                       badges.push({e:'🚀',l:'Speedster',      c:'#3B82F6'})
+  if(adv.woba>=.550)                 badges.push({e:'⭐',l:'Elite Hitter',   c:'#EAB308'})
+  if(adv.kPct<=.05&&p.ab>=50)       badges.push({e:'🎯',l:'Contact King',   c:'#22C55E'})
+  if(p.rbi>=70)                      badges.push({e:'🏅',l:'Run Producer',   c:'#F97316'})
+  if(p.era<=1.50&&p.ip>=10)         badges.push({e:'🎯',l:'Ace',            c:'#E8530A'})
+  if(p.whip<=1.00&&p.ip>=10)        badges.push({e:'🛡️', l:'Shutdown',       c:'#6366F1'})
+  if(p.so_p>=70)                     badges.push({e:'🔥',l:'K Machine',      c:'#DC2626'})
+  if(p.ip>=40)                       badges.push({e:'⚾',l:'Workhorse',      c:'#78716C'})
+  return badges
+}
+
+function f3(v){return v===0?'.000':('.'+Math.round(v*1000).toString().padStart(3,'0'))}
+function ratingColor(r){return r>=80?'#E8530A':r>=65?'#F59E0B':r>=50?'#3B82F6':'#6B7280'}
+function setText(id,val){var el=document.getElementById(id);if(el)el.textContent=val}
+
+function sc(label, val, sub, hi) {
+  return '<div class="stat-card'+(hi?' sc-hi':'')+'">'+
+    '<div class="sc-lbl">'+label+'</div>'+
+    '<div class="sc-val">'+val+'</div>'+
+    (sub?'<div class="sc-sub">'+sub+'</div>':'')+
+  '</div>'
+}
+
+async function init() {
+  var num = parseInt(window.location.pathname.split('/').pop())
+  if (isNaN(num)) { showNotFound(); return }
+
+  // Try Supabase first
+  var p = null
+  try {
+    var {data} = await db.from('players')
+      .select('*').eq('jersey_num', num).single()
+    if (data) p = mapDBPlayer(data)
+  } catch(e) {}
+
+  // Fall back to hardcoded
+  if (!p) p = buildFromFallback(num)
+  if (!p) { showNotFound(); return }
+
+  renderProfile(p)
+  renderCharts(p)
+
+  document.getElementById('loading').style.display = 'none'
+  document.getElementById('player-content').style.display = 'block'
+  document.title = p.first+' '+p.last+' · Delmarva Aces'
+}
+
+function buildFromFallback(num) {
+  var d = FALLBACK[num]
+  if (!d) return null
+  return Object.assign({jerseyNum:num}, d)
+}
+
+function mapDBPlayer(d) {
+  return {
+    jerseyNum: d.jersey_num,
+    first: d.first_name, last: d.last_name,
+    pos: d.positions || [],
+    grad: d.grad_year,
+    gp:0,ab:0,avg:0,obp:0,slg:0,ops:0,
+    h:0,d:0,t:0,hr:0,rbi:0,r:0,bb:0,so:0,sb:0,tb:0,hbp:0,
+    ip:0,gp_p:0,np:0,era:0,whip:0,so_p:0,bb_p:0
+  }
+}
+
+function renderProfile(p) {
+  var adv = calcAdv(p)
+  var badges = getBadges(p, adv)
+
+  // Hero
+  setText('p-avatar', '#'+p.jerseyNum)
+  setText('p-number', '#'+p.jerseyNum)
+  setText('p-name', p.first+' '+p.last)
+  setText('p-pos', (p.pos||[]).join(' / '))
+  setText('p-grad', 'Class of '+p.grad)
+
+  // Badges
+  document.getElementById('p-badges').innerHTML = badges.map(function(b){
+    return '<span class="badge" style="background:'+b.c+'22;color:'+b.c+';border:1px solid '+b.c+'44;">'+b.e+' '+b.l+'</span>'
+  }).join('')
+
+  // Stat bar
+  setText('sb-avg', f3(p.avg))
+  setText('sb-ops', p.ops.toFixed(3))
+  setText('sb-hr',  p.hr)
+  setText('sb-rbi', p.rbi)
+  setText('sb-sb',  p.sb)
+  setText('sb-gp',  p.gp)
+
+  // Aces rating
+  var rc = document.getElementById('p-rating-circle')
+  rc.textContent = adv.acesRating
+  rc.style.background = ratingColor(adv.acesRating)
+  setText('p-rating-val', adv.acesRating+' / 100')
+
+  // Batting stats
+  document.getElementById('batting-stats').innerHTML =
+    sc('Games',p.gp,'played')+
+    sc('At bats',p.ab,'')+
+    sc('Hits',p.h,'')+
+    sc('Doubles',p.d,'2B')+
+    sc('Triples',p.t,'3B')+
+    sc('Home runs',p.hr,'',p.hr>=10)+
+    sc('RBI',p.rbi,'',p.rbi>=50)+
+    sc('Runs',p.r,'')+
+    sc('Walks',p.bb,'')+
+    sc('Strikeouts',p.so,'')+
+    sc('Stolen bases',p.sb,'',p.sb>=25)+
+    sc('HBP',p.hbp||0,'')
+
+  // Advanced stats
+  document.getElementById('advanced-stats').innerHTML =
+    sc('AVG',f3(p.avg),'batting average',p.avg>=.500)+
+    sc('OBP',f3(p.obp),'on-base %')+
+    sc('SLG',f3(p.slg),'slugging %')+
+    sc('OPS',p.ops.toFixed(3),'OBP + SLG',p.ops>=1.400)+
+    sc('OPS+',adv.opsPlus,'vs team avg',adv.opsPlus>=150)+
+    sc('ISO',f3(adv.iso),'isolated power',adv.iso>=.500)+
+    sc('wOBA',adv.woba.toFixed(3),'weighted OBA',adv.woba>=.500)+
+    sc('BB%',Math.round(adv.bbPct*100)+'%','walk rate',adv.bbPct>=.15)+
+    sc('K%',Math.round(adv.kPct*100)+'%','strikeout rate')+
+    sc('Total bases',p.tb,'TB')
+
+  // Pitching
+  if (p.ip > 0) {
+    document.getElementById('pitching-section').style.display = 'block'
+    var k9 = p.ip>0?(p.so_p/p.ip*9).toFixed(1):'—'
+    var bb9= p.ip>0?(p.bb_p/p.ip*9).toFixed(1):'—'
+    var kbb= p.bb_p>0?(p.so_p/p.bb_p).toFixed(2):'—'
+    document.getElementById('pitching-stats').innerHTML =
+      sc('Innings pitched',p.ip.toFixed(1),'IP')+
+      sc('Games pitched',p.gp_p,'GP')+
+      sc('Pitches thrown',p.np,'NP')+
+      sc('ERA',p.era.toFixed(2),'earned run avg',p.era<=2.00&&p.ip>=10)+
+      sc('WHIP',p.whip.toFixed(3),'',p.whip<=1.10&&p.ip>=10)+
+      sc('Strikeouts',p.so_p,'K',p.so_p>=40)+
+      sc('Walks allowed',p.bb_p,'BB')+
+      sc('K/9',k9,'per 9 inn',parseFloat(k9)>=10)+
+      sc('BB/9',bb9,'per 9 inn')+
+      sc('K/BB',kbb,'ratio')
+  }
+}
+
+function renderCharts(p) {
+  var chartOpts = {
+    responsive:true, maintainAspectRatio:false,
+    plugins:{legend:{display:false}},
+    scales:{
+      x:{grid:{color:'rgba(255,255,255,.06)'},ticks:{color:'#7A8290',font:{size:10}}},
+      y:{grid:{color:'rgba(255,255,255,.06)'},ticks:{color:'#7A8290',font:{size:10}}}
+    }
+  }
+
+  // OPS by month — simulated from season stats since we don't have per-game data yet
+  // Once live scoring populates at_bats, this will be real data
+  var months = ['Feb','Mar','Apr','May','Jun']
+  var opsData = simulateMonthlyOPS(p)
+
+  new Chart(document.getElementById('ops-chart'), {
+    type:'line',
+    data:{
+      labels: months,
+      datasets:[{
+        data: opsData,
+        borderColor:'#E8530A',
+        backgroundColor:'rgba(232,83,10,.1)',
+        borderWidth:2,
+        pointBackgroundColor:'#E8530A',
+        pointRadius:4,
+        fill:true,
+        tension:.3
+      }]
+    },
+    options: Object.assign({},chartOpts,{
+      plugins:Object.assign({},chartOpts.plugins,{
+        tooltip:{callbacks:{label:function(c){return 'OPS: '+c.raw.toFixed(3)}}}
+      })
+    })
+  })
+
+  // Velocity chart — placeholder until live game data
+  var veloData = p.ip>0 ? simulateVelo(p) : []
+  if (veloData.length) {
+    new Chart(document.getElementById('velo-chart'), {
+      type:'bar',
+      data:{
+        labels: months,
+        datasets:[{
+          data: veloData,
+          backgroundColor:'rgba(232,83,10,.6)',
+          borderColor:'#E8530A',
+          borderWidth:1,
+          borderRadius:4
+        }]
+      },
+      options: Object.assign({},chartOpts,{
+        scales:Object.assign({},chartOpts.scales,{
+          y:Object.assign({},chartOpts.scales.y,{min:50,max:90})
+        }),
+        plugins:Object.assign({},chartOpts.plugins,{
+          tooltip:{callbacks:{label:function(c){return 'Avg velo: '+c.raw+' mph'}}}
+        })
+      })
+    })
+  } else {
+    document.getElementById('velo-chart').parentElement.innerHTML =
+      '<div style="display:flex;align-items:center;justify-content:center;height:160px;font-family:var(--mono);font-size:11px;color:var(--muted);">Velo data available once live games are scored</div>'
+  }
+}
+
+// Simulate monthly OPS from season average (will be replaced with real data)
+function simulateMonthlyOPS(p) {
+  var base = p.ops
+  var variance = [-.12,-.06,.02,.05,.04]
+  return variance.map(function(v){return Math.max(0, +(base+v+(Math.random()*.04-.02)).toFixed(3))})
+}
+
+function simulateVelo(p) {
+  if(!p.np||p.np<10) return []
+  var base = 62
+  return [base-2, base, base+1, base+2, base+1].map(function(v){return v+Math.floor(Math.random()*3)})
+}
+
+function showNotFound() {
+  document.getElementById('loading').style.display='none'
+  document.getElementById('not-found').style.display='block'
+}
+
+function shareProfile() {
+  var url = window.location.href
+  if (navigator.share) {
+    navigator.share({
+      title: document.title,
+      url: url
+    })
+  } else {
+    navigator.clipboard.writeText(url).then(function(){
+      alert('Profile URL copied to clipboard!')
+    })
+  }
+}
+
+init()
+</script>
+</body>
+</html>

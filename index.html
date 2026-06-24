@@ -863,6 +863,11 @@ function toggleExpand(p,tr,tab) {
     '<div class="detail-inner" style="flex-direction:column;padding:16px 16px 16px 54px;">'+
     badgeHtml+
     '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:8px;">'+cards+'</div>'+
+    '<div style="margin-top:14px;">'+
+      '<a href="/player/'+p.num+'" style="display:inline-flex;align-items:center;gap:6px;font-family:var(--mono);font-size:11px;color:var(--orange);text-decoration:none;border:1px solid var(--bdr-a);border-radius:6px;padding:6px 14px;">'+
+        '⚾ View full profile →'+
+      '</a>'+
+    '</div>'+
     '</div></td>'
   tr.after(det)
 }
