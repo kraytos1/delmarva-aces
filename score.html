@@ -772,9 +772,13 @@ function adjScore(t,d){S.scores[t]=Math.max(0,S.scores[t]+d);renderCount();pushS
 function newBatter(){
   S.balls=0;S.strikes=0;S.pitchCount=0;S.velo=null
   document.getElementById('velo-val').textContent='—'
-  // Manual advance (e.g. sub or skip)
-  if(S.isTop && S.acesLineup.length) advanceBatter()
-  else renderCount()
+  renderCount()
+  // Note: batter auto-advances after logAB. This button is for manual skip/sub only.
+  // Manually advance if needed:
+  if(S.isTop && S.acesLineup.length){
+    S.currentBatterIdx=(S.currentBatterIdx+1)%S.acesLineup.length
+    updateBatterDisplay()
+  }
 }
 function newHalf(){
   S.balls=0;S.strikes=0;S.outs=0;S.bases=[false,false,false];S.pitchCount=0;S.velo=null
