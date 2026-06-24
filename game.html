@@ -201,40 +201,40 @@ nav{background:rgba(10,12,14,.95);border-bottom:1px solid var(--bdr);display:fle
 
     <!-- PERSPECTIVE FIELD -->
     <div class="field-section">
-      <svg id="field-svg" viewBox="0 0 680 420" width="100%" style="display:block;background:#060c04;">
+      <svg id="field-svg" viewBox="0 0 680 460" width="100%" style="display:block;background:#060c04;">
 
-        <!-- OUTFIELD GRASS - semicircle from 3b foul line to 1b foul line -->
-        <rect width="680" height="420" fill="#1a4a0d"/>
+        <!-- OUTFIELD GRASS -->
+        <rect width="680" height="460" fill="#1a4a0d"/>
 
-        <!-- GRASS STRIPES - vertical mowing pattern -->
-        <rect x="0"   y="0" width="56" height="420" fill="#163008" opacity=".5"/>
-        <rect x="56"  y="0" width="56" height="420" fill="#1e5510" opacity=".4"/>
-        <rect x="112" y="0" width="56" height="420" fill="#163008" opacity=".5"/>
-        <rect x="168" y="0" width="56" height="420" fill="#1e5510" opacity=".4"/>
-        <rect x="224" y="0" width="56" height="420" fill="#163008" opacity=".5"/>
-        <rect x="280" y="0" width="56" height="420" fill="#1e5510" opacity=".4"/>
-        <rect x="336" y="0" width="56" height="420" fill="#163008" opacity=".5"/>
-        <rect x="392" y="0" width="56" height="420" fill="#1e5510" opacity=".4"/>
-        <rect x="448" y="0" width="56" height="420" fill="#163008" opacity=".5"/>
-        <rect x="504" y="0" width="56" height="420" fill="#1e5510" opacity=".4"/>
-        <rect x="560" y="0" width="56" height="420" fill="#163008" opacity=".5"/>
-        <rect x="616" y="0" width="64" height="420" fill="#1e5510" opacity=".4"/>
+        <!-- GRASS STRIPES -->
+        <rect x="0"   y="0" width="56" height="460" fill="#163008" opacity=".5"/>
+        <rect x="56"  y="0" width="56" height="460" fill="#1e5510" opacity=".4"/>
+        <rect x="112" y="0" width="56" height="460" fill="#163008" opacity=".5"/>
+        <rect x="168" y="0" width="56" height="460" fill="#1e5510" opacity=".4"/>
+        <rect x="224" y="0" width="56" height="460" fill="#163008" opacity=".5"/>
+        <rect x="280" y="0" width="56" height="460" fill="#1e5510" opacity=".4"/>
+        <rect x="336" y="0" width="56" height="460" fill="#163008" opacity=".5"/>
+        <rect x="392" y="0" width="56" height="460" fill="#1e5510" opacity=".4"/>
+        <rect x="448" y="0" width="56" height="460" fill="#163008" opacity=".5"/>
+        <rect x="504" y="0" width="56" height="460" fill="#1e5510" opacity=".4"/>
+        <rect x="560" y="0" width="56" height="460" fill="#163008" opacity=".5"/>
+        <rect x="616" y="0" width="64" height="460" fill="#1e5510" opacity=".4"/>
 
-        <!-- FOUL TERRITORY (dark corners outside foul lines) -->
-        <polygon points="340,390 0,50 0,420" fill="#0d2408"/>
-        <polygon points="340,390 680,50 680,420" fill="#0d2408"/>
+        <!-- FOUL TERRITORY -->
+        <polygon points="340,390 0,50 0,460" fill="#0d2408"/>
+        <polygon points="340,390 680,50 680,460" fill="#0d2408"/>
 
         <!-- FOUL LINES -->
-        <line x1="340" y1="390" x2="0" y2="50" stroke="#ffffff" stroke-width="1.5" opacity=".5"/>
-        <line x1="340" y1="390" x2="680" y2="50" stroke="#ffffff" stroke-width="1.5" opacity=".5"/>
+        <line x1="340" y1="390" x2="0"   y2="50" stroke="#ffffff" stroke-width="1.5" opacity=".4"/>
+        <line x1="340" y1="390" x2="680" y2="50" stroke="#ffffff" stroke-width="1.5" opacity=".4"/>
 
         <!-- INFIELD DIRT CIRCLE -->
         <circle cx="340" cy="240" r="155" fill="#7a5025"/>
 
-        <!-- INFIELD GRASS (inner diamond grass) -->
+        <!-- INFIELD GRASS -->
         <polygon points="340,85 510,240 340,395 170,240" fill="#1e5510"/>
 
-        <!-- BASE PATHS (dirt strips between bases) -->
+        <!-- BASE PATHS -->
         <line x1="340" y1="390" x2="510" y2="240" stroke="#7a5025" stroke-width="18" opacity=".8"/>
         <line x1="510" y1="240" x2="340" y2="85"  stroke="#7a5025" stroke-width="18" opacity=".8"/>
         <line x1="340" y1="85"  x2="170" y2="240" stroke="#7a5025" stroke-width="18" opacity=".8"/>
@@ -244,101 +244,113 @@ nav{background:rgba(10,12,14,.95);border-bottom:1px solid var(--bdr);display:fle
         <circle cx="340" cy="240" r="18" fill="#8B6420"/>
         <circle cx="340" cy="240" r="8"  fill="#9a7030"/>
 
+        <!-- CATCHER AREA / HOME PLATE DIRT -->
+        <ellipse cx="340" cy="408" rx="38" ry="22" fill="#7a5025" opacity=".7"/>
+
         <!-- BATTER'S BOXES -->
-        <rect x="306" y="370" width="26" height="34" rx="1" fill="none" stroke="#ffffff" stroke-width="1" opacity=".5"/>
-        <rect x="348" y="370" width="26" height="34" rx="1" fill="none" stroke="#ffffff" stroke-width="1" opacity=".5"/>
+        <rect x="302" y="382" width="28" height="36" rx="1" fill="none" stroke="#ffffff" stroke-width="1" opacity=".4"/>
+        <rect x="350" y="382" width="28" height="36" rx="1" fill="none" stroke="#ffffff" stroke-width="1" opacity=".4"/>
 
         <!-- HOME PLATE -->
-        <polygon points="340,406 328,396 328,385 352,385 352,396" fill="#e8e8e8" opacity=".95"/>
+        <polygon points="340,420 327,409 327,397 353,397 353,409" fill="#e8e8e8" opacity=".95"/>
 
-        <!-- RUNNER HALOS (glow behind base when occupied) -->
-        <circle id="halo-1b" cx="510" cy="240" r="20" fill="#E8530A" opacity="0"/>
-        <circle id="halo-2b" cx="340" cy="85"  r="20" fill="#E8530A" opacity="0"/>
-        <circle id="halo-3b" cx="170" cy="240" r="20" fill="#E8530A" opacity="0"/>
+        <!-- RUNNER HALOS -->
+        <circle id="halo-1b" cx="510" cy="240" r="22" fill="#E8530A" opacity="0"/>
+        <circle id="halo-2b" cx="340" cy="85"  r="22" fill="#E8530A" opacity="0"/>
+        <circle id="halo-3b" cx="170" cy="240" r="22" fill="#E8530A" opacity="0"/>
 
         <!-- BASES -->
-        <!-- 1st base right -->
         <rect id="fld-1b" x="497" y="227" width="26" height="26" rx="3" fill="#e8e8e8" stroke="#aaa" stroke-width=".5" transform="rotate(45,510,240)"/>
-        <!-- 2nd base top -->
         <rect id="fld-2b" x="327" y="72"  width="26" height="26" rx="3" fill="#e8e8e8" stroke="#aaa" stroke-width=".5" transform="rotate(45,340,85)"/>
-        <!-- 3rd base left -->
         <rect id="fld-3b" x="157" y="227" width="26" height="26" rx="3" fill="#e8e8e8" stroke="#aaa" stroke-width=".5" transform="rotate(45,170,240)"/>
 
-        <!-- RUNNERS -->
+        <!-- RUNNERS (drawn on top of bases) -->
         <g id="run-1b" opacity="0" style="transition:opacity .3s;pointer-events:none;">
-          <circle cx="510" cy="240" r="11" fill="#E8530A"/>
-          <circle cx="510" cy="240" r="4"  fill="white"/>
+          <circle cx="510" cy="240" r="12" fill="#E8530A" stroke="#ff8a5c" stroke-width="2"/>
+          <circle cx="510" cy="240" r="4.5" fill="white"/>
         </g>
         <g id="run-2b" opacity="0" style="transition:opacity .3s;pointer-events:none;">
-          <circle cx="340" cy="85"  r="11" fill="#E8530A"/>
-          <circle cx="340" cy="85"  r="4"  fill="white"/>
+          <circle cx="340" cy="85"  r="12" fill="#E8530A" stroke="#ff8a5c" stroke-width="2"/>
+          <circle cx="340" cy="85"  r="4.5" fill="white"/>
         </g>
         <g id="run-3b" opacity="0" style="transition:opacity .3s;pointer-events:none;">
-          <circle cx="170" cy="240" r="11" fill="#E8530A"/>
-          <circle cx="170" cy="240" r="4"  fill="white"/>
+          <circle cx="170" cy="240" r="12" fill="#E8530A" stroke="#ff8a5c" stroke-width="2"/>
+          <circle cx="170" cy="240" r="4.5" fill="white"/>
         </g>
 
-        <!-- POSITION LABELS -->
-        <text x="340" y="42"  text-anchor="middle" font-family="'Roboto Mono',monospace" font-size="13" fill="#3a6a2a" font-weight="600">CF</text>
-        <text x="120" y="90"  text-anchor="middle" font-family="'Roboto Mono',monospace" font-size="13" fill="#3a6a2a" font-weight="600">LF</text>
-        <text x="560" y="90"  text-anchor="middle" font-family="'Roboto Mono',monospace" font-size="13" fill="#3a6a2a" font-weight="600">RF</text>
-        <text x="258" y="185" text-anchor="middle" font-family="'Roboto Mono',monospace" font-size="12" fill="#3a6a2a" font-weight="600">SS</text>
-        <text x="422" y="185" text-anchor="middle" font-family="'Roboto Mono',monospace" font-size="12" fill="#3a6a2a" font-weight="600">2B</text>
-        <text x="128" y="252" text-anchor="middle" font-family="'Roboto Mono',monospace" font-size="12" fill="#3a6a2a" font-weight="600">3B</text>
-        <text x="552" y="252" text-anchor="middle" font-family="'Roboto Mono',monospace" font-size="12" fill="#3a6a2a" font-weight="600">1B</text>
-        <text x="340" y="244" text-anchor="middle" font-family="'Roboto Mono',monospace" font-size="11" fill="#6a5020" font-weight="600">P</text>
-        <text x="340" y="418" text-anchor="middle" font-family="'Roboto Mono',monospace" font-size="11" fill="#3a6a2a" font-weight="600">C</text>
+        <!-- POSITION LABELS (subtle, below name pills) -->
+        <text x="340" y="56"  text-anchor="middle" font-family="'Roboto Mono',monospace" font-size="9" fill="#2d5a20" opacity=".8">CF</text>
+        <text x="108" y="100" text-anchor="middle" font-family="'Roboto Mono',monospace" font-size="9" fill="#2d5a20" opacity=".8">LF</text>
+        <text x="572" y="100" text-anchor="middle" font-family="'Roboto Mono',monospace" font-size="9" fill="#2d5a20" opacity=".8">RF</text>
+        <text x="256" y="200" text-anchor="middle" font-family="'Roboto Mono',monospace" font-size="9" fill="#2d5a20" opacity=".8">SS</text>
+        <text x="424" y="200" text-anchor="middle" font-family="'Roboto Mono',monospace" font-size="9" fill="#2d5a20" opacity=".8">2B</text>
+        <text x="122" y="274" text-anchor="middle" font-family="'Roboto Mono',monospace" font-size="9" fill="#2d5a20" opacity=".8">3B</text>
+        <text x="558" y="274" text-anchor="middle" font-family="'Roboto Mono',monospace" font-size="9" fill="#2d5a20" opacity=".8">1B</text>
+        <text x="340" y="244" text-anchor="middle" font-family="'Roboto Mono',monospace" font-size="8"  fill="#5a4010" opacity=".9">P</text>
+        <text x="340" y="452" text-anchor="middle" font-family="'Roboto Mono',monospace" font-size="9" fill="#2d5a20" opacity=".8">C</text>
 
-        <!-- PLAYER NAME OVERLAYS -->
-        <g id="overlay-cf"  transform="translate(340,26)">
-          <rect x="-42" y="-11" width="84" height="18" rx="3" fill="rgba(0,0,0,.75)" stroke="rgba(255,255,255,.15)" stroke-width=".5"/>
-          <text id="name-cf" x="0" y="4" text-anchor="middle" font-family="'Roboto Mono',monospace" font-size="9" fill="#ddd"></text>
+        <!-- PLAYER NAME PILLS — cleaner, away from bases -->
+        <!-- CF — top center -->
+        <g id="overlay-cf" transform="translate(340,40)">
+          <rect x="-44" y="-10" width="88" height="17" rx="8" fill="rgba(0,0,0,.55)" stroke="rgba(255,255,255,.18)" stroke-width=".5"/>
+          <text id="name-cf" x="0" y="4" text-anchor="middle" font-family="'Inter',sans-serif" font-size="9.5" font-weight="500" fill="#e8e4de" letter-spacing=".3"></text>
         </g>
-        <g id="overlay-lf"  transform="translate(110,74)">
-          <rect x="-42" y="-11" width="84" height="18" rx="3" fill="rgba(0,0,0,.75)" stroke="rgba(255,255,255,.15)" stroke-width=".5"/>
-          <text id="name-lf" x="0" y="4" text-anchor="middle" font-family="'Roboto Mono',monospace" font-size="9" fill="#ddd"></text>
+        <!-- LF — upper left -->
+        <g id="overlay-lf" transform="translate(108,84)">
+          <rect x="-44" y="-10" width="88" height="17" rx="8" fill="rgba(0,0,0,.55)" stroke="rgba(255,255,255,.18)" stroke-width=".5"/>
+          <text id="name-lf" x="0" y="4" text-anchor="middle" font-family="'Inter',sans-serif" font-size="9.5" font-weight="500" fill="#e8e4de" letter-spacing=".3"></text>
         </g>
-        <g id="overlay-rf"  transform="translate(570,74)">
-          <rect x="-42" y="-11" width="84" height="18" rx="3" fill="rgba(0,0,0,.75)" stroke="rgba(255,255,255,.15)" stroke-width=".5"/>
-          <text id="name-rf" x="0" y="4" text-anchor="middle" font-family="'Roboto Mono',monospace" font-size="9" fill="#ddd"></text>
+        <!-- RF — upper right -->
+        <g id="overlay-rf" transform="translate(572,84)">
+          <rect x="-44" y="-10" width="88" height="17" rx="8" fill="rgba(0,0,0,.55)" stroke="rgba(255,255,255,.18)" stroke-width=".5"/>
+          <text id="name-rf" x="0" y="4" text-anchor="middle" font-family="'Inter',sans-serif" font-size="9.5" font-weight="500" fill="#e8e4de" letter-spacing=".3"></text>
         </g>
-        <g id="overlay-ss"  transform="translate(252,170)">
-          <rect x="-42" y="-11" width="84" height="18" rx="3" fill="rgba(0,0,0,.75)" stroke="rgba(255,255,255,.15)" stroke-width=".5"/>
-          <text id="name-ss" x="0" y="4" text-anchor="middle" font-family="'Roboto Mono',monospace" font-size="9" fill="#ddd"></text>
+        <!-- SS — left of 2nd, between 2nd and 3rd -->
+        <g id="overlay-ss" transform="translate(244,184)">
+          <rect x="-44" y="-10" width="88" height="17" rx="8" fill="rgba(0,0,0,.55)" stroke="rgba(255,255,255,.18)" stroke-width=".5"/>
+          <text id="name-ss" x="0" y="4" text-anchor="middle" font-family="'Inter',sans-serif" font-size="9.5" font-weight="500" fill="#e8e4de" letter-spacing=".3"></text>
         </g>
-        <g id="overlay-2b-p" transform="translate(428,170)">
-          <rect x="-42" y="-11" width="84" height="18" rx="3" fill="rgba(0,0,0,.75)" stroke="rgba(255,255,255,.15)" stroke-width=".5"/>
-          <text id="name-2b" x="0" y="4" text-anchor="middle" font-family="'Roboto Mono',monospace" font-size="9" fill="#ddd"></text>
+        <!-- 2B — right of 2nd, between 2nd and 1st -->
+        <g id="overlay-2b-p" transform="translate(436,184)">
+          <rect x="-44" y="-10" width="88" height="17" rx="8" fill="rgba(0,0,0,.55)" stroke="rgba(255,255,255,.18)" stroke-width=".5"/>
+          <text id="name-2b" x="0" y="4" text-anchor="middle" font-family="'Inter',sans-serif" font-size="9.5" font-weight="500" fill="#e8e4de" letter-spacing=".3"></text>
         </g>
-        <g id="overlay-3b-p" transform="translate(138,232)">
-          <rect x="-42" y="-11" width="84" height="18" rx="3" fill="rgba(0,0,0,.75)" stroke="rgba(255,255,255,.15)" stroke-width=".5"/>
-          <text id="name-3b" x="0" y="4" text-anchor="middle" font-family="'Roboto Mono',monospace" font-size="9" fill="#ddd"></text>
+        <!-- 3B — left, outside dirt circle -->
+        <g id="overlay-3b-p" transform="translate(116,258)">
+          <rect x="-44" y="-10" width="88" height="17" rx="8" fill="rgba(0,0,0,.55)" stroke="rgba(255,255,255,.18)" stroke-width=".5"/>
+          <text id="name-3b" x="0" y="4" text-anchor="middle" font-family="'Inter',sans-serif" font-size="9.5" font-weight="500" fill="#e8e4de" letter-spacing=".3"></text>
         </g>
-        <g id="overlay-1b-p" transform="translate(542,232)">
-          <rect x="-42" y="-11" width="84" height="18" rx="3" fill="rgba(0,0,0,.75)" stroke="rgba(255,255,255,.15)" stroke-width=".5"/>
-          <text id="name-1b" x="0" y="4" text-anchor="middle" font-family="'Roboto Mono',monospace" font-size="9" fill="#ddd"></text>
+        <!-- 1B — right, outside dirt circle -->
+        <g id="overlay-1b-p" transform="translate(564,258)">
+          <rect x="-44" y="-10" width="88" height="17" rx="8" fill="rgba(0,0,0,.55)" stroke="rgba(255,255,255,.18)" stroke-width=".5"/>
+          <text id="name-1b" x="0" y="4" text-anchor="middle" font-family="'Inter',sans-serif" font-size="9.5" font-weight="500" fill="#e8e4de" letter-spacing=".3"></text>
+        </g>
+        <!-- Catcher name pill -->
+        <g id="overlay-c" transform="translate(340,440)">
+          <rect x="-44" y="-10" width="88" height="17" rx="8" fill="rgba(0,0,0,.55)" stroke="rgba(255,255,255,.18)" stroke-width=".5"/>
+          <text id="name-c" x="0" y="4" text-anchor="middle" font-family="'Inter',sans-serif" font-size="9.5" font-weight="500" fill="#e8e4de" letter-spacing=".3"></text>
         </g>
 
         <!-- BSO OVERLAY top right -->
-        <rect x="590" y="8" width="82" height="68" rx="5" fill="rgba(10,12,14,.85)" stroke="rgba(255,255,255,.12)" stroke-width=".5"/>
-        <text x="598" y="26" font-family="'Roboto Mono',monospace" font-size="10" fill="#7A8290">B</text>
-        <circle id="ov-b1" cx="616" cy="22" r="5" fill="transparent" stroke="rgba(255,255,255,.25)" stroke-width="1.5"/>
-        <circle id="ov-b2" cx="628" cy="22" r="5" fill="transparent" stroke="rgba(255,255,255,.25)" stroke-width="1.5"/>
-        <circle id="ov-b3" cx="640" cy="22" r="5" fill="transparent" stroke="rgba(255,255,255,.25)" stroke-width="1.5"/>
-        <text x="598" y="45" font-family="'Roboto Mono',monospace" font-size="10" fill="#7A8290">S</text>
-        <circle id="ov-s1" cx="616" cy="41" r="5" fill="transparent" stroke="rgba(255,255,255,.25)" stroke-width="1.5"/>
-        <circle id="ov-s2" cx="628" cy="41" r="5" fill="transparent" stroke="rgba(255,255,255,.25)" stroke-width="1.5"/>
-        <text x="598" y="64" font-family="'Roboto Mono',monospace" font-size="10" fill="#7A8290">O</text>
-        <circle id="ov-o1" cx="616" cy="60" r="5" fill="transparent" stroke="rgba(255,255,255,.25)" stroke-width="1.5"/>
-        <circle id="ov-o2" cx="628" cy="60" r="5" fill="transparent" stroke="rgba(255,255,255,.25)" stroke-width="1.5"/>
+        <rect x="594" y="8" width="78" height="66" rx="6" fill="rgba(10,12,14,.82)" stroke="rgba(255,255,255,.1)" stroke-width=".5"/>
+        <text x="602" y="25" font-family="'Roboto Mono',monospace" font-size="10" fill="#5a6270">B</text>
+        <circle id="ov-b1" cx="618" cy="21" r="5" fill="transparent" stroke="rgba(255,255,255,.2)" stroke-width="1.5"/>
+        <circle id="ov-b2" cx="630" cy="21" r="5" fill="transparent" stroke="rgba(255,255,255,.2)" stroke-width="1.5"/>
+        <circle id="ov-b3" cx="642" cy="21" r="5" fill="transparent" stroke="rgba(255,255,255,.2)" stroke-width="1.5"/>
+        <text x="602" y="44" font-family="'Roboto Mono',monospace" font-size="10" fill="#5a6270">S</text>
+        <circle id="ov-s1" cx="618" cy="40" r="5" fill="transparent" stroke="rgba(255,255,255,.2)" stroke-width="1.5"/>
+        <circle id="ov-s2" cx="630" cy="40" r="5" fill="transparent" stroke="rgba(255,255,255,.2)" stroke-width="1.5"/>
+        <text x="602" y="63" font-family="'Roboto Mono',monospace" font-size="10" fill="#5a6270">O</text>
+        <circle id="ov-o1" cx="618" cy="59" r="5" fill="transparent" stroke="rgba(255,255,255,.2)" stroke-width="1.5"/>
+        <circle id="ov-o2" cx="630" cy="59" r="5" fill="transparent" stroke="rgba(255,255,255,.2)" stroke-width="1.5"/>
 
         <!-- VELO OVERLAY bottom left -->
-        <rect x="8" y="384" width="118" height="32" rx="5" fill="rgba(10,12,14,.88)" stroke="rgba(232,83,10,.35)" stroke-width=".5"/>
-        <text id="ov-velo" x="67" y="398" text-anchor="middle" font-family="'Oswald',sans-serif" font-size="17" font-weight="700" fill="#E8530A">— MPH</text>
-        <text id="ov-type" x="67" y="411" text-anchor="middle" font-family="'Roboto Mono',monospace" font-size="9" fill="#7A8290"></text>
+        <rect x="8" y="422" width="118" height="30" rx="5" fill="rgba(10,12,14,.88)" stroke="rgba(232,83,10,.3)" stroke-width=".5"/>
+        <text id="ov-velo" x="67" y="436" text-anchor="middle" font-family="'Oswald',sans-serif" font-size="16" font-weight="700" fill="#E8530A">— MPH</text>
+        <text id="ov-type" x="67" y="448" text-anchor="middle" font-family="'Roboto Mono',monospace" font-size="9" fill="#7A8290"></text>
 
-        <!-- BATTER name near home -->
-        <text id="ov-batter" x="340" y="418" text-anchor="middle" font-family="'Roboto Mono',monospace" font-size="9" fill="#E8530A" opacity=".9"></text>
+        <!-- BATTER name at home -->
+        <text id="ov-batter" x="340" y="457" text-anchor="middle" font-family="'Inter',sans-serif" font-size="10" font-weight="600" fill="#E8530A" opacity=".95"></text>
       </svg>
     </div>
 
@@ -633,7 +645,8 @@ function updateScoreboard(game) {
 function updateFieldOverlays(lineup, isTop) {
   var posMap = {
     'CF':'name-cf','LF':'name-lf','RF':'name-rf',
-    'SS':'name-ss','2B':'name-2b','3B':'name-3b','1B':'name-1b'
+    'SS':'name-ss','2B':'name-2b','3B':'name-3b',
+    '1B':'name-1b','C':'name-c'
   }
   // Clear all overlays first
   Object.values(posMap).forEach(function(elId){
