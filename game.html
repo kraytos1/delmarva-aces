@@ -485,6 +485,7 @@ async function loadLiveGame() {
     var game = data[0]
     liveGame = game
     updateScoreboard(game)
+    // Bases already loaded via updateScoreboard above
     document.getElementById('pregame-screen').style.display = 'none'
 
     // Load lineup from game notes
@@ -631,7 +632,11 @@ function updateScoreboard(game) {
   ovPip('ov-s1','ov-s2',null,s,'#e74c3c')
   ovPip('ov-o1','ov-o2',null,o,'#666')
 
-  // Swap field overlays based on half inning
+  // Sync bases from game record
+  if (game.base_1b !== undefined) {
+    bases = [!!game.base_1b, !!game.base_2b, !!game.base_3b]
+    renderBases()
+  }
   var isTop = game.half === 'top' || !game.half
   if (liveGame && liveGame.notes) {
     try {

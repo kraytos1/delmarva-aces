@@ -187,9 +187,17 @@ body{background:var(--black);color:var(--text);font-family:var(--body);min-heigh
     </div>
     <div class="top-right">
       <div class="score-pill">
-        <span class="s-num" id="sc-us">0</span>
+        <div style="display:flex;flex-direction:column;align-items:center;gap:0px;">
+          <button onclick="adjScore('us',1)"  style="background:none;border:none;color:var(--orange);font-size:11px;cursor:pointer;line-height:1;padding:1px 4px;">▲</button>
+          <span class="s-num" id="sc-us">0</span>
+          <button onclick="adjScore('us',-1)" style="background:none;border:none;color:var(--muted);font-size:11px;cursor:pointer;line-height:1;padding:1px 4px;">▼</button>
+        </div>
         <span class="s-sep">–</span>
-        <span class="s-num" id="sc-them">0</span>
+        <div style="display:flex;flex-direction:column;align-items:center;gap:0px;">
+          <button onclick="adjScore('them',1)"  style="background:none;border:none;color:var(--orange);font-size:11px;cursor:pointer;line-height:1;padding:1px 4px;">▲</button>
+          <span class="s-num" id="sc-them">0</span>
+          <button onclick="adjScore('them',-1)" style="background:none;border:none;color:var(--muted);font-size:11px;cursor:pointer;line-height:1;padding:1px 4px;">▼</button>
+        </div>
       </div>
       <div class="sync-dot" id="sync-dot"></div>
     </div>
@@ -844,19 +852,22 @@ function applyBaserunners(r) {
 
 async function pushState() {
   if(!S.gameId) return
-  // Always save state locally first
-  try { localStorage.setItem('aces_game_state_'+S.gameId, JSON.stringify({
+  var state = {
     our_score:S.scores.us, opp_score:S.scores.them,
     inning:S.inning, half:S.isTop?'top':'bottom',
-    outs:S.outs, balls:S.balls, strikes:S.strikes
-  })) } catch(e){}
-  // Then try to push to Supabase
+    outs:S.outs, balls:S.balls, strikes:S.strikes,
+    notes: S.game?.notes  // preserve lineup
+  }
+  // Save locally first
+  try { localStorage.setItem('aces_game_state_'+S.gameId, JSON.stringify(state)) } catch(e){}
+  // Push to Supabase
   try{
     if(!isOnline) return
     await db.from('games').update({
-      our_score:S.scores.us,opp_score:S.scores.them,
-      inning:S.inning,half:S.isTop?'top':'bottom',
-      outs:S.outs,balls:S.balls,strikes:S.strikes
+      our_score:S.scores.us, opp_score:S.scores.them,
+      inning:S.inning, half:S.isTop?'top':'bottom',
+      outs:S.outs, balls:S.balls, strikes:S.strikes,
+      base_1b:S.bases[0], base_2b:S.bases[1], base_3b:S.bases[2]
     }).eq('id',S.gameId)
   }catch(e){}
 }
@@ -915,7 +926,7 @@ function pickOutcome(v,l){
 }
 
 /* ── CONTROLS ── */
-function toggleBase(b){S.bases[b-1]=!S.bases[b-1];renderBases()}
+function toggleBase(b){S.bases[b-1]=!S.bases[b-1];renderBases();pushState()}
 function setOuts(n){S.outs=S.outs===n?n-1:n;renderCount()}
 function mc(t,i){
   if(t==='b')S.balls=S.balls===i+1?i:i+1
