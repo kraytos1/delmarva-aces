@@ -415,6 +415,8 @@ var S = {
   currentPitcherId:null,// our pitcher's player ID
   currentPitcherName:'',
   oppPitcher:'',
+  oppLineup:[],
+  currentOppBatterIdx:0,
   pitcherPitchCount:0   // running count for current pitcher
 }
 
@@ -503,6 +505,7 @@ async function startScoring() {
       S.acesLineup = saved.aces_lineup || []
       S.currentPitcherId = saved.aces_pitcher_id || null
       S.oppPitcher = saved.opp_pitcher || ''
+      S.oppLineup  = saved.opp_lineup  || []
 
       // Find pitcher name
       if(S.currentPitcherId && S.acesLineup.length) {
@@ -528,26 +531,29 @@ async function startScoring() {
 
 /* ── LINEUP DISPLAY ── */
 function updateBatterDisplay() {
-  if(!S.acesLineup.length) return
-  var idx = S.currentBatterIdx % S.acesLineup.length
-  var batter = S.acesLineup[idx]
-  if(!batter) return
-
-  // Update at-bat panel
-  var name = batter.playerName || '—'
-  var num  = batter.jerseyNum  ? '#'+batter.jerseyNum : ''
-  var pos  = batter.position   || ''
-  setText('ab-batter', name)
-  setText('ab-stats', num+(pos?' · '+pos:''))
-
-  // Update field batter label
-  var fldBatter = document.getElementById('fld-batter')
-  if(fldBatter) fldBatter.textContent = batter.playerName ? batter.playerName.split(' ').pop() : ''
-
-  // Top half = Aces batting, opponent pitching
-  // Bottom half = Aces pitching, opponent batting
-  var oppPitcherDisplay = S.oppPitcher || 'Opp. Pitcher'
-  var pitcherName = S.isTop ? oppPitcherDisplay : (S.currentPitcherName || '—')
+  if (S.isTop) {
+    // Aces batting — show current Aces batter
+    var validLineup = S.acesLineup.filter(function(e){return e.playerName})
+    if (!validLineup.length) { setText('ab-batter','—'); setText('ab-stats',''); }
+    else {
+      var idx = S.currentBatterIdx % validLineup.length
+      var batter = validLineup[idx]
+      setText('ab-batter', batter.playerName || '—')
+      setText('ab-stats', (batter.jerseyNum?'#'+batter.jerseyNum:'')+(batter.position?' · '+batter.position:''))
+      var fldBatter = document.getElementById('fld-batter')
+      if(fldBatter) fldBatter.textContent = batter.playerName ? batter.playerName.split(' ').pop() : ''
+    }
+  } else {
+    // Aces pitching — show opponent batter
+    var oppIdx = (S.currentOppBatterIdx||0) % Math.max(1, S.oppLineup ? S.oppLineup.length : 1)
+    var oppBatter = S.oppLineup && S.oppLineup.length ? S.oppLineup[oppIdx] : null
+    setText('ab-batter', oppBatter ? oppBatter.name : 'Opp. Batter')
+    setText('ab-stats', oppBatter ? oppBatter.position : '')
+    var fld2 = document.getElementById('fld-batter')
+    if(fld2) fld2.textContent = ''
+  }
+  // Pitcher
+  var pitcherName = S.isTop ? (S.oppPitcher||'Opp. Pitcher') : (S.currentPitcherName||'—')
   setText('ab-pitcher', pitcherName)
   setText('ab-pc', 'PC '+S.pitcherPitchCount)
 }
@@ -679,6 +685,11 @@ async function logAB(result, label, skipPitchLog) {
   if(CLIP.includes(result)) setTimeout(function(){showToast('📹 Clip queued!')},800)
   // Auto-advance Aces batter when we're hitting (top half)
   if(S.isTop && S.acesLineup.length) advanceBatter()
+  // Auto-advance opponent batter when they're hitting (bottom half)
+  if(!S.isTop && S.oppLineup.length){
+    S.currentOppBatterIdx=(S.currentOppBatterIdx+1)%S.oppLineup.length
+    updateBatterDisplay()
+  }
   if(S.outs>=3){setTimeout(function(){if(confirm('3 outs — end half?'))newHalf()},300)}
   await pushState(); renderAll()
 }
