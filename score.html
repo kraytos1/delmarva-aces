@@ -990,7 +990,7 @@ async function endGame(){
   if(!confirm('End game? Final: Aces '+S.scores.us+' – '+S.scores.them))return
   await db.from('games').update({status:'final',our_score:S.scores.us,opp_score:S.scores.them}).eq('id',S.gameId)
   showToast('Game final! ✓')
-  setTimeout(function(){window.location='/'},2000)
+  setTimeout(function(){window.location="/index.html"},2000)
 }
 
 /* ── RENDER ── */
