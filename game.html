@@ -27,7 +27,7 @@ body{background:var(--black);color:var(--text);font-family:var(--body);overflow-
 /* NAV */
 nav{background:rgba(10,12,14,.95);border-bottom:1px solid var(--bdr);display:flex;align-items:center;justify-content:space-between;padding:0 20px;height:52px;position:sticky;top:0;z-index:100;}
 .nav-brand{display:flex;align-items:center;gap:10px;cursor:pointer;}
-.nav-logo{width:32px;height:32px;background:var(--orange);border-radius:5px;display:flex;align-items:center;justify-content:center;font-family:var(--display);font-size:17px;font-weight:700;color:white;}
+.nav-logo{width:36px;height:36px;display:flex;align-items:center;justify-content:center;}.nav-logo img{width:36px;height:36px;object-fit:contain;filter:drop-shadow(0 0 8px rgba(232,83,10,.3));}
 .nav-name{font-family:var(--display);font-size:15px;font-weight:600;color:var(--text);}
 .nav-name span{color:var(--orange);}
 .live-badge{display:flex;align-items:center;gap:6px;background:rgba(61,220,106,.1);border:1px solid rgba(61,220,106,.3);border-radius:20px;padding:4px 12px;font-family:var(--mono);font-size:11px;color:var(--green);}
@@ -146,7 +146,7 @@ nav{background:rgba(10,12,14,.95);border-bottom:1px solid var(--bdr);display:fle
 
 <nav>
   <div class="nav-brand" onclick="window.location="/index.html"">
-    <img src="/logo.png" alt="Aces" style="width:36px;height:36px;object-fit:contain;"/>
+    <div class="nav-logo"><img src="/logo.png" alt="Aces"/></div>
     <span class="nav-name">Delmarva <span>Aces</span></span>
   </div>
   <div id="nav-badge" class="pre-badge">
