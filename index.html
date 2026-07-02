@@ -274,16 +274,30 @@
 <!-- ══ ROSTER ══ -->
 <div class="page" id="page-roster">
   <div class="roster-header">
-    <div class="roster-season">Spring 2026 Season Stats</div>
+    <!-- SEASON SELECTOR -->
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px;">
+      <span style="font-family:var(--mono);font-size:10px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;">Season</span>
+      <div style="display:flex;gap:4px;background:var(--dark3);border:1px solid var(--bdr);border-radius:8px;padding:3px;">
+        <button id="season-btn-spring2026" onclick="setSeason('spring2026')"
+          style="font-family:var(--mono);font-size:11px;padding:5px 12px;border-radius:5px;border:none;cursor:pointer;transition:all .15s;background:var(--orange);color:white;">
+          Spring 2026 🏆
+        </button>
+        <button id="season-btn-fall2026" onclick="setSeason('fall2026')"
+          style="font-family:var(--mono);font-size:11px;padding:5px 12px;border-radius:5px;border:none;cursor:pointer;transition:all .15s;background:transparent;color:var(--muted);">
+          Fall 2026
+        </button>
+      </div>
+    </div>
+    <div class="roster-season" id="roster-season-label">Spring 2026 · 12U East · 62–2 Champions 🏆</div>
     <div class="roster-page-title">Delmarva Aces</div>
     <div class="roster-meta" id="roster-meta">12U East · Loading...</div>
     <div class="team-stat-bar">
-      <div class="tsb-item"><div class="tsb-val" id="ts-avg">.457</div><div class="tsb-lbl">Team AVG</div></div>
-      <div class="tsb-item"><div class="tsb-val" id="ts-rbi">541</div><div class="tsb-lbl">RBI</div></div>
-      <div class="tsb-item"><div class="tsb-val" id="ts-r">661</div><div class="tsb-lbl">Runs</div></div>
-      <div class="tsb-item"><div class="tsb-val" id="ts-sb">276</div><div class="tsb-lbl">SB</div></div>
-      <div class="tsb-item"><div class="tsb-val" id="ts-hr">116</div><div class="tsb-lbl">HR</div></div>
-      <div class="tsb-item"><div class="tsb-val" id="ts-era">2.80</div><div class="tsb-lbl">ERA</div></div>
+      <div class="tsb-item"><div class="tsb-val" id="ts-avg">.467</div><div class="tsb-lbl">Team AVG</div></div>
+      <div class="tsb-item"><div class="tsb-val" id="ts-rbi">685</div><div class="tsb-lbl">RBI</div></div>
+      <div class="tsb-item"><div class="tsb-val" id="ts-r">816</div><div class="tsb-lbl">Runs</div></div>
+      <div class="tsb-item"><div class="tsb-val" id="ts-sb">316</div><div class="tsb-lbl">SB</div></div>
+      <div class="tsb-item"><div class="tsb-val" id="ts-hr">177</div><div class="tsb-lbl">HR</div></div>
+      <div class="tsb-item"><div class="tsb-val" id="ts-era">2.99</div><div class="tsb-lbl">ERA</div></div>
     </div>
   </div>
 
@@ -357,13 +371,27 @@
 <!-- ══ SCHEDULE ══ -->
 <div class="page" id="page-schedule">
   <div class="roster-header">
-    <div class="roster-season">Spring 2026 Season</div>
+    <!-- SEASON SELECTOR -->
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px;">
+      <span style="font-family:var(--mono);font-size:10px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;">Season</span>
+      <div style="display:flex;gap:4px;background:var(--dark3);border:1px solid var(--bdr);border-radius:8px;padding:3px;">
+        <button id="sch-season-btn-spring2026" onclick="setSeason('spring2026')"
+          style="font-family:var(--mono);font-size:11px;padding:5px 12px;border-radius:5px;border:none;cursor:pointer;transition:all .15s;background:var(--orange);color:white;">
+          Spring 2026 🏆
+        </button>
+        <button id="sch-season-btn-fall2026" onclick="setSeason('fall2026')"
+          style="font-family:var(--mono);font-size:11px;padding:5px 12px;border-radius:5px;border:none;cursor:pointer;transition:all .15s;background:transparent;color:var(--muted);">
+          Fall 2026
+        </button>
+      </div>
+    </div>
+    <div class="roster-season" id="schedule-season-label">Spring 2026 · 12U East</div>
     <div class="roster-page-title">Schedule &amp; Results</div>
     <div class="roster-meta" id="schedule-meta">Loading...</div>
     <div class="team-stat-bar" style="margin-top:16px;">
-      <div class="tsb-item"><div class="tsb-val" id="sch-w">52</div><div class="tsb-lbl">Wins</div></div>
+      <div class="tsb-item"><div class="tsb-val" id="sch-w">62</div><div class="tsb-lbl">Wins</div></div>
       <div class="tsb-item"><div class="tsb-val" id="sch-l">2</div><div class="tsb-lbl">Losses</div></div>
-      <div class="tsb-item"><div class="tsb-val" id="sch-pct">.963</div><div class="tsb-lbl">Win %</div></div>
+      <div class="tsb-item"><div class="tsb-val" id="sch-pct">.969</div><div class="tsb-lbl">Win %</div></div>
       <div class="tsb-item"><div class="tsb-val" id="sch-rs">—</div><div class="tsb-lbl">Runs For</div></div>
       <div class="tsb-item"><div class="tsb-val" id="sch-ra">—</div><div class="tsb-lbl">Runs Against</div></div>
     </div>
@@ -490,8 +518,99 @@ var FALLBACK_GAMES = [
 ];
 
 // ─────────────────────────────────────────────────────────
-// STATE
+// SEASON CONFIG
+// Change activeSeason to 'fall2026' when Fall season starts
 // ─────────────────────────────────────────────────────────
+var ACTIVE_SEASON = (typeof ACES_CONFIG !== 'undefined' && ACES_CONFIG.activeSeason)
+  ? ACES_CONFIG.activeSeason : 'spring2026'
+
+var SEASON_META = {
+  spring2026: {
+    label:    'Spring 2026 · 12U East · 62–2 Champions 🏆',
+    schLabel: 'Spring 2026 · 12U East',
+    teamName: 'Delmarva Aces 12U East',
+    record:   '62–2',
+  },
+  fall2026: {
+    label:    'Fall 2026 · 13U East',
+    schLabel: 'Fall 2026 · 13U East',
+    teamName: 'Delmarva Aces 13U East',
+    record:   '—',
+  }
+}
+
+function setSeason(season) {
+  ACTIVE_SEASON = season
+
+  // Update both season selectors
+  ;['spring2026','fall2026'].forEach(function(s) {
+    var isActive = s === season
+    ;['season-btn-'+s, 'sch-season-btn-'+s].forEach(function(id) {
+      var el = document.getElementById(id)
+      if (el) {
+        el.style.background = isActive ? 'var(--orange)' : 'transparent'
+        el.style.color = isActive ? 'white' : 'var(--muted)'
+      }
+    })
+  })
+
+  var meta = SEASON_META[season]
+  if (meta) {
+    setText('roster-season-label', meta.label)
+    setText('schedule-season-label', meta.schLabel)
+  }
+
+  if (season === 'spring2026') {
+    // Load archived Spring 2026 stats
+    players = FALLBACK_PLAYERS
+    allGames = FALLBACK_GAMES.map(function(g){
+      return {
+        game_date: g.date, our_score: g.us, opp_score: g.them,
+        status: 'final', is_home: true,
+        tournament: g.event, location: g.location||'',
+        opponents: {name: g.opp}
+      }
+    })
+    setText('ts-avg', '.467'); setText('ts-rbi', '685')
+    setText('ts-r', '816');   setText('ts-sb', '316')
+    setText('ts-hr', '177');  setText('ts-era', '2.99')
+    setText('sch-w', '62');   setText('sch-l', '2')
+    setText('sch-pct', '.969')
+    setText('roster-season-label', 'Spring 2026 · 12U East · 62–2 Champions 🏆')
+    setText('last-updated', 'Final season stats · Spring 2026 · GameChanger')
+  } else {
+    // Fall 2026 — load from Supabase live data
+    players = []
+    allGames = []
+    setText('ts-avg','—');setText('ts-rbi','—')
+    setText('ts-r','—');setText('ts-sb','—')
+    setText('ts-hr','—');setText('ts-era','—')
+    setText('sch-w','—');setText('sch-l','—')
+    setText('sch-pct','—')
+    setText('roster-season-label','Fall 2026 · 13U East · Season in progress')
+    setText('last-updated','Live stats · Fall 2026')
+    // Try to load from Supabase
+    loadFall2026Stats()
+  }
+
+  renderBatting()
+  renderPitching()
+  renderSchedule()
+  renderResults()
+}
+
+async function loadFall2026Stats() {
+  if (!db) return
+  try {
+    var {data} = await db.from('player_season_stats').select('*').order('jersey_num')
+    if (data && data.length) {
+      players = data.map(mapDBPlayer)
+      renderBatting(); renderPitching()
+    } else {
+      setText('roster-meta', 'Delmarva Aces 13U East · Season starting soon')
+    }
+  } catch(e) {}
+}
 var db = null
 var players = FALLBACK_PLAYERS
 var games = FALLBACK_GAMES
@@ -594,6 +713,8 @@ async function init() {
   updateCountdown()
   setInterval(updateCountdown, 30000)
   clearTimeout(loadTimeout)
+  // Initialize season selector state
+  setSeason(ACTIVE_SEASON)
   hideLoading()
 }
 

@@ -1,7 +1,7 @@
 // ─────────────────────────────────────────────────────────
 // config.js · Delmarva Aces
 // Single source of truth for all credentials
-// Edit ONLY this file when keys change
+// Edit ONLY this file when keys or settings change
 // ─────────────────────────────────────────────────────────
 
 const ACES_CONFIG = {
@@ -11,4 +11,11 @@ const ACES_CONFIG = {
   ytApiKey:     'AIzaSyDqxQVhuhZHHaycgMA34vqfemQnqAAy_RQ',
 teamId:       'a0000000-0000-0000-0000-000000000001',
   pin:          '2000'
+
+
+  // ── SEASON CONTROL ──────────────────────────────────────
+  // 'spring2026' → shows archived 62-2 championship season
+  // 'fall2026'   → shows live Fall 2026 13U East season
+  // Change to 'fall2026' when the new season starts
+  activeSeason:   'spring2026'
 }
