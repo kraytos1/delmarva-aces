@@ -218,10 +218,10 @@
       <h1 class="hero-title"><div>Play Hard,</div><div class="line2">Play Smart.</div></h1>
       <p class="hero-desc">Live game streams, pitch-by-pitch scoring, velocity tracking, and auto-generated highlight clips — all in one place for the Aces family.</p>
       <div class="hero-stats" id="hero-stats">
-        <div class="hero-stat"><div class="hero-stat-num" id="hs-avg">.457</div><div class="hero-stat-label">Team AVG</div></div>
-        <div class="hero-stat"><div class="hero-stat-num" id="hs-rbi">541</div><div class="hero-stat-label">Team RBI</div></div>
-        <div class="hero-stat"><div class="hero-stat-num" id="hs-sb">276</div><div class="hero-stat-label">Stolen Bases</div></div>
-        <div class="hero-stat"><div class="hero-stat-num" id="hs-hr">116</div><div class="hero-stat-label">Home Runs</div></div>
+        <div class="hero-stat"><div class="hero-stat-num" id="hs-avg">.467</div><div class="hero-stat-label">Team AVG</div></div>
+        <div class="hero-stat"><div class="hero-stat-num" id="hs-rbi">685</div><div class="hero-stat-label">Team RBI</div></div>
+        <div class="hero-stat"><div class="hero-stat-num" id="hs-sb">316</div><div class="hero-stat-label">Stolen Bases</div></div>
+        <div class="hero-stat"><div class="hero-stat-num" id="hs-hr">177</div><div class="hero-stat-label">Home Runs</div></div>
       </div>
       <div class="hero-cta">
         <button class="btn-primary" onclick="showPage('roster')">▶ Roster &amp; Stats</button>
@@ -423,11 +423,70 @@ var FALLBACK_PLAYERS = [
 ];
 
 var FALLBACK_GAMES = [
-  {W:true,  opp:'Anderson M.',        event:'Perfect Game 12U National', date:'Jun 14', us:14, them:9},
-  {W:true,  opp:'Chesapeake Thunder', event:'Mid-Atlantic Regional',      date:'Jun 10', us:8,  them:3},
-  {W:false, opp:'Carolina Prospects', event:'Mid-Atlantic Regional',      date:'Jun 9',  us:4,  them:7},
-  {W:true,  opp:'DC Grind',           event:'USSSA Virginia',             date:'Jun 1',  us:11, them:2},
-  {W:true,  opp:'Hampton Roads Elite',event:'USSSA Virginia',             date:'May 31', us:6,  them:5},
+  {W:true,  opp:'FS Prime 12U Vero Beach',           event:'PG Vero Beach',          location:'Jackie Robinson Training Complex', date:'2026-02-14', us:16, them:1},
+  {W:true,  opp:'Treasure Coast RBI',                event:'PG Vero Beach',          location:'',                                date:'2026-02-14', us:6,  them:2},
+  {W:true,  opp:'Guatemala Hornets 12u',             event:'PG Vero Beach',          location:'',                                date:'2026-02-15', us:17, them:1},
+  {W:true,  opp:'SFL THUNDER BLACK 12U',             event:'PG Vero Beach',          location:'',                                date:'2026-02-15', us:11, them:6},
+  {W:true,  opp:'Keystone State Bombers Vero 12U',   event:'PG Vero Beach',          location:'Jackie Robinson Training Complex', date:'2026-02-16', us:8,  them:1},
+  {W:true,  opp:'SFL THUNDER BLACK 12U',             event:'PG Vero Beach',          location:'Jackie Robinson Training Complex', date:'2026-02-16', us:4,  them:0},
+  {W:true,  opp:'Burke Bulldogs 12U',                event:'Spring Season',          location:'',                                date:'2026-03-14', us:9,  them:5},
+  {W:true,  opp:'Avon Grove Bombers 12U',            event:'Spring Season',          location:'',                                date:'2026-03-14', us:14, them:0},
+  {W:true,  opp:'Mount Laurel 12U Black',            event:'Spring Season',          location:'',                                date:'2026-03-15', us:20, them:1},
+  {W:true,  opp:'Plymouth Generals 12U',             event:'Spring Season',          location:'',                                date:'2026-03-15', us:8,  them:3},
+  {W:true,  opp:'Bagel Bombers DiMuzio 12U',         event:'Spring Season',          location:'',                                date:'2026-03-15', us:19, them:2},
+  {W:true,  opp:'Keystone State Bombers 12U Natl',   event:'Spring Season',          location:'Big Show Sports',                 date:'2026-03-21', us:14, them:0},
+  {W:true,  opp:'Slims Bulldogs Maroon 12U',         event:'Spring Season',          location:'Big Show Sports',                 date:'2026-03-21', us:12, them:0},
+  {W:true,  opp:'Slims Bulldogs Maroon 12U',         event:'Spring Season',          location:'',                                date:'2026-03-22', us:12, them:5},
+  {W:false, opp:'West Chester Dragons NL 12U',       event:'Spring Season',          location:'',                                date:'2026-03-22', us:10, them:13},
+  {W:true,  opp:'Southern Maryland Aces 12U',        event:'Spring Season',          location:'Old Love Point Park',             date:'2026-03-28', us:15, them:3},
+  {W:true,  opp:'Mt. Airy Bulldogs 12U',             event:'Spring Season',          location:'',                                date:'2026-03-28', us:8,  them:5},
+  {W:true,  opp:'SC Bulldogs 12U Black',             event:'Spring Season',          location:'Old Love Point Park',             date:'2026-03-29', us:9,  them:3},
+  {W:true,  opp:'Delaware Fury 12U',                 event:'Spring Season',          location:'Old Love Point Park',             date:'2026-03-29', us:16, them:0},
+  {W:true,  opp:'Mt. Airy Bulldogs 12U',             event:'Spring Season',          location:'',                                date:'2026-03-29', us:24, them:13},
+  {W:true,  opp:'Mid Atlantic Red Sox 12U',          event:'Spring Season',          location:'Olney Manor Recreational Park',   date:'2026-04-11', us:9,  them:0},
+  {W:true,  opp:'Baltimore Redbirds 12U',            event:'Spring Season',          location:'Olney Manor Recreational Park',   date:'2026-04-11', us:11, them:1},
+  {W:true,  opp:'Frederick Hustlers 12U',            event:'Spring Season',          location:'OBGC',                            date:'2026-04-12', us:10, them:8},
+  {W:true,  opp:'Crazy Wild Green Team',             event:'Spring Season',          location:'',                                date:'2026-04-12', us:11, them:5},
+  {W:true,  opp:'BCC Big Train 12U',                 event:'Spring Season',          location:'',                                date:'2026-04-12', us:12, them:2},
+  {W:true,  opp:'Wahoos Cloninger 12U',              event:'Spring Season',          location:'Kitty Hawk',                      date:'2026-04-18', us:17, them:2},
+  {W:true,  opp:'Virginia Titans 12U',               event:'Spring Season',          location:'Kitty Hawk',                      date:'2026-04-18', us:11, them:1},
+  {W:true,  opp:'Shenandoah Sluggers 12U',           event:'Spring Season',          location:'',                                date:'2026-04-19', us:14, them:2},
+  {W:true,  opp:'NC Revenge 12U',                    event:'Spring Season',          location:'',                                date:'2026-04-19', us:13, them:3},
+  {W:true,  opp:'DMVA Coast 12u',                    event:'Spring Season',          location:'',                                date:'2026-04-19', us:15, them:14},
+  {W:true,  opp:'BCC Big Train 12U',                 event:'Spring Season',          location:'',                                date:'2026-05-02', us:12, them:2},
+  {W:true,  opp:'Maryland Baseball Club 12U',        event:'Spring Season',          location:'',                                date:'2026-05-02', us:10, them:2},
+  {W:true,  opp:'Snyder Bucks Boker 12U',            event:'Spring Season',          location:'Northside Park',                  date:'2026-05-03', us:9,  them:1},
+  {W:true,  opp:'Crazy Wild Green Team',             event:'Spring Season',          location:'Northside Park',                  date:'2026-05-03', us:9,  them:8},
+  {W:true,  opp:'Green Hornets 12U',                 event:'Spring Season',          location:'Northside Park',                  date:'2026-05-03', us:11, them:1},
+  {W:true,  opp:'Frederick Hustlers 12U',            event:'Spring Season',          location:'Osbourn High School',             date:'2026-05-09', us:13, them:1},
+  {W:true,  opp:'Snyder Bucks Boker 12U',            event:'Spring Season',          location:'Osbourn High School',             date:'2026-05-09', us:7,  them:6},
+  {W:true,  opp:'Potomac Riverdogs Blue 12U',        event:'Spring Season',          location:'',                                date:'2026-05-10', us:9,  them:7},
+  {W:true,  opp:'Potomac Riverdogs Blue 12U',        event:'Spring Season',          location:'Osbourn High School',             date:'2026-05-10', us:9,  them:7},
+  {W:false, opp:'HCYP Raiders 12U Blue',             event:'Spring Season',          location:'',                                date:'2026-05-10', us:7,  them:12},
+  {W:true,  opp:'USA Prime Low Country-Grace 12U',   event:'Spring Season',          location:'',                                date:'2026-05-15', us:21, them:0},
+  {W:true,  opp:'Patriots 12U',                      event:'Spring Season',          location:'',                                date:'2026-05-16', us:15, them:0},
+  {W:true,  opp:'WT RAGE 12U',                       event:'Spring Season',          location:'Shipyard Park',                   date:'2026-05-16', us:9,  them:0},
+  {W:true,  opp:'Hilton Head Hurricanes 12U',        event:'Spring Season',          location:'Shipyard Park',                   date:'2026-05-17', us:7,  them:5},
+  {W:true,  opp:'Delaware Express 12U',              event:'Spring Season',          location:'',                                date:'2026-05-23', us:20, them:2},
+  {W:true,  opp:'KI Bucs Silver 12U',                event:'Spring Season',          location:'Pocomoke Little League',          date:'2026-05-24', us:16, them:0},
+  {W:true,  opp:'KOA Waves 12U',                     event:'Spring Season',          location:'Pocomoke Little League',          date:'2026-05-24', us:13, them:1},
+  {W:true,  opp:'KOA Waves 12U',                     event:'Spring Season',          location:'',                                date:'2026-05-25', us:20, them:0},
+  {W:true,  opp:'East Coast Titans 12U Gold',        event:'Spring Season',          location:'',                                date:'2026-05-25', us:6,  them:5},
+  {W:true,  opp:'Central Jersey Rebels GP 12U',      event:'Spring Season',          location:'',                                date:'2026-06-13', us:15, them:3},
+  {W:true,  opp:'Hammers Black 12U',                 event:'Spring Season',          location:'',                                date:'2026-06-13', us:8,  them:5},
+  {W:true,  opp:'Anderson Monarchs 12U',             event:'Spring Season',          location:'Stats Tournaments',               date:'2026-06-14', us:14, them:9},
+  {W:true,  opp:'Hammers Black 12U',                 event:'Spring Season',          location:'',                                date:'2026-06-14', us:12, them:5},
+  {W:true,  opp:'Central Jersey Rebels GP 12U',      event:'Spring Season',          location:'Stats Tournaments',               date:'2026-06-14', us:14, them:6},
+  {W:true,  opp:'Park Sharon Nationals',             event:'Cooperstown Dreams Park', location:'Cooperstown Dreams Park',        date:'2026-06-26', us:11, them:4},
+  {W:true,  opp:'G3 12U - Gonzalez',                 event:'Cooperstown Dreams Park', location:'Cooperstown Dreams Park',        date:'2026-06-26', us:19, them:5},
+  {W:true,  opp:'ZBC 12u Green',                     event:'Cooperstown Dreams Park', location:'Cooperstown Dreams Park',        date:'2026-06-26', us:15, them:0},
+  {W:true,  opp:'Ohio Valley Xpress 12U',            event:'Cooperstown Dreams Park', location:'Cooperstown Dreams Park',        date:'2026-06-27', us:16, them:3},
+  {W:true,  opp:'Knoxville Stars 12U',               event:'Cooperstown Dreams Park', location:'Cooperstown Dreams Park',        date:'2026-06-27', us:15, them:3},
+  {W:true,  opp:'Battle Utah 12U',                   event:'Cooperstown Dreams Park', location:'Cooperstown Dreams Park',        date:'2026-06-28', us:14, them:1},
+  {W:true,  opp:'West Pines Cobras Venom 2032 12U',  event:'Cooperstown Dreams Park', location:'Cooperstown Dreams Park',        date:'2026-06-29', us:16, them:4},
+  {W:true,  opp:'Tidewater Drillers 12U',            event:'Cooperstown Dreams Park', location:'Cooperstown Dreams Park',        date:'2026-06-29', us:13, them:5},
+  {W:true,  opp:'Devine Baseball Navy 12U',          event:'Cooperstown Dreams Park', location:'Cooperstown Dreams Park',        date:'2026-06-29', us:18, them:7},
+  {W:true,  opp:'Wesley Chapel Storm 12U',           event:'Cooperstown Dreams Park', location:'Cooperstown Dreams Park',        date:'2026-06-29', us:18, them:5},
 ];
 
 // ─────────────────────────────────────────────────────────
@@ -946,11 +1005,18 @@ function showPage(id){
   var el=document.getElementById('nav-'+id);if(el)el.classList.add('active')
   window.scrollTo(0,0)
   if(id==='schedule'){
-    // Use DB games if available, otherwise map fallback
     if(allGames.length===0){
       allGames = FALLBACK_GAMES.map(function(g){
-        return {game_date:'2026-06-14',our_score:g.us,opp_score:g.them,
-          is_home:true,tournament:g.event,location:'',opponents:{name:g.opp}}
+        return {
+          game_date: g.date,
+          our_score: g.us,
+          opp_score: g.them,
+          status: 'final',
+          is_home: !g.opp.startsWith('@'),
+          tournament: g.event,
+          location: g.location||'',
+          opponents: {name: g.opp.replace(/^@ /,'').replace(/^vs\. /,'')}
+        }
       })
     }
     renderSchedule()
