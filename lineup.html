@@ -104,6 +104,48 @@ nav{background:#0d1420;border-bottom:1px solid var(--bdr);display:flex;align-ite
     <option value="">Select game...</option>
   </select>
   <button class="go-score" onclick="goToScorer()">Score →</button>
+  <button class="go-score" onclick="openNewGame()" style="background:var(--dark2);border-color:var(--orange);color:var(--orange);">+ New</button>
+</div>
+
+<!-- NEW GAME MODAL -->
+<div class="modal-bg" id="new-game-modal" style="display:none;" onclick="closeNewGame(event)">
+  <div class="modal" onclick="event.stopPropagation()" style="max-height:90vh;overflow-y:auto;">
+    <div class="modal-title">
+      <span>New Game</span>
+      <button class="modal-close" onclick="closeNewGame()">×</button>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:14px;">
+      <div>
+        <div class="field-lbl" style="font-family:var(--mono);font-size:10px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:6px;">Opponent</div>
+        <input class="opp-inp" id="ng-opp" placeholder="e.g. Ohio Valley Xpress" style="margin:0;width:100%;"/>
+        <div id="ng-opp-suggestions" style="margin-top:4px;"></div>
+      </div>
+      <div>
+        <div class="field-lbl" style="font-family:var(--mono);font-size:10px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:6px;">Date</div>
+        <input class="opp-inp" id="ng-date" type="date" style="margin:0;width:100%;color:var(--text);"/>
+      </div>
+      <div>
+        <div class="field-lbl" style="font-family:var(--mono);font-size:10px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:6px;">Tournament / Event</div>
+        <input class="opp-inp" id="ng-tournament" placeholder="e.g. PG World Series" style="margin:0;width:100%;"/>
+      </div>
+      <div>
+        <div class="field-lbl" style="font-family:var(--mono);font-size:10px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:6px;">Location</div>
+        <input class="opp-inp" id="ng-location" placeholder="e.g. Cooperstown, NY" style="margin:0;width:100%;"/>
+      </div>
+      <div style="display:flex;gap:10px;">
+        <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;flex:1;background:var(--dark3);border:1px solid var(--bdr);border-radius:8px;padding:10px 12px;">
+          <input type="radio" name="ng-homeway" value="home" checked style="accent-color:var(--orange);"/> Home
+        </label>
+        <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;flex:1;background:var(--dark3);border:1px solid var(--bdr);border-radius:8px;padding:10px 12px;">
+          <input type="radio" name="ng-homeway" value="away" style="accent-color:var(--orange);"/> Away
+        </label>
+      </div>
+      <button onclick="createGame()" style="background:var(--orange);color:white;border:none;border-radius:10px;padding:14px;font-family:var(--display);font-size:16px;font-weight:600;cursor:pointer;letter-spacing:.5px;text-transform:uppercase;">
+        ⚾ Create Game
+      </button>
+    </div>
+  </div>
 </div>
 
 <div class="tabs">
@@ -187,34 +229,145 @@ async function init() {
   // Load roster
   var {data} = await db.from('players').select('id,jersey_num,first_name,last_name,positions')
     .order('jersey_num')
-  if (data) {
-    roster = data
-    populateRosterSelects()
-  }
-  // Load games
-  var today = new Date(); today.setDate(today.getDate()-1)
-  var {data:games} = await db.from('games').select('*,opponents(name)')
-    .in('status',['scheduled','live'])
-    .gte('game_date', today.toISOString().split('T')[0])
-    .order('game_date').limit(10)
-  if (games && games.length) {
-    var sel = document.getElementById('game-sel')
-    sel.innerHTML = '<option value="">Select game...</option>' +
-      games.map(function(g){
-        var opp = g.opponents?.name||'Opponent'
-        var d = new Date(g.game_date)
-        var ds = d.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric',timeZone:'UTC'})
-        return '<option value="'+g.id+'">'+ds+' vs '+opp+'</option>'
-      }).join('')
-  }
+  if (data) { roster = data; populateRosterSelects() }
+
+  // Load opponents for autocomplete
+  var {data:oppsData} = await db.from('opponents').select('id,name').order('name')
+  if (oppsData) window._opponents = oppsData
+
+  await refreshGamesList()
+
   // Check URL param for game
   var params = new URLSearchParams(window.location.search)
   if (params.get('game')) {
     document.getElementById('game-sel').value = params.get('game')
     loadLineup()
   }
-  // Default: add 9 empty batters
   if (!acesLineup.length) initDefaultLineup()
+}
+
+async function refreshGamesList() {
+  var today = new Date(); today.setDate(today.getDate()-1)
+  var {data:games} = await db.from('games').select('*')
+    .in('status',['scheduled','live'])
+    .gte('game_date', today.toISOString().split('T')[0])
+    .order('game_date').limit(20)
+  if (!games || !games.length) return
+
+  // Load opponent names separately
+  var oppIds = [...new Set(games.map(function(g){return g.opponent_id}).filter(Boolean))]
+  var oppMap = {}
+  if (oppIds.length) {
+    var {data:opps} = await db.from('opponents').select('id,name').in('id', oppIds)
+    if (opps) opps.forEach(function(o){ oppMap[o.id] = o.name })
+  }
+
+  var sel = document.getElementById('game-sel')
+  var cur = sel.value
+  sel.innerHTML = '<option value="">Select game...</option>' +
+    games.map(function(g){
+      var opp = oppMap[g.opponent_id] || 'Opponent'
+      var d = new Date(g.game_date)
+      var ds = d.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric',timeZone:'UTC'})
+      return '<option value="'+g.id+'">'+ds+' vs '+opp+'</option>'
+    }).join('')
+  if (cur) sel.value = cur
+}
+
+/* ── NEW GAME ── */
+function openNewGame() {
+  // Set today's date as default
+  var today = new Date().toISOString().split('T')[0]
+  document.getElementById('ng-date').value = today
+  document.getElementById('ng-opp').value = ''
+  document.getElementById('ng-tournament').value = ''
+  document.getElementById('ng-location').value = ''
+  document.getElementById('new-game-modal').style.display = 'flex'
+
+  // Wire up opponent autocomplete
+  document.getElementById('ng-opp').addEventListener('input', function(){
+    var val = this.value.toLowerCase()
+    var opps = window._opponents || []
+    var matches = opps.filter(function(o){ return o.name.toLowerCase().includes(val) }).slice(0,5)
+    var sug = document.getElementById('ng-opp-suggestions')
+    if (!val || !matches.length) { sug.innerHTML = ''; return }
+    sug.innerHTML = matches.map(function(o){
+      return '<div onclick="selectOpp(\''+o.name+'\')" style="padding:8px 12px;background:var(--dark3);border:1px solid var(--bdr);border-radius:6px;margin-bottom:4px;cursor:pointer;font-size:13px;">'+o.name+'</div>'
+    }).join('')
+  })
+}
+
+function selectOpp(name) {
+  document.getElementById('ng-opp').value = name
+  document.getElementById('ng-opp-suggestions').innerHTML = ''
+}
+
+function closeNewGame(e) {
+  if (!e || e.target.id === 'new-game-modal')
+    document.getElementById('new-game-modal').style.display = 'none'
+}
+
+async function createGame() {
+  var oppName    = document.getElementById('ng-opp').value.trim()
+  var gameDate   = document.getElementById('ng-date').value
+  var tournament = document.getElementById('ng-tournament').value.trim()
+  var location   = document.getElementById('ng-location').value.trim()
+  var isHome     = document.querySelector('input[name="ng-homeway"]:checked').value === 'home'
+
+  if (!oppName) { showToast('Enter opponent name'); return }
+  if (!gameDate) { showToast('Pick a date'); return }
+
+  showToast('Creating game...')
+
+  try {
+    // Upsert opponent
+    var {data:existingOpp} = await db.from('opponents').select('id').ilike('name', oppName).limit(1)
+    var oppId
+    if (existingOpp && existingOpp.length) {
+      oppId = existingOpp[0].id
+    } else {
+      var {data:newOpp} = await db.from('opponents').insert({name:oppName}).select().single()
+      oppId = newOpp.id
+      // Add to local list
+      if (!window._opponents) window._opponents = []
+      window._opponents.push({id:oppId, name:oppName})
+    }
+
+    // Create game
+    var {data:newGame} = await db.from('games').insert({
+      team_id:     ACES_CONFIG.teamId,
+      opponent_id: oppId,
+      game_date:   gameDate,
+      status:      'scheduled',
+      our_score:   0,
+      opp_score:   0,
+      inning:      1,
+      half:        'top',
+      outs:        0,
+      balls:       0,
+      strikes:     0,
+      tournament:  tournament || null,
+      location:    location   || null,
+      is_home:     isHome,
+      base_1b:     false,
+      base_2b:     false,
+      base_3b:     false
+    }).select().single()
+
+    // Close modal, refresh list, select new game
+    document.getElementById('new-game-modal').style.display = 'none'
+    await refreshGamesList()
+    document.getElementById('game-sel').value = newGame.id
+    gameId = newGame.id
+    document.getElementById('nav-game-name').textContent =
+      oppName + ' · ' + new Date(gameDate).toLocaleDateString('en-US',{month:'short',day:'numeric',timeZone:'UTC'})
+    initDefaultLineup()
+    showToast('Game created ✓ Set your lineup!')
+
+  } catch(e) {
+    console.error('Create game error:', e)
+    showToast('Error creating game — check connection')
+  }
 }
 
 function initDefaultLineup() {
@@ -417,7 +570,7 @@ async function loadLineup() {
   document.getElementById('nav-game-name').textContent = sel.options[sel.selectedIndex].text
 
   try {
-    var {data} = await db.from('games').select('notes,opponents(name)').eq('id',gameId).single()
+    var {data} = await db.from('games').select('notes').eq('id',gameId).single()
     if(data?.notes) {
       var saved = JSON.parse(data.notes)
       acesLineup = saved.aces_lineup || []
@@ -433,7 +586,6 @@ async function loadLineup() {
       return
     }
   } catch(e) {}
-  // No saved lineup yet
   initDefaultLineup()
   oppLineup = []; renderOppLineup()
 }
