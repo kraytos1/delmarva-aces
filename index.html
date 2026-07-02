@@ -593,10 +593,10 @@ function setSeason(season) {
     loadFall2026Stats()
   }
 
-  renderBatting()
-  renderPitching()
-  renderSchedule()
-  renderResults()
+  try { renderBatting() } catch(e) {}
+  try { renderPitching() } catch(e) {}
+  try { renderSchedule() } catch(e) {}
+  try { renderResults() } catch(e) {}
 }
 
 async function loadFall2026Stats() {
@@ -714,7 +714,7 @@ async function init() {
   setInterval(updateCountdown, 30000)
   clearTimeout(loadTimeout)
   // Initialize season selector state
-  setSeason(ACTIVE_SEASON)
+  try { setSeason(ACTIVE_SEASON) } catch(e) { console.warn('setSeason error:', e) }
   hideLoading()
 }
 
