@@ -795,12 +795,18 @@ async function logAB(result, label, skipPitchLog) {
   if(!skipPitchLog && (isHit&&!/(walk|hbp|intentional_walk)/i.test(result)||isOut&&!/(strikeout)/i.test(result))){
     await quickLog('in_play')
   }
+  // RBI: credited for runs scored by the batter's own action, except when
+  // the run scores on an error, a double play, or a pure baserunner event
+  // (steal/WP/PB/balk/caught stealing/pickoff/out advancing) — none of
+  // those are the batter's doing.
+  var noRbi=/(error|double_play|wp_advance|pb_advance|balk|stolen_base|caught_stealing|pickoff|out_advancing)/i.test(result)
+  var rbi = (runs>0 && !noRbi) ? runs : 0
   var offset=S.game?.stream_start_utc?Math.floor((Date.now()-new Date(S.game.stream_start_utc))/1000):null
   var abd={
     game_id:S.gameId,
     batter_id: S.isTop ? getCurrentBatterId() : null,  // our batter only when top half
     inning:S.inning,half:S.isTop?'top':'bottom',
-    ab_num:S.abNum,result:result,rbi:0,runs_scored:runs,notes:label,
+    ab_num:S.abNum,result:result,rbi:rbi,runs_scored:runs,notes:label,
     yt_offset_sec:offset,clip_status:CLIP.includes(result)?'queued':'none'
   }
   try{
