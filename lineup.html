@@ -365,6 +365,7 @@ async function createGame() {
 
     var {data:newGame, error:gameErr} = await db.from('games')
       .insert(gameData).select('id').single()
+    console.log('Game insert result:', newGame, gameErr)
     if (gameErr) throw new Error('Game error: ' + gameErr.message)
 
     document.getElementById('new-game-modal').style.display = 'none'
@@ -378,7 +379,8 @@ async function createGame() {
 
   } catch(e) {
     console.error('Create game error:', e)
-    showToast(e.message || 'Error creating game')
+    var msg = e.message || 'Unknown error'
+    showToast(msg.substring(0, 60))
   }
 }
 
