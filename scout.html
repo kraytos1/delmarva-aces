@@ -1,0 +1,303 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Opponent Player Scout · Delmarva Aces</title>
+
+<!-- Supabase client (UMD), shared config + PIN gate (coaches only) -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="/config.js"></script>
+<script src="/pin.js"></script>
+
+<style>
+body{ font-family: Arial, Helvetica, sans-serif; margin:16px; }
+.row{ display:flex; gap:12px; flex-wrap:wrap; align-items:flex-end; margin-bottom:12px; }
+label{ font-size:12px; color:#444; display:block; margin-bottom:4px; }
+select,input{ padding:8px; border:1px solid #ccc; border-radius:6px; min-width:180px; }
+button{ padding:9px 12px; border:0; border-radius:8px; cursor:pointer; }
+#btnLoad{ background:#111; color:#fff; }
+#btnReset{ background:#eee; }
+#meta{ font-size:12px; color:#666; margin:8px 0 12px; white-space:pre-wrap; }
+#err{ color:#b00020; white-space:pre-wrap; margin:8px 0; }
+table{ width:100%; border-collapse:collapse; }
+th,td{ border-bottom:1px solid #eee; padding:8px; font-size:13px; text-align:left; }
+th{ cursor:pointer; user-select:none; background:#fafafa; position:sticky; top:0; }
+.muted{ color:#777; }
+td.num, th.num{ text-align:right; font-variant-numeric: tabular-nums; }
+td.wide{ min-width:260px; }
+.chkWrap{ display:flex; align-items:center; gap:8px; padding:6px 10px; border:1px solid #ddd; border-radius:8px; background:#fafafa; }
+.chkWrap input{ min-width:auto; }
+</style>
+</head>
+
+<body>
+
+<h2 style="margin:0 0 12px;">Opponent Player Scout</h2>
+
+<div class="row">
+  <div><label>Tournament</label><select id="tournament"></select></div>
+  <div><label>Team</label><select id="team"></select></div>
+  <div>
+    <label>Level</label>
+    <select id="level">
+      <option value="ALL">ALL</option>
+      <option value="10U">10U</option>
+      <option value="11U">11U</option>
+      <option value="12U">12U</option>
+      <option value="13U">13U</option>
+    </select>
+  </div>
+  <div><label>Min AB</label><input id="minAb" type="number" min="0" value="0"/></div>
+  <div class="chkWrap">
+    <input id="combinePlayers" type="checkbox" checked />
+    <label for="combinePlayers" style="margin:0; font-size:12px; color:#333;">Combine players</label>
+  </div>
+  <div><label>Search</label><input id="q" type="text" placeholder="name/number"/></div>
+  <div style="display:flex; gap:8px;">
+    <button id="btnLoad">Load Players</button>
+    <button id="btnReset">Reset</button>
+  </div>
+</div>
+
+<div id="meta"></div>
+<div id="err"></div>
+
+<div style="max-height:68vh; overflow:auto; border:1px solid #eee; border-radius:10px;">
+  <table>
+    <thead><tr id="hdr"></tr></thead>
+    <tbody id="tbody"></tbody>
+  </table>
+</div>
+
+<script>
+(function(){
+
+// Supabase data layer (replaces the old Flask /api/opp/* endpoints).
+const db = supabase.createClient(ACES_CONFIG.supabaseUrl, ACES_CONFIG.supabaseKey);
+
+const el = id => document.getElementById(id);
+const tournSel = el("tournament");
+const teamSel  = el("team");
+const levelSel = el("level");
+const minAb    = el("minAb");
+const searchBox= el("q");
+const combinePlayersEl = el("combinePlayers");
+const hdr = el("hdr");
+const tbody = el("tbody");
+const metaEl = el("meta");
+const errEl  = el("err");
+
+let state = { tournaments:[], teams:[], players:[], sortKey:"AB", sortOrder:"desc", lastMeta:null };
+
+function setError(msg){ errEl.textContent = msg || ""; }
+function clearTable(msg){ hdr.innerHTML=""; tbody.innerHTML=`<tr><td class="muted" style="padding:14px;">${msg||""}</td></tr>`; }
+function fmt3(v){ const n=Number(v); return isFinite(n)? n.toFixed(3) : ""; }
+function norm(s){ return String(s||"").toLowerCase().trim(); }
+
+function setMeta(){
+  const teamText = teamSel.options[teamSel.selectedIndex]?.text || "(none)";
+  const m = state.lastMeta || {};
+  metaEl.textContent =
+`Tournament: ${tournSel.value || "ALL"}
+Team: ${teamText}
+Level: ${levelSel.value || "ALL"}
+MinAB: ${minAb.value || "0"}
+CombinePlayers: ${combinePlayersEl.checked ? "ON" : "OFF"}
+Sort: ${state.sortKey} ${state.sortOrder}
+Team UUIDs: ${Array.isArray(m.team_ids) ? m.team_ids.join(",") : "(n/a)"}
+Rows: ${state.players.length}`;
+}
+
+// --- name/team normalization (mirrors opp_clean.py so dropdown/merge behave) ---
+function teamBaseName(name){
+  return String(name||"").replace(/\s*\(?\d{1,2}\s*[uU]\)?\s*$/,"").replace(/\s+/g," ").trim();
+}
+function playerIdentity(name){
+  return String(name||"").replace(/\s*\([^)]*\)\s*$/,"").replace(/\s+/g," ").trim().toLowerCase();
+}
+
+// merge same-base-name teams into one dropdown entry (was _combine_teams_for_dropdown)
+function combineTeamsForDropdown(rows){
+  const buckets = new Map();
+  for(const r of rows){
+    const base = teamBaseName(r.team_name) || (r.team_name||"").trim() || "Team";
+    const key = base.toLowerCase();
+    if(!buckets.has(key)) buckets.set(key, { display:base, items:[] });
+    buckets.get(key).items.push(r);
+  }
+  const out=[];
+  for(const {display,items} of buckets.values()){
+    const ids = items.map(i=>i.opp_team_id).join(",");
+    const levels = [...new Set(items.map(i=>(i.level||"").trim()).filter(Boolean))];
+    out.push({ ids, team_name:display, level: levels.length===1 ? levels[0] : (levels.length>1 ? "MIXED" : "") });
+  }
+  out.sort((a,b)=> a.team_name.toLowerCase().localeCompare(b.team_name.toLowerCase()) || (a.level||"").localeCompare(b.level||""));
+  return out;
+}
+
+function mapRow(r){
+  return {
+    UniformNumber: r.uniform_number || "",
+    PlayerName: r.player_name || "",
+    Games: r.games||0, AB: r.ab||0, H: r.h||0,
+    "2B": r.doubles||0, "3B": r.triples||0, HR: r.hr||0, TB: r.tb||0,
+    BB: r.bb||0, SO: r.so||0,
+    AVG: Number(r.avg)||0, ISO: Number(r.iso)||0
+  };
+}
+
+// optional client-side re-merge (load-time dedup already handles this; safe no-op otherwise)
+function combinePlayers(rows){
+  const m=new Map();
+  for(const r of rows){
+    const k=playerIdentity(r.PlayerName);
+    if(!m.has(k)) m.set(k, {...r});
+    else { const a=m.get(k); for(const f of ["Games","AB","H","2B","3B","HR","TB","BB","SO"]) a[f]=(a[f]||0)+(r[f]||0); }
+  }
+  const out=[...m.values()];
+  for(const r of out){ const ab=r.AB||0; r.AVG = ab? r.H/ab : 0; r.ISO = ab? (r.TB-r.H)/ab : 0; }
+  return out;
+}
+
+function sortRows(){
+  const k=state.sortKey, asc=state.sortOrder==="asc";
+  const numeric = !["PlayerName","UniformNumber"].includes(k);
+  state.players.sort((a,b)=>{
+    let va=a[k], vb=b[k];
+    if(numeric){ va=Number(va)||0; vb=Number(vb)||0; return asc? va-vb : vb-va; }
+    va=String(va||"").toLowerCase(); vb=String(vb||"").toLowerCase();
+    return asc ? va.localeCompare(vb) : vb.localeCompare(va);
+  });
+}
+
+async function loadTournaments(){
+  const { data, error } = await db.from("opp_tournaments").select("tournament_code").order("tournament_code");
+  if(error) throw error;
+  state.tournaments = (data||[]).map(r=>r.tournament_code);
+  tournSel.innerHTML = `<option value="">ALL</option>` + state.tournaments.map(t=>`<option>${t}</option>`).join("");
+}
+
+async function loadTeams(){
+  const tourn = tournSel.value || null;
+  const { data, error } = await db.rpc("opp_team_stats", { p_tournament: tourn });
+  if(error) throw error;
+  state.teams = combineTeamsForDropdown(data || []);
+  teamSel.innerHTML = `<option value="">(select)</option>` +
+    state.teams.map(t=>`<option value="${t.ids}">${t.team_name}${t.level ? " ("+t.level+")" : ""}</option>`).join("");
+}
+
+async function loadPlayers(){
+  setError("");
+  const teamVal = (teamSel.value||"").trim();
+  if(!teamVal){ state.players=[]; state.lastMeta=null; clearTable("Select a team."); setMeta(); return; }
+  const ids = teamVal.split(",").map(s=>s.trim()).filter(Boolean);
+  const tourn = (tournSel.value||"").trim() || null;
+  const lvl = (levelSel.value||"ALL").trim();
+  const p_level = (lvl && lvl!=="ALL") ? lvl : null;
+
+  try{
+    clearTable("Loading...");
+    const { data, error } = await db.rpc("opp_player_stats", { p_team_ids: ids, p_tournament: tourn, p_level });
+    if(error) throw error;
+    let rows = (data||[]).map(mapRow);
+    const min = parseInt(minAb.value||"0",10)||0;
+    if(min>0) rows = rows.filter(r=>(r.AB||0) >= min);
+    if(combinePlayersEl.checked) rows = combinePlayers(rows);
+    state.players = rows;
+    state.lastMeta = { team_ids: ids, tournament: tourn, level: p_level||"ALL", combine_players: combinePlayersEl.checked };
+    sortRows(); renderPlayers(); setMeta();
+  }catch(e){
+    setError(e.message || String(e));
+    state.players=[]; state.lastMeta=null; clearTable("Failed to load players."); setMeta();
+  }
+}
+
+function filteredRows(){
+  const q = norm(searchBox.value);
+  if(!q) return state.players.slice();
+  return state.players.filter(r => norm(r.PlayerName).includes(q) || norm(r.UniformNumber).includes(q));
+}
+
+function renderPlayers(){
+  const rows = filteredRows();
+  if(!rows.length){ clearTable("No players match filters."); return; }
+  const cols = [
+    {k:"UniformNumber", label:"#", cls:""},
+    {k:"PlayerName", label:"Player", cls:"wide"},
+    {k:"Games", label:"G", cls:"num"},
+    {k:"AB", label:"AB", cls:"num"}, {k:"H", label:"H", cls:"num"},
+    {k:"2B", label:"2B", cls:"num"}, {k:"3B", label:"3B", cls:"num"},
+    {k:"HR", label:"HR", cls:"num"}, {k:"TB", label:"TB", cls:"num"},
+    {k:"BB", label:"BB", cls:"num"}, {k:"SO", label:"SO", cls:"num"},
+    {k:"AVG", label:"AVG", cls:"num"}, {k:"ISO", label:"ISO", cls:"num"}
+  ];
+  hdr.innerHTML = cols.map(c=>{
+    const arrow = state.sortKey===c.k ? (state.sortOrder==="asc"?" ▲":" ▼") : "";
+    return `<th class="${c.cls.includes("num")?"num":""}" data-k="${c.k}">${c.label}${arrow}</th>`;
+  }).join("");
+  tbody.innerHTML = rows.map(r=>`
+      <tr>
+        <td>${r.UniformNumber||""}</td>
+        <td class="wide">${r.PlayerName||""}</td>
+        <td class="num">${r.Games ?? 0}</td>
+        <td class="num">${r.AB ?? 0}</td>
+        <td class="num">${r.H ?? 0}</td>
+        <td class="num">${r["2B"] ?? 0}</td>
+        <td class="num">${r["3B"] ?? 0}</td>
+        <td class="num">${r.HR ?? 0}</td>
+        <td class="num">${r.TB ?? 0}</td>
+        <td class="num">${r.BB ?? 0}</td>
+        <td class="num">${r.SO ?? 0}</td>
+        <td class="num">${fmt3(r.AVG)}</td>
+        <td class="num">${fmt3(r.ISO)}</td>
+      </tr>`).join("");
+  hdr.querySelectorAll("th").forEach(th=>{
+    th.onclick = ()=>{
+      const k = th.dataset.k;
+      if(state.sortKey===k) state.sortOrder = state.sortOrder==="asc" ? "desc" : "asc";
+      else { state.sortKey = k; state.sortOrder = "desc"; }
+      sortRows(); renderPlayers(); setMeta();  // client-side sort, no refetch
+    };
+  });
+}
+
+function bind(){
+  tournSel.onchange = async ()=>{
+    try{ await loadTeams(); }catch(e){ setError(e.message||String(e)); }
+    state.players=[]; state.lastMeta=null; clearTable("Select a team."); setMeta();
+  };
+  teamSel.onchange = ()=>{ state.players=[]; state.lastMeta=null; clearTable("Click Load Players."); setMeta(); };
+  levelSel.onchange = setMeta;
+  minAb.onchange = setMeta;
+  combinePlayersEl.onchange = setMeta;
+  searchBox.oninput = ()=>{ renderPlayers(); setMeta(); };
+  el("btnLoad").onclick = loadPlayers;
+  el("btnReset").onclick = ()=>{
+    levelSel.value="ALL"; minAb.value="0"; searchBox.value=""; combinePlayersEl.checked=true;
+    state.sortKey="AB"; state.sortOrder="desc"; state.players=[]; state.lastMeta=null;
+    clearTable("Click Load Players."); setMeta();
+  };
+}
+
+async function init(){
+  bind();
+  clearTable("Loading...");
+  try{
+    await loadTournaments();
+    await loadTeams();
+    clearTable("Click Load Players.");
+  }catch(e){
+    setError("Failed to initialize: " + (e.message||String(e)));
+    clearTable("Failed to load. Check console.");
+  }
+  setMeta();
+}
+
+init();
+
+})();
+</script>
+
+</body>
+</html>
