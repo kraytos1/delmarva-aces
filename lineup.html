@@ -321,21 +321,25 @@ async function createGame() {
   showToast('Creating game...')
 
   try {
-    // Upsert opponent
-    var {data:existingOpp} = await db.from('opponents').select('id').ilike('name', oppName).limit(1)
+    // Find or create opponent
     var oppId
-    if (existingOpp && existingOpp.length) {
-      oppId = existingOpp[0].id
-    } else {
-      var {data:newOpp} = await db.from('opponents').insert({name:oppName}).select().single()
+    try {
+      var {data:existingOpp, error:oppErr} = await db.from('opponents')
+        .select('id').ilike('name', oppName).limit(1)
+      if (!oppErr && existingOpp && existingOpp.length) {
+        oppId = existingOpp[0].id
+      }
+    } catch(e) {}
+
+    if (!oppId) {
+      var {data:newOpp, error:newOppErr} = await db.from('opponents')
+        .insert({name:oppName}).select('id').single()
+      if (newOppErr) throw new Error('Opponent error: ' + newOppErr.message)
       oppId = newOpp.id
-      // Add to local list
-      if (!window._opponents) window._opponents = []
-      window._opponents.push({id:oppId, name:oppName})
     }
 
-    // Create game
-    var {data:newGame} = await db.from('games').insert({
+    // Create game — only include columns we know exist
+    var gameData = {
       team_id:     ACES_CONFIG.teamId,
       opponent_id: oppId,
       game_date:   gameDate,
@@ -347,15 +351,22 @@ async function createGame() {
       outs:        0,
       balls:       0,
       strikes:     0,
-      tournament:  tournament || null,
-      location:    location   || null,
-      is_home:     isHome,
-      base_1b:     false,
-      base_2b:     false,
-      base_3b:     false
-    }).select().single()
+    }
+    if (tournament) gameData.tournament = tournament
+    if (location)   gameData.location   = location
+    gameData.is_home = isHome
 
-    // Close modal, refresh list, select new game
+    // Add base columns if they exist (added via SQL earlier)
+    try {
+      gameData.base_1b = false
+      gameData.base_2b = false
+      gameData.base_3b = false
+    } catch(e) {}
+
+    var {data:newGame, error:gameErr} = await db.from('games')
+      .insert(gameData).select('id').single()
+    if (gameErr) throw new Error('Game error: ' + gameErr.message)
+
     document.getElementById('new-game-modal').style.display = 'none'
     await refreshGamesList()
     document.getElementById('game-sel').value = newGame.id
@@ -367,7 +378,7 @@ async function createGame() {
 
   } catch(e) {
     console.error('Create game error:', e)
-    showToast('Error creating game — check connection')
+    showToast(e.message || 'Error creating game')
   }
 }
 
