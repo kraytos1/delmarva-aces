@@ -506,6 +506,12 @@ async function startScoring() {
   S.scores.us=g.our_score||0; S.scores.them=g.opp_score||0
   S.inning=g.inning||1; S.isTop=g.half!=='bottom'; S.outs=g.outs||0
   await db.from('games').update({status:'live',stream_start_utc:new Date().toISOString()}).eq('id',gid)
+  // Safety net: a team can only be playing one game at a time. If any other
+  // game got left in 'live' status (forgot to tap Final, dead battery, rained
+  // out, etc.), close it out now so it can never hijack the live viewer.
+  try{
+    await db.from('games').update({status:'final'}).eq('status','live').neq('id',gid)
+  }catch(e){}
   var ytId = document.getElementById('yt-id').value.trim()
   if(ytId) await db.from('games').update({youtube_stream_id:ytId}).eq('id',gid)
   try{
