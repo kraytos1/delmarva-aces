@@ -1,0 +1,278 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Opponent Pitching Scout · Delmarva Aces</title>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="/config.js"></script>
+<script src="/pin.js"></script>
+
+<style>
+  :root{
+    --bg:#020617; --card:rgba(15,23,42,.9); --card-border:#1f2937;
+    --accent:#f97316; --accent2:#f59e0b; --text:#e5e7eb; --muted:#9ca3af; --danger:#ef4444;
+    --pow:#ef476f; --ctl:#4895ef; --horse:#06d6a0;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;padding:1.5rem;color:var(--text);
+    font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+    background:radial-gradient(circle at top,#111827 0,#020617 45%,#000 100%)}
+  h1,h2,h3{margin:0;font-weight:600}
+  .nav{display:flex;align-items:center;justify-content:space-between;padding:.75rem 1.25rem;margin-bottom:1.25rem;
+    border-radius:.9rem;background:radial-gradient(circle at top left,#111827 0,#020617 50%,#000 100%);
+    border:1px solid rgba(15,23,42,.9);box-shadow:0 18px 40px rgba(15,23,42,.9)}
+  .nav-left{display:flex;align-items:center;gap:.75rem}
+  .nav-logo{width:2.1rem;height:2.1rem;border-radius:.9rem;display:flex;align-items:center;justify-content:center;
+    font-weight:800;font-size:.9rem;color:#020617;
+    background:radial-gradient(circle at 30% 0%,#fed7aa 0,#f97316 45%,#b45309 100%);
+    box-shadow:0 0 0 1px rgba(15,23,42,.9),0 10px 25px rgba(0,0,0,.8)}
+  .nav-title-main{font-size:.9rem;text-transform:uppercase;letter-spacing:.08em;color:#f9fafb}
+  .nav-title-sub{font-size:.8rem;color:var(--muted)}
+  .nav-links{display:flex;gap:.6rem;font-size:.85rem}
+  .nav-link{display:inline-flex;align-items:center;padding:.3rem .9rem;border-radius:999px;border:1px solid transparent;
+    text-decoration:none;color:var(--muted);white-space:nowrap;transition:background .15s,color .15s,border-color .15s}
+  .nav-link:hover{border-color:#374151;color:#f9fafb}
+  .nav-link-active{background:linear-gradient(to right,#f97316,#f59e0b);color:#020617;font-weight:600;box-shadow:0 8px 20px rgba(249,115,22,.35)}
+  .layout{display:grid;grid-template-columns:minmax(0,2.3fr) minmax(300px,1fr);gap:1rem;align-items:flex-start}
+  @media(max-width:1100px){.layout{grid-template-columns:minmax(0,1fr)}}
+  .card{background:var(--card);border-radius:.9rem;border:1px solid var(--card-border);padding:1rem 1.25rem}
+  .card-header h2{font-size:1.05rem}
+  .card-subtitle{font-size:.8rem;color:var(--muted);margin-top:.15rem}
+  .filters{display:flex;flex-wrap:wrap;gap:.75rem;align-items:flex-end;margin:.9rem 0 .4rem}
+  .fld{display:flex;flex-direction:column;gap:.25rem}
+  .fld label{font-size:.72rem;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+  select,input[type=number],input[type=text]{padding:.4rem .6rem;border-radius:.5rem;border:1px solid #4b5563;
+    background:#020617;color:var(--text);font-size:.85rem;min-width:170px}
+  input[type=number]{min-width:80px;max-width:90px}
+  select:focus,input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
+  button{padding:.45rem .9rem;border:0;border-radius:.5rem;cursor:pointer;font-weight:600;font-size:.85rem}
+  #btnLoad{background:linear-gradient(to right,#f97316,#f59e0b);color:#020617}
+  #btnReset{background:#1f2937;color:var(--text)}
+  #meta{font-size:.75rem;color:var(--muted);white-space:pre-wrap;margin:.3rem 0}
+  #err{color:var(--danger);font-size:.8rem;margin:.3rem 0;white-space:pre-wrap}
+  .tbl-wrap{max-height:70vh;overflow:auto;border:1px solid #1f2937;border-radius:.6rem;margin-top:.4rem}
+  table{width:100%;border-collapse:collapse;font-size:.8rem}
+  th,td{padding:.4rem .5rem;text-align:right;border-bottom:1px solid #1f2937;white-space:nowrap}
+  th:first-child,td:first-child,th:nth-child(2),td:nth-child(2){text-align:left}
+  thead th{position:sticky;top:0;background:#0b1327;color:var(--muted);font-size:.72rem;cursor:pointer;
+    user-select:none;text-transform:uppercase;letter-spacing:.03em}
+  thead th:hover{color:#f9fafb}
+  tbody tr:nth-child(even){background:rgba(15,23,42,.55)}
+  tbody tr:hover{background:rgba(249,115,22,.08)}
+  td.rank{color:var(--muted);text-align:center}
+  td.player{font-weight:600;color:#f9fafb}
+  td.score{font-weight:700;color:var(--accent2)}
+  .flags{display:flex;gap:.25rem;justify-content:flex-end;flex-wrap:wrap}
+  .flag{font-size:.62rem;font-weight:700;letter-spacing:.03em;padding:.05rem .4rem;border-radius:999px;border:1px solid}
+  .flag.pow{border-color:rgba(239,71,111,.55);color:rgba(239,71,111,.95);background:rgba(239,71,111,.1)}
+  .flag.ctl{border-color:rgba(72,149,239,.55);color:rgba(72,149,239,.95);background:rgba(72,149,239,.1)}
+  .flag.horse{border-color:rgba(6,214,160,.55);color:rgba(6,214,160,.95);background:rgba(6,214,160,.1)}
+  .barrow{margin-bottom:.7rem}
+  .barhead{display:flex;justify-content:space-between;align-items:baseline;gap:.5rem}
+  .barname{font-size:.82rem;font-weight:600;color:#f9fafb}
+  .barval{font-size:.72rem;color:var(--accent2);font-weight:700}
+  .bar{height:8px;border-radius:999px;background:#0b1327;margin-top:.3rem;overflow:hidden}
+  .bar>i{display:block;height:100%;border-radius:999px;background:linear-gradient(to right,#f97316,#f59e0b)}
+  .barmeta{font-size:.68rem;color:var(--muted);margin-top:.2rem}
+  .legend{display:flex;flex-wrap:wrap;gap:.4rem;margin-top:.6rem;font-size:.68rem;color:var(--muted)}
+  .muted{color:var(--muted)}
+</style>
+</head>
+<body>
+<header class="nav">
+  <div class="nav-left">
+    <a href="/"><div class="nav-logo">AC</div></a>
+    <div><div class="nav-title-main">Delmarva Aces</div><div class="nav-title-sub">Opponent Scouting</div></div>
+  </div>
+  <nav class="nav-links">
+    <a href="/" class="nav-link">Home</a>
+    <a href="/scout.html" class="nav-link">Player Scout</a>
+    <span class="nav-link nav-link-active">Pitching</span>
+    <a href="/threat-board.html" class="nav-link">Threat Board</a>
+  </nav>
+</header>
+
+<main class="layout">
+  <section class="card">
+    <div class="card-header">
+      <h2>Opponent Pitching Scout</h2>
+      <div class="card-subtitle">A team's arms ranked by dominance (K rate, WHIP, control &amp; workload).</div>
+    </div>
+    <div class="filters">
+      <div class="fld"><label>Tournament</label><select id="tournament"></select></div>
+      <div class="fld"><label>Team</label><select id="team"></select></div>
+      <div class="fld"><label>Level</label>
+        <select id="level"><option value="ALL">ALL</option><option>10U</option><option>11U</option><option>12U</option><option>13U</option></select></div>
+      <div class="fld"><label>Min IP</label><input id="minIp" type="number" min="0" step="0.1" value="0"/></div>
+      <div class="fld"><label>Sort</label>
+        <select id="sortSel">
+          <option value="score">Dominance</option>
+          <option value="ip">IP</option><option value="era">ERA</option><option value="whip">WHIP</option>
+          <option value="k9">K/9</option><option value="kbb">K:BB</option><option value="so">SO</option>
+          <option value="appearances">Apps</option>
+        </select></div>
+      <div class="fld"><label>Search</label><input id="q" type="text" placeholder="name / number"/></div>
+      <button id="btnLoad">Load Pitchers</button>
+      <button id="btnReset">Reset</button>
+    </div>
+    <div id="meta"></div><div id="err"></div>
+    <div class="tbl-wrap"><table><thead><tr id="hdr"></tr></thead><tbody id="tbody"></tbody></table></div>
+  </section>
+
+  <aside class="card">
+    <div class="card-header">
+      <h2>Who to look out for</h2>
+      <div class="card-subtitle">Top 8 arms by dominance (after filters).</div>
+    </div>
+    <div id="watchList" style="margin-top:.8rem"></div>
+    <div class="legend">
+      <span><b style="color:var(--pow)">POWER</b> K/9≥13</span>
+      <span><b style="color:var(--ctl)">CONTROL</b> BB/9≤4</span>
+      <span><b style="color:var(--horse)">WORKHORSE</b> IP≥15</span>
+    </div>
+  </aside>
+</main>
+
+<script>
+(function(){
+const db=supabase.createClient(ACES_CONFIG.supabaseUrl,ACES_CONFIG.supabaseKey);
+const el=id=>document.getElementById(id);
+const tournSel=el("tournament"),teamSel=el("team"),levelSel=el("level"),minIp=el("minIp"),
+      sortSel=el("sortSel"),searchBox=el("q"),hdr=el("hdr"),tbody=el("tbody"),watch=el("watchList"),
+      metaEl=el("meta"),errEl=el("err");
+let state={teams:[],pitchers:[],sortKey:"score",sortOrder:"desc"};
+const num=v=>{const n=Number(v);return isFinite(n)?n:0;};
+const f2=v=>{const n=Number(v);return isFinite(n)?n.toFixed(2):"";};
+const norm=s=>String(s||"").toLowerCase().trim();
+function setErr(m){errEl.textContent=m||"";}
+function teamBaseName(n){return String(n||"").replace(/\s*\(?\d{1,2}\s*[uU]\)?\s*$/,"").replace(/\s+/g," ").trim();}
+function ipDisplay(outs){const w=Math.floor(outs/3),f=outs%3;return `${w}.${f}`;}
+
+// dominance score + flags (heuristic, transparent)
+function computePitch(r){
+  const ip=num(r.ip), k9=num(r.k9), bb9=num(r.bb9), whip=num(r.whip), era=num(r.era);
+  let score=k9*4 + ip*2 - whip*20 - bb9*2 - era*1.5;
+  score=Math.max(0,score);
+  const flags=[];
+  if(k9>=13) flags.push({key:"POWER",cls:"pow"});           // elite strikeout arm (12U K rates run high)
+  if(bb9<=4 && ip>=4) flags.push({key:"CONTROL",cls:"ctl"}); // throws strikes
+  if(ip>=15) flags.push({key:"WORKHORSE",cls:"horse"});      // innings leader
+  return {score,flags};
+}
+function combineTeams(rows){
+  const b=new Map();
+  for(const r of rows){const base=teamBaseName(r.team_name)||(r.team_name||"").trim()||"Team";const k=base.toLowerCase();
+    if(!b.has(k))b.set(k,{display:base,items:[]});b.get(k).items.push(r);}
+  const out=[];for(const {display,items} of b.values()){const ids=items.map(i=>i.opp_team_id).join(",");
+    const lv=[...new Set(items.map(i=>(i.level||"").trim()).filter(Boolean))];
+    out.push({ids,team_name:display,level:lv.length===1?lv[0]:(lv.length>1?"MIXED":"")});}
+  out.sort((a,b)=>a.team_name.toLowerCase().localeCompare(b.team_name.toLowerCase()));return out;
+}
+function val(r,k){
+  if(k==="score") return r._s.score;
+  if(k==="kbb")   return (r.kbb==null)?num(r.so):num(r.kbb); // no walks ~ elite control
+  return num(r[k]);
+}
+// "goodness" so that sortOrder desc always shows the BEST pitchers first,
+// even for lower-is-better metrics (ERA/WHIP/BB9).
+function goodness(r,k){const v=val(r,k);return (k==="era"||k==="whip"||k==="bb9")?-v:v;}
+function sortRows(){
+  const k=state.sortKey, asc=state.sortOrder==="asc";
+  state.pitchers.sort((a,b)=>{
+    if(k==="player_name"){const va=norm(a.player_name),vb=norm(b.player_name);return asc?va.localeCompare(vb):vb.localeCompare(va);}
+    const d=goodness(a,k)-goodness(b,k); return asc?d:-d;
+  });
+}
+async function loadTournaments(){
+  const {data,error}=await db.from("opp_tournaments").select("tournament_code").order("tournament_code");
+  if(error)throw error;
+  tournSel.innerHTML=`<option value="">ALL</option>`+(data||[]).map(r=>`<option>${r.tournament_code}</option>`).join("");
+}
+async function loadTeams(){
+  const {data,error}=await db.rpc("opp_team_stats",{p_tournament:tournSel.value||null});
+  if(error)throw error;
+  state.teams=combineTeams(data||[]);
+  teamSel.innerHTML=`<option value="">(select team)</option>`+
+    state.teams.map(t=>`<option value="${t.ids}">${t.team_name}${t.level?" ("+t.level+")":""}</option>`).join("");
+}
+async function loadPitchers(){
+  setErr("");
+  const tv=(teamSel.value||"").trim();
+  if(!tv){state.pitchers=[];clearTable("Select a team.");renderWatch();setMeta();return;}
+  const ids=tv.split(",").map(s=>s.trim()).filter(Boolean);
+  const lvl=(levelSel.value||"ALL").trim();
+  try{
+    clearTable("Loading…");
+    const {data,error}=await db.rpc("opp_pitcher_stats",
+      {p_team_ids:ids,p_tournament:tournSel.value||null,p_level:(lvl&&lvl!=="ALL")?lvl:null});
+    if(error)throw error;
+    let rows=(data||[]);
+    const mi=parseFloat(minIp.value||"0")||0;
+    if(mi>0) rows=rows.filter(r=>num(r.ip)>=mi);
+    for(const r of rows) r._s=computePitch(r);
+    state.pitchers=rows; sortRows(); render(); renderWatch(); setMeta();
+  }catch(e){setErr(e.message||String(e));state.pitchers=[];clearTable("Failed to load.");renderWatch();setMeta();}
+}
+function setMeta(){const t=teamSel.options[teamSel.selectedIndex]?.text||"(none)";
+  metaEl.textContent=`Team ${t} · Tournament ${tournSel.value||"ALL"} · Level ${levelSel.value} · MinIP ${minIp.value||0} · ${state.pitchers.length} pitchers`;}
+function clearTable(m){hdr.innerHTML="";tbody.innerHTML=`<tr><td class="muted" style="padding:14px">${m||""}</td></tr>`;}
+function filtered(){const q=norm(searchBox.value);if(!q)return state.pitchers.slice();
+  return state.pitchers.filter(r=>norm(r.player_name).includes(q)||norm(r.uniform_number).includes(q));}
+const COLS=[
+  {k:"rank",label:"#",noSort:true},{k:"player_name",label:"Pitcher"},
+  {k:"appearances",label:"G"},{k:"ip",label:"IP"},{k:"era",label:"ERA"},{k:"whip",label:"WHIP"},
+  {k:"k9",label:"K/9"},{k:"bb9",label:"BB/9"},{k:"kbb",label:"K:BB"},{k:"so",label:"SO"},
+  {k:"score",label:"Dom",cls:"score"},{k:"flags",label:"Flags",noSort:true}
+];
+function render(){
+  const rows=filtered();
+  if(!rows.length){clearTable("No pitchers match filters.");return;}
+  hdr.innerHTML=COLS.map(c=>{const arrow=state.sortKey===c.k?(state.sortOrder==="asc"?" ▲":" ▼"):"";
+    return `<th data-k="${c.noSort?"":c.k}">${c.label}${arrow}</th>`;}).join("");
+  tbody.innerHTML=rows.map((r,i)=>{
+    const s=r._s, flags=s.flags.map(f=>`<span class="flag ${f.cls}">${f.key}</span>`).join("");
+    const kbb=(r.kbb==null)?"∞":f2(r.kbb);
+    return `<tr><td class="rank">${i+1}</td><td class="player">${r.player_name||""}</td>
+      <td>${r.appearances??0}</td><td>${ipDisplay(num(r.outs))}</td><td>${f2(r.era)}</td><td>${f2(r.whip)}</td>
+      <td>${f2(r.k9)}</td><td>${f2(r.bb9)}</td><td>${kbb}</td><td>${r.so??0}</td>
+      <td class="score">${s.score.toFixed(1)}</td>
+      <td><div class="flags">${flags||'<span class="muted">—</span>'}</div></td></tr>`;
+  }).join("");
+  hdr.querySelectorAll("th[data-k]").forEach(th=>{if(!th.dataset.k)return;th.style.cursor="pointer";
+    th.onclick=()=>{const k=th.dataset.k;
+      if(state.sortKey===k)state.sortOrder=state.sortOrder==="asc"?"desc":"asc";
+      else{state.sortKey=k;state.sortOrder="desc";}
+      if(["score","ip","era","whip","k9","kbb","so","appearances"].includes(k))sortSel.value=k;
+      sortRows();render();setMeta();};});
+}
+function renderWatch(){
+  const rows=filtered().slice().sort((a,b)=>b._s.score-a._s.score).slice(0,8);
+  if(!rows.length){watch.innerHTML='<div class="muted">No pitchers yet.</div>';return;}
+  const max=Math.max(...rows.map(r=>r._s.score),1);
+  watch.innerHTML=rows.map(r=>{const s=r._s,pct=Math.max(4,(s.score/max)*100);
+    const fl=s.flags.map(f=>f.key).join(" · ")||"—";
+    return `<div class="barrow"><div class="barhead"><span class="barname">${r.player_name||""}</span><span class="barval">${s.score.toFixed(0)}</span></div>
+      <div class="bar"><i style="width:${pct}%"></i></div>
+      <div class="barmeta">${ipDisplay(num(r.outs))} IP · ERA ${f2(r.era)} · ${f2(r.k9)} K/9 · ${fl}</div></div>`;}).join("");
+}
+function bind(){
+  tournSel.onchange=async()=>{try{await loadTeams();}catch(e){setErr(e.message);}state.pitchers=[];clearTable("Select a team.");renderWatch();setMeta();};
+  teamSel.onchange=()=>{state.pitchers=[];clearTable("Click Load Pitchers.");renderWatch();setMeta();};
+  levelSel.onchange=setMeta;minIp.onchange=setMeta;
+  sortSel.onchange=()=>{state.sortKey=sortSel.value;state.sortOrder="desc";if(state.pitchers.length){sortRows();render();}setMeta();};
+  searchBox.oninput=()=>{render();renderWatch();setMeta();};
+  el("btnLoad").onclick=loadPitchers;
+  el("btnReset").onclick=()=>{levelSel.value="ALL";minIp.value="0";searchBox.value="";sortSel.value="score";
+    state.sortKey="score";state.sortOrder="desc";state.pitchers=[];clearTable("Click Load Pitchers.");renderWatch();setMeta();};
+}
+async function init(){bind();clearTable("Loading…");
+  try{await loadTournaments();await loadTeams();clearTable("Pick a team, then Load Pitchers.");}
+  catch(e){setErr("Init failed: "+(e.message||e));clearTable("Failed to load.");}
+  renderWatch();setMeta();}
+init();
+})();
+</script>
+</body>
+</html>
