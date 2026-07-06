@@ -496,11 +496,43 @@ function removeOppBatter(idx) {
 }
 
 // SUBSTITUTIONS
+var subFlow = {type:null, outIdx:null}
+
 function openSubModal(type) {
-  var titles = {'pinch-hit':'Select pinch hitter','pinch-run':'Select pinch runner','pitching-change':'Select new pitcher'}
-  document.getElementById('sub-modal-title').textContent = titles[type]
+  subFlow = {type:type, outIdx:null}
   var body = document.getElementById('sub-modal-body')
 
+  if(type==='pitching-change') {
+    document.getElementById('sub-modal-title').textContent = 'Select new pitcher'
+    renderBenchStep(body)
+  } else {
+    // Step 1: which batting-order slot is coming out
+    document.getElementById('sub-modal-title').textContent = "Who's coming out?"
+    var filled = acesLineup.filter(function(e){return e.playerId})
+    if(!filled.length) {
+      body.innerHTML = '<div style="color:var(--muted);font-family:var(--mono);font-size:12px;padding:20px 0;text-align:center;">No lineup set yet</div>'
+    } else {
+      body.innerHTML = acesLineup.map(function(e, idx){
+        if(!e.playerId) return ''
+        return '<div class="sub-option" onclick="chooseSubOut('+idx+')">'+
+          '<span class="sub-num">'+(idx+1)+'</span>'+
+          '<div><div class="sub-name">'+e.playerName+'</div>'+
+          '<div class="sub-pos">'+(e.position||'')+'</div></div>'+
+        '</div>'
+      }).join('')
+    }
+  }
+  document.getElementById('sub-modal').style.display = 'flex'
+}
+
+function chooseSubOut(idx) {
+  subFlow.outIdx = idx
+  var outgoing = acesLineup[idx]
+  document.getElementById('sub-modal-title').textContent = 'Who\'s coming in for #'+outgoing.jerseyNum+' '+outgoing.playerName+'?'
+  renderBenchStep(document.getElementById('sub-modal-body'))
+}
+
+function renderBenchStep(body) {
   // Show bench players (not currently in lineup)
   var inLineup = acesLineup.map(function(e){return e.playerId}).filter(Boolean)
   var bench = roster.filter(function(p){return !inLineup.includes(p.id)})
@@ -509,7 +541,7 @@ function openSubModal(type) {
     body.innerHTML = '<div style="color:var(--muted);font-family:var(--mono);font-size:12px;padding:20px 0;text-align:center;">No bench players available</div>'
   } else {
     body.innerHTML = bench.map(function(p){
-      return '<div class="sub-option" onclick="makeSub(\''+type+'\',\''+p.id+'\',\''+p.first_name+' '+p.last_name+'\','+p.jersey_num+')">'+
+      return '<div class="sub-option" onclick="makeSub(\''+p.id+'\',\''+(p.first_name+' '+p.last_name).replace(/'/g,"\\'")+'\','+p.jersey_num+')">'+
         '<span class="sub-num">#'+p.jersey_num+'</span>'+
         '<div><div class="sub-name">'+p.first_name+' '+p.last_name+'</div>'+
         '<div class="sub-pos">'+(p.positions||[]).join(', ')+'</div></div>'+
@@ -517,28 +549,42 @@ function openSubModal(type) {
       '</div>'
     }).join('')
   }
-  document.getElementById('sub-modal').style.display = 'flex'
 }
 
 function closeSubModal(e) {
   if(!e||e.target.id==='sub-modal') document.getElementById('sub-modal').style.display='none'
 }
 
-function makeSub(type, playerId, playerName, jerseyNum) {
-  closeSubModal()
+async function makeSub(playerId, playerName, jerseyNum) {
+  var type = subFlow.type
   var time = new Date().toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'})
-  subsLog.push({type,playerId,playerName,jerseyNum,time})
+  closeSubModal()
 
   if(type==='pitching-change') {
-    // Update starter pitcher display
+    // Mound assignment only — doesn't touch the batting order. If the new
+    // pitcher also needs to enter the batting order (rather than just
+    // pitching), record that separately as a pinch-hit/pinch-run sub too.
     starterPitcherId = playerId
     document.getElementById('starter-pitcher').value = playerId
+    subsLog.push({type:type, playerId:playerId, playerName:playerName, jerseyNum:jerseyNum, time:time})
     showToast('#'+jerseyNum+' '+playerName+' now pitching')
-  } else if(type==='pinch-hit'||type==='pinch-run') {
-    // Ask which spot in lineup they're replacing
-    showToast('#'+jerseyNum+' '+playerName+' in as '+type.replace('-',' '))
+  } else {
+    var idx = subFlow.outIdx
+    if(idx==null || !acesLineup[idx]) { showToast('Select a batting slot first'); return }
+    var outgoing = {playerName:acesLineup[idx].playerName, jerseyNum:acesLineup[idx].jerseyNum}
+    // Actually swap the player into the batting order — this is what
+    // score.html reads, so the sub takes effect for real, not just in the log.
+    setPlayer(idx, playerId)
+    subsLog.push({
+      type:type, playerId:playerId, playerName:playerName, jerseyNum:jerseyNum, time:time,
+      outPlayerName:outgoing.playerName, outJerseyNum:outgoing.jerseyNum, battingSlot:idx+1
+    })
+    showToast('#'+jerseyNum+' '+playerName+' in for #'+outgoing.jerseyNum+' '+outgoing.playerName+' (slot '+(idx+1)+')')
   }
   renderSubsLog()
+  // Save immediately — the scorer tablet may already be mid-game and needs
+  // this change right away, not whenever the coach next remembers to hit Save.
+  await saveLineup()
 }
 
 function renderSubsLog() {
@@ -548,12 +594,14 @@ function renderSubsLog() {
     return
   }
   list.innerHTML = subsLog.map(function(s){
+    var detail = s.outPlayerName ? ('In for #'+s.outJerseyNum+' '+s.outPlayerName+(s.battingSlot?(' · slot '+s.battingSlot):'')) : ''
     return '<div style="background:var(--dark2);border:1px solid var(--bdr);border-radius:9px;padding:10px 12px;margin-bottom:8px;">'+
       '<div style="display:flex;align-items:center;justify-content:space-between;">'+
         '<span style="font-family:var(--mono);font-size:10px;color:var(--orange);text-transform:uppercase;">'+s.type.replace(/-/g,' ')+'</span>'+
         '<span style="font-family:var(--mono);font-size:10px;color:var(--muted);">'+s.time+'</span>'+
       '</div>'+
       '<div style="font-size:14px;font-weight:500;margin-top:4px;">#'+s.jerseyNum+' '+s.playerName+'</div>'+
+      (detail?'<div style="font-family:var(--mono);font-size:11px;color:var(--muted);margin-top:2px;">'+detail+'</div>':'')+
     '</div>'
   }).join('')
 }
