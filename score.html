@@ -476,7 +476,7 @@ var MODALS = {
     title:'Baserunner event',
     sections:[
       {lbl:'Advance',cls:'oc-hit',items:[{l:'Stolen base',v:'stolen_base'},{l:'WP advance',v:'wp_advance'},{l:'PB advance',v:'pb_advance'},{l:'Balk',v:'balk_advance'}]},
-      {lbl:'Out',cls:'oc-out',items:[{l:'Caught stealing',v:'caught_stealing'},{l:'Pickoff 1B',v:'pickoff'},{l:'Pickoff 2B',v:'pickoff'},{l:'Out advancing',v:'out_advancing'}]}
+      {lbl:'Out',cls:'oc-out',items:[{l:'Caught stealing',v:'caught_stealing'},{l:'Pickoff 1B',v:'pickoff_1b'},{l:'Pickoff 2B',v:'pickoff_2b'},{l:'Pickoff 3B',v:'pickoff_3b'},{l:'Out advancing',v:'out_advancing'}]}
     ]
   }
 }
@@ -512,6 +512,19 @@ async function startScoring() {
     var {data:last}=await db.from('at_bats').select('ab_num').eq('game_id',gid).order('ab_num',{ascending:false}).limit(1)
     S.abNum=(last&&last.length)?(last[0].ab_num||0):0
   }catch(e){S.abNum=0}
+  // Count each team's plate appearances separately (abNum is a combined
+  // sequence across both teams, so it isn't the right basis for resuming
+  // either team's spot in their own batting order).
+  var acesAbCount=0, oppAbCount=0
+  var baserunnerEvents='(stolen_base,wp_advance,pb_advance,balk_advance,caught_stealing,pickoff_1b,pickoff_2b,pickoff_3b,out_advancing)'
+  try{
+    var {count:ac}=await db.from('at_bats').select('id',{count:'exact',head:true}).eq('game_id',gid).not('batter_id','is',null).not('result','in',baserunnerEvents)
+    acesAbCount = ac || 0
+  }catch(e){}
+  try{
+    var {count:oc}=await db.from('at_bats').select('id',{count:'exact',head:true}).eq('game_id',gid).is('batter_id',null).not('result','in',baserunnerEvents)
+    oppAbCount = oc || 0
+  }catch(e){}
 
   // ── LOAD LINEUP ──
   if(g.notes) {
@@ -529,8 +542,11 @@ async function startScoring() {
       }
 
       // Figure out where in the order we are based on at_bats already logged
-      if(S.abNum > 0 && S.acesLineup.length > 0) {
-        S.currentBatterIdx = S.abNum % S.acesLineup.length
+      if(acesAbCount > 0 && S.acesLineup.length > 0) {
+        S.currentBatterIdx = acesAbCount % S.acesLineup.length
+      }
+      if(oppAbCount > 0 && S.oppLineup.length > 0) {
+        S.currentOppBatterIdx = oppAbCount % S.oppLineup.length
       }
     } catch(e) { console.log('Lineup parse error:', e) }
   }
@@ -753,15 +769,20 @@ async function quickLog(result) {
 }
 
 async function logAB(result, label, skipPitchLog) {
+  // Baserunner-only events happen mid at-bat: the batter currently up stays
+  // up. They should not advance the lineup, not reset the batter's own
+  // ball/strike count, and not consume the next spot in the batting order.
+  var isBaserunnerEvent=/(stolen_base|wp_advance|pb_advance|balk|caught_stealing|pickoff|out_advancing)/i.test(result)
+
   S.abNum++
   var runs=applyBaserunners(result)
-  var isOut=/(strikeout|groundout|flyout|lineout|popout|sac_fly|sac_bunt|double_play|caught_stealing|pickoff|out_advancing|dropped_third_k)/i.test(result)
+  var isOut=/(strikeout|groundout|flyout|lineout|popout|sac_fly|sac_bunt|double_play|caught_stealing|pickoff|out_advancing|dropped_third_k|fielders_choice)/i.test(result)
   var isHit=/(single|double|triple|home_run|walk|hbp|intentional_walk|error|fielders_choice|dropped_third$)/i.test(result)
   if(isOut){
     // Double play = 2 outs
     var outsToAdd = /double_play/i.test(result) ? 2 : 1
     S.outs=Math.min(S.outs+outsToAdd,3)
-    S.balls=0;S.strikes=0
+    if(!isBaserunnerEvent){ S.balls=0;S.strikes=0 }
   }
   if(isHit){S.balls=0;S.strikes=0}
   // Only log in_play pitch for batted balls, not walks/strikeouts (already logged)
@@ -793,12 +814,13 @@ async function logAB(result, label, skipPitchLog) {
     showToast(runs===1?'Run scores! 🏃':''+runs+' runs score! 🏃')
   }
   if(CLIP.includes(result)) setTimeout(function(){showToast('📹 Clip queued!')},800)
-  // Auto-advance Aces batter when we're hitting (top half)
-  if(S.isTop && S.acesLineup.length) advanceBatter()
-  // Auto-advance opponent batter when they're hitting (bottom half)
-  if(!S.isTop && S.oppLineup.length){
-    S.currentOppBatterIdx=(S.currentOppBatterIdx+1)%S.oppLineup.length
-    updateBatterDisplay()
+  // Auto-advance the batter only when this at-bat actually ended
+  if(!isBaserunnerEvent){
+    if(S.isTop && S.acesLineup.length) advanceBatter()
+    if(!S.isTop && S.oppLineup.length){
+      S.currentOppBatterIdx=(S.currentOppBatterIdx+1)%S.oppLineup.length
+      updateBatterDisplay()
+    }
   }
   if(S.outs>=3){setTimeout(function(){if(confirm('3 outs — end half?'))newHalf()},300)}
   await pushState(); renderAll()
@@ -814,13 +836,23 @@ function applyBaserunners(r) {
     runs=(b[1]?1:0)+(b[2]?1:0);b=[false,true,b[0]]
   } else if(o==='single'||o.includes('single')){
     runs=b[2]?1:0;b=[true,b[0],b[1]]
-  } else if(o==='walk'||o==='intentional_walk'||o==='hbp'){
+  } else if(o==='walk'||o==='intentional_walk'||o==='hbp'||o==='dropped_third'){
+    // Dropped 3rd strike (batter reaches) forces the same as a walk/HBP
     if(b[0]&&b[1]&&b[2]){runs=1;}
     else if(b[0]&&b[1]){b=[true,true,true];}
     else if(b[0]){b=[true,true,b[2]];}
     else{b=[true,b[1],b[2]];}
-  } else if(o==='error'||o==='fielders_choice'){
+  } else if(o==='error'){
+    // Reached on error: nobody's out, forced runners advance like a single
     runs=b[2]?1:0;b=[true,b[0],b[1]]
+  } else if(o==='fielders_choice'){
+    // Defense takes the sure out on the lead forced runner instead of the
+    // batter; batter reaches 1st safely. (Out is credited by isOut regex.)
+    if(b[0]){
+      b=[true,false,b[2]]   // runner from 1st is the out; 3rd holds if occupied
+    } else {
+      b=[true,b[1],b[2]]    // nobody was forced — batter just reaches
+    }
   } else if(o==='sac_fly'){
     // Runner on 3rd scores, out recorded elsewhere
     runs=b[2]?1:0;if(runs)b[2]=false
@@ -828,20 +860,36 @@ function applyBaserunners(r) {
     // Advance all runners one base
     runs=b[2]?1:0;b=[false,b[0],b[1]];if(runs)b[2]=false
   } else if(o==='double_play'){
-    // Remove lead runner, batter is out
-    // Most common: runner on 1st → runner moves to 2nd, batter out, one more out
-    if(b[0]){b=[false,true,b[2]];}       // 1st only: runner to 2nd, batter out
-    else if(b[1]){b=[false,false,b[2]];} // 2nd only: runner out
-    else if(b[2]){b=[false,b[1],false];} // 3rd only: runner out
-    // outs handled by logAB (adds 2 outs for DP)
+    // Batter + one runner are out (2 outs added by logAB). Model the common
+    // force double play: the lead forced runner is removed, and anyone else
+    // only advances if they were themselves forced by the chain.
+    if(b[0]){
+      if(b[1]&&b[2]){ runs=1; b=[false,false,true] }  // loaded: run forced in, 3rd now occupied
+      else if(b[1]){ b=[false,false,true] }           // 1st+2nd: 2nd-runner forced safe to 3rd
+      else{ b=[false,false,b[2]] }                    // 1st only (or 1st+3rd): bases clear except 3rd holds
+    } else if(b[1]){
+      b=[false,false,b[2]]   // line-drive DP doubling off the runner from 2nd
+    } else if(b[2]){
+      b=[false,b[1],false]   // line-drive DP doubling off the runner from 3rd
+    }
+    // Unusual/tag double plays not covered above should be corrected manually
+    // via the Baserunner event modal.
   } else if(o==='stolen_base'){
     if(!b[1]&&b[0])b=[false,true,b[2]]
     else if(!b[2]&&b[1])b=[b[0],false,true]
     else if(b[2]){runs=1;b[2]=false}
   } else if(o.includes('wp_advance')||o.includes('pb_advance')||o.includes('balk')){
-    runs=b[2]?1:0;b=[b[0],b[0],b[1]];if(runs)b[2]=false
-  } else if(o.includes('caught_stealing')||o.includes('pickoff')||o.includes('out_advancing')){
-    // Remove the out runner
+    // Every runner advances one base; a runner on 3rd scores
+    runs=b[2]?1:0
+    b=[false,b[0],b[1]]
+  } else if(o==='pickoff_1b'){
+    b[0]=false
+  } else if(o==='pickoff_2b'){
+    b[1]=false
+  } else if(o==='pickoff_3b'){
+    b[2]=false
+  } else if(o.includes('caught_stealing')||o.includes('out_advancing')){
+    // No specific base named — remove whichever runner was advancing (lead runner)
     if(b[2])b[2]=false;else if(b[1])b[1]=false;else if(b[0])b[0]=false
   } else if(o==='groundout'||o==='flyout'||o==='lineout'||o==='popout'){
     // Batter out, runners hold (may tag up on flyout but simplified)
@@ -921,8 +969,11 @@ function openModal(type){
 function closeModal(e){if(!e||e.target.id==='modal-overlay')document.getElementById('modal-overlay').style.display='none'}
 function pickOutcome(v,l){
   document.getElementById('modal-overlay').style.display='none'
-  // Walks/HBP from modal: pitch already logged as in_play, skip double logging
-  var skipPitch = /(walk|hbp|intentional_walk)/i.test(v)
+  // Walks/HBP: pitch already logged as in_play, skip double logging.
+  // Baserunner-only events (steal/WP/PB/balk/caught stealing/pickoff/out
+  // advancing): either the pitch was already logged separately, or there
+  // was no pitch at all (pickoff throw) — never log a phantom pitch for these.
+  var skipPitch = /(walk|hbp|intentional_walk|stolen_base|wp_advance|pb_advance|balk|caught_stealing|pickoff|out_advancing)/i.test(v)
   logAB(v,l,skipPitch)
 }
 
@@ -950,14 +1001,18 @@ function newBatter(){
 }
 function newHalf(){
   S.balls=0;S.strikes=0;S.outs=0;S.bases=[false,false,false];S.pitchCount=0;S.velo=null
-  S.pitcherPitchCount=0
+  // NOTE: pitcherPitchCount intentionally NOT reset here — it's the current
+  // pitcher's running total for the whole game, which should keep
+  // accumulating across innings while they're still in. It should only be
+  // reset when a new pitcher actually enters the game.
   document.getElementById('velo-val').textContent='—'
   var wasTop = S.isTop
   S.isTop=!S.isTop
   // Inning increments when going from bottom back to top
   if(S.isTop && !wasTop) S.inning++
-  // Reset batter index when starting new half
-  if(S.isTop) S.currentBatterIdx=0
+  // NOTE: batter index intentionally NOT reset here — the batting order
+  // continues from wherever it left off last time this team batted; it's
+  // only computed fresh at game start/resume in startScoring().
   pushState();renderAll();showToast((S.isTop?'Top':'Bot')+' '+S.inning+' — batter up!')
 }
 async function undoLast(){
@@ -982,9 +1037,13 @@ async function undoLast(){
   S.pitchCount = prev.pitchCount
   S.abNum    = prev.abNum
   S.lastPitchId = prev.lastPitchId
+  S.currentBatterIdx = prev.currentBatterIdx
+  S.currentOppBatterIdx = prev.currentOppBatterIdx
+  S.pitcherPitchCount = prev.pitcherPitchCount
 
   await pushState()
   renderAll()
+  updateBatterDisplay()
   showToast('Undone ↩')
 }
 async function endGame(){
