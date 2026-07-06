@@ -1,0 +1,818 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Tournament Threat Board · Delmarva Aces</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <!-- Supabase client (UMD), shared config + PIN gate (coaches only) -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+  <script src="/config.js"></script>
+  <script src="/pin.js"></script>
+  <style>
+    :root {
+      --bg: #020617;
+      --card: rgba(15, 23, 42, 0.9);
+      --card-border: #1f2937;
+      --accent: #f97316;
+      --accent-soft: #1f2937;
+      --text-main: #e5e7eb;
+      --text-muted: #9ca3af;
+      --danger: #ef4444;
+      --elite: #22c55e;
+      --strong: #3b82f6;
+      --solid: #eab308;
+      --underdog: #6b7280;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      padding: 1.5rem;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: radial-gradient(circle at top, #111827 0, #020617 45%, #000 100%);
+      color: var(--text-main);
+    }
+
+    h1, h2, h3 { margin: 0; font-weight: 600; }
+
+    /* --- Unified nav --- */
+    .nav {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0.75rem 1.25rem;
+      margin-bottom: 1.25rem;
+      border-radius: 0.9rem;
+      background: radial-gradient(circle at top left, #111827 0, #020617 50%, #000 100%);
+      border: 1px solid rgba(15, 23, 42, 0.9);
+      box-shadow: 0 18px 40px rgba(15, 23, 42, 0.9);
+    }
+
+    .nav-left { display: flex; align-items: center; gap: 0.75rem; }
+    .nav-logo {
+      width: 2.1rem; height: 2.1rem; border-radius: 0.9rem;
+      background: radial-gradient(circle at 30% 0%, #fed7aa 0, #f97316 45%, #b45309 100%);
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 800; font-size: 0.9rem; color: #020617;
+      box-shadow: 0 0 0 1px rgba(15,23,42,0.9), 0 10px 25px rgba(0,0,0,0.8);
+    }
+    .nav-title-main { font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.08em; color: #f9fafb; }
+    .nav-title-sub { font-size: 0.8rem; color: #9ca3af; }
+
+    .nav-links { display: flex; align-items: center; gap: 0.6rem; font-size: 0.85rem; }
+    .nav-link {
+      display: inline-flex; align-items: center; justify-content: center;
+      padding: 0.3rem 0.9rem; border-radius: 999px;
+      border: 1px solid transparent; text-decoration: none;
+      color: #9ca3af; background: transparent; white-space: nowrap;
+      transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+    }
+    .nav-link:hover { border-color: #374151; color: #f9fafb; box-shadow: 0 0 0 1px rgba(31,41,55,0.8); }
+    .nav-link-active {
+      background: linear-gradient(to right, #f97316, #f59e0b);
+      color: #020617; border-color: transparent; font-weight: 600;
+      box-shadow: 0 8px 20px rgba(249,115,22,0.35);
+    }
+
+    /* --- Layout --- */
+    .layout {
+      display: grid;
+      grid-template-columns: minmax(0, 2fr) minmax(280px, 1fr);
+      gap: 1rem;
+      align-items: flex-start;
+    }
+    @media (max-width: 1100px) {
+      .layout { grid-template-columns: minmax(0, 1fr); }
+    }
+
+    .card {
+      background: var(--card);
+      border-radius: 0.9rem;
+      border: 1px solid var(--card-border);
+      padding: 1rem 1.25rem;
+    }
+
+    .card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 0.75rem;
+      gap: 0.75rem;
+    }
+
+    .card-header h2 { font-size: 1.05rem; }
+    .card-subtitle { font-size: 0.8rem; color: var(--text-muted); }
+
+    .setup-row {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.75rem;
+      margin-bottom: 0.4rem;
+    }
+
+    .field-group-inline {
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
+      font-size: 0.8rem;
+    }
+
+    .field-label { color: var(--text-muted); font-size: 0.8rem; }
+
+    select, input[type="number"] {
+      padding: 0.35rem 0.6rem;
+      border-radius: 0.5rem;
+      border: 1px solid #4b5563;
+      background: #020617;
+      color: var(--text-main);
+      font-size: 0.85rem;
+      min-width: 210px;
+    }
+
+    select:focus, input[type="number"]:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 1px var(--accent);
+    }
+
+    input[type="number"] { max-width: 90px; min-width: 90px; }
+
+    .setup-meta {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      margin-top: 0.2rem;
+    }
+
+    .pill {
+      display: inline-flex; align-items: center; justify-content: center;
+      padding: 0.1rem 0.5rem; border-radius: 999px;
+      font-size: 0.75rem; border: 1px solid #4b5563;
+      color: var(--text-muted); background: #020617;
+    }
+
+    .pill-dot { display: inline-block; width: 0.4rem; height: 0.4rem; border-radius: 999px; margin-right: 0.25rem; }
+    .pill-tier-elite { border-color: var(--elite); color: #bbf7d0; }
+    .pill-tier-strong { border-color: var(--strong); color: #bfdbfe; }
+    .pill-tier-solid { border-color: var(--solid); color: #fef3c7; }
+    .pill-tier-underdog { border-color: var(--underdog); color: #e5e7eb; }
+    .pill-tier-elite .pill-dot { background: var(--elite); }
+    .pill-tier-strong .pill-dot { background: var(--strong); }
+    .pill-tier-solid .pill-dot { background: var(--solid); }
+    .pill-tier-underdog .pill-dot { background: var(--underdog); }
+
+    .status-text { font-size: 0.8rem; color: var(--text-muted); margin-top: 0.45rem; }
+    .status-text.error { color: var(--danger); }
+
+    .inline-toggle {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      margin-top: 0.45rem;
+      font-size: 0.8rem;
+      color: var(--text-muted);
+    }
+    .inline-toggle input { transform: translateY(1px); }
+
+    table { width: 100%; border-collapse: collapse; margin-top: 0.5rem; font-size: 0.8rem; }
+    th, td { padding: 0.35rem 0.45rem; text-align: right; border-bottom: 1px solid #1f2937; white-space: nowrap; }
+    th:first-child, td:first-child { text-align: left; }
+
+    thead th {
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      cursor: pointer;
+      user-select: none;
+    }
+    thead th.sortable:hover { color: #f9fafb; }
+    thead th.sort-asc::after { content: " ▲"; font-size: 0.7em; }
+    thead th.sort-desc::after { content: " ▼"; font-size: 0.7em; }
+
+    tbody tr:nth-child(even) { background: rgba(15, 23, 42, 0.7); }
+    tbody tr:nth-child(odd) { background: rgba(3, 7, 18, 0.75); }
+
+    tbody tr.highlight-aces {
+      background: linear-gradient(to right, rgba(234,88,12,0.3), rgba(249,115,22,0.15));
+      box-shadow: inset 0 0 0 1px rgba(249,115,22,0.8);
+    }
+
+    .td-team-name { display: flex; align-items: baseline; gap: 0.35rem; }
+
+    .team-aces-tag {
+      font-size: 0.68rem;
+      padding: 0.05rem 0.35rem;
+      border-radius: 999px;
+      border: 1px solid rgba(249,115,22,0.7);
+      color: #fed7aa;
+      background: rgba(30,64,175,0.9);
+      text-transform: uppercase;
+      letter-spacing: 0.02em;
+    }
+
+    .tier-chip {
+      display: inline-flex; align-items: center; justify-content: center;
+      font-size: 0.7rem; padding: 0.08rem 0.45rem;
+      border-radius: 999px; border: 1px solid #4b5563;
+      background: #020617; white-space: nowrap;
+    }
+    .tier-ELITE { border-color: var(--elite); background: rgba(22,163,74,0.12); color: #bbf7d0; }
+    .tier-STRONG { border-color: var(--strong); background: rgba(37,99,235,0.12); color: #bfdbfe; }
+    .tier-SOLID { border-color: var(--solid); background: rgba(202,138,4,0.14); color: #fef3c7; }
+    .tier-UNDERDOG { border-color: var(--underdog); background: rgba(31,41,55,0.9); color: #e5e7eb; }
+
+    .watch-list-title { font-size: 0.85rem; font-weight: 600; margin-bottom: 0.25rem; }
+    .watch-list-item { margin-bottom: 0.5rem; font-size: 0.78rem; }
+    .watch-list-item strong { font-size: 0.8rem; }
+    .watch-list-meta { color: var(--text-muted); font-size: 0.75rem; }
+
+    .tier-breakdown { font-size: 0.76rem; margin-top: 0.35rem; }
+    .tier-breakdown span { margin-right: 0.5rem; }
+
+    @media (max-width: 700px) { body { padding: 1rem; } }
+  </style>
+</head>
+
+<body>
+<header class="nav">
+  <div class="nav-left">
+    <a href="/"><div class="nav-logo">AC</div></a>
+    <div>
+      <div class="nav-title-main">Aces Analytics</div>
+      <div class="nav-title-sub">Tournament Scouting</div>
+    </div>
+  </div>
+  <nav class="nav-links">
+    <a href="/" class="nav-link">Home</a>
+    <a href="/scout.html" class="nav-link">Player Scout</a>
+    <span class="nav-link nav-link-active">Threat Board</span>
+  </nav>
+</header>
+
+<main class="layout">
+  <section class="card">
+    <div class="card-header">
+      <div>
+        <h2>Team Threat Rankings</h2>
+        <div class="card-subtitle">
+          Pre-tournament scouting: ranks the tournament field by Win%, RD, and RD/Game.
+        </div>
+      </div>
+    </div>
+
+    <div class="setup-row">
+      <div class="field-group-inline">
+        <span class="field-label">Tournament</span>
+        <select id="tournamentSelect"></select>
+        <div class="setup-meta" id="tournamentMeta"></div>
+
+        <div class="inline-toggle">
+          <input type="checkbox" id="includeAllTeamsToggle" />
+          <label for="includeAllTeamsToggle">Include non-field teams (debug)</label>
+        </div>
+      </div>
+
+      <div class="field-group-inline">
+        <span class="field-label">Sort by</span>
+        <select id="sortSelect">
+          <option value="threat">Threat Score</option>
+          <option value="win_pct">Win%</option>
+          <option value="run_diff">Run Diff</option>
+          <option value="rd_per_game">RD/Game</option>
+          <option value="rs">Runs Scored (RS)</option>
+          <option value="ra">Runs Allowed (RA)</option>
+          <option value="g">Games (G)</option>
+        </select>
+      </div>
+
+      <div class="field-group-inline">
+        <span class="field-label">Min games</span>
+        <input type="number" id="minGamesInput" min="0" value="0" />
+      </div>
+
+      <div class="field-group-inline">
+        <span class="field-label">Tiers</span>
+        <div style="display:flex;flex-wrap:wrap;gap:0.25rem;">
+          <span class="pill pill-tier-elite"><span class="pill-dot"></span>Elite</span>
+          <span class="pill pill-tier-strong"><span class="pill-dot"></span>Strong</span>
+          <span class="pill pill-tier-solid"><span class="pill-dot"></span>Solid</span>
+          <span class="pill pill-tier-underdog"><span class="pill-dot"></span>Underdog</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="status-text" id="statusText">Loading tournaments…</div>
+
+    <table>
+      <thead>
+        <tr>
+          <th class="sortable" data-sort="team">Team</th>
+          <th class="sortable" data-sort="pool">Pool</th>
+          <th class="sortable" data-sort="g">G</th>
+          <th class="sortable" data-sort="w">W</th>
+          <th class="sortable" data-sort="l">L</th>
+          <th class="sortable" data-sort="win_pct">Win%</th>
+          <th class="sortable" data-sort="rs">RS</th>
+          <th class="sortable" data-sort="ra">RA</th>
+          <th class="sortable" data-sort="run_diff">RD</th>
+          <th class="sortable" data-sort="rd_per_game">RD/G</th>
+          <th class="sortable" data-sort="threat">Threat</th>
+          <th class="sortable" data-sort="tier">Tier</th>
+        </tr>
+      </thead>
+      <tbody id="threatTableBody"></tbody>
+    </table>
+  </section>
+
+  <aside class="card">
+    <div class="card-header">
+      <div>
+        <h2>Watch List</h2>
+        <div class="card-subtitle">Top threats and tier breakdown.</div>
+      </div>
+    </div>
+
+    <div class="watch-list">
+      <div class="watch-list-title">Top 3 non-Aces teams by Threat Score</div>
+      <div id="watchListContainer"></div>
+    </div>
+
+    <hr style="border:none;border-top:1px solid #1f2937;margin:0.9rem 0;" />
+
+    <div>
+      <div class="watch-list-title">Tier breakdown</div>
+      <div class="tier-breakdown" id="tierBreakdown"></div>
+    </div>
+
+    <hr style="border:none;border-top:1px solid #1f2937;margin:0.9rem 0;" />
+
+    <div>
+      <div class="watch-list-title">Tournament power rankings</div>
+      <div class="watch-list-meta" id="powerListMeta">
+        Based on avg Threat and Elite/Strong team density (field only).
+      </div>
+      <div id="powerList" class="tier-breakdown" style="margin-top:0.35rem;"></div>
+    </div>
+  </aside>
+</main>
+
+<script>
+  // Supabase data layer (replaces the old Flask /api/opp/* endpoints).
+  const db = supabase.createClient(ACES_CONFIG.supabaseUrl, ACES_CONFIG.supabaseKey);
+
+  // Map opp_threat_board RPC rows -> the keys normalizeRow expects. Threat itself
+  // is (re)computed client-side in normalizeRow, faithful to the original page;
+  // the RPC also exposes a richer SQL threat_score if we ever want to switch.
+  async function fetchThreatRows(code){
+    const { data, error } = await db.rpc("opp_threat_board", { p_tournament: code });
+    if (error) throw error;
+    return (data || []).map(r => ({
+      Team: r.team_name, Pool: "",
+      G: r.games, W: r.w, L: r.l,
+      RS: r.runs_for, RA: r.runs_against,
+      RunDiff: r.run_diff_total, RDPerGame: r.run_diff_per_game
+    }));
+  }
+
+  const YOUR_TEAM_NAME = "Delmarva Aces 12U East";
+
+  const tournamentSelect = document.getElementById("tournamentSelect");
+  const sortSelect = document.getElementById("sortSelect");
+  const minGamesInput = document.getElementById("minGamesInput");
+  const includeAllTeamsToggle = document.getElementById("includeAllTeamsToggle");
+  const statusText = document.getElementById("statusText");
+  const threatTableBody = document.getElementById("threatTableBody");
+  const tournamentMeta = document.getElementById("tournamentMeta");
+  const watchListContainer = document.getElementById("watchListContainer");
+  const tierBreakdown = document.getElementById("tierBreakdown");
+  const powerList = document.getElementById("powerList");
+  const powerListMeta = document.getElementById("powerListMeta");
+
+  let tournaments = [];
+  let currentTournamentCode = null;
+  let computedRows = [];
+  let sortState = { column: "threat", direction: "desc" };
+
+  async function fetchJSON(url) {
+    const res = await fetch(url);
+    if (!res.ok) throw new Error("HTTP " + res.status + " for " + url);
+    return res.json();
+  }
+
+  function toNum(v) {
+    if (v === null || v === undefined || v === "") return 0;
+    const n = Number(v);
+    return Number.isNaN(n) ? 0 : n;
+  }
+
+  function fmtPct(value) {
+    if (value === null || value === undefined || isNaN(value)) return ".000";
+    return Number(value).toFixed(3);
+  }
+
+  function fmtOne(value) {
+    if (value === null || value === undefined || isNaN(value)) return "";
+    return Number(value).toFixed(1);
+  }
+
+  function fmtInt(value) {
+    if (value === null || value === undefined || isNaN(value)) return "";
+    return Math.round(Number(value)).toString();
+  }
+
+  function normalizeRow(row) {
+    const team = row.Team || row.team || row.name || "";
+    const pool = row.Pool || row.pool || "";
+    const G = toNum(row.G || row.g || row.games);
+    const W = toNum(row.W || row.w || row.wins);
+    const L = toNum(row.L || row.l || row.losses);
+    const RS = toNum(row.RS || row.rs || row.runs_scored);
+    const RA = toNum(row.RA || row.ra || row.runs_allowed);
+
+    let runDiff = row.RunDiff ?? row.run_diff ?? (RS - RA);
+    runDiff = toNum(runDiff);
+
+    let winPct = row.WinPct ?? row.win_pct;
+    if (winPct === undefined || winPct === null || winPct === "") {
+      winPct = G > 0 ? (W / G) : 0;
+    } else {
+      winPct = toNum(winPct);
+    }
+
+    const rdPerGame = row.RDPerGame ?? row.rd_per_game ?? (G > 0 ? runDiff / G : 0);
+    const rdg = toNum(rdPerGame);
+
+    // Threat Score: Win% (0..70) + clamp(RD/G -10..10) mapped to (-30..+30)
+    const winScore = winPct * 70;
+    const clampedRDG = Math.max(-10, Math.min(10, rdg));
+    const rdScore = clampedRDG * 3;
+    let threat = Math.round(winScore + rdScore);
+    threat = Math.max(0, Math.min(100, threat));
+
+    // If no games, threat should be N/A-ish and tier should not imply "bad"
+    const hasData = G > 0;
+
+    let tier = "UNDERDOG";
+    if (hasData) {
+      if (threat >= 90) tier = "ELITE";
+      else if (threat >= 75) tier = "STRONG";
+      else if (threat >= 60) tier = "SOLID";
+    }
+
+    const isAces = team && YOUR_TEAM_NAME && team.toLowerCase().includes(YOUR_TEAM_NAME.toLowerCase());
+
+    return {
+      team,
+      pool,
+      g: G,
+      w: W,
+      l: L,
+      rs: RS,
+      ra: RA,
+      run_diff: runDiff,
+      rd_per_game: rdg,
+      win_pct: winPct,
+      threat,
+      tier,
+      hasData,
+      isAces
+    };
+  }
+
+  async function loadTournaments() {
+    statusText.textContent = "Loading tournaments…";
+    statusText.classList.remove("error");
+    tournamentSelect.innerHTML = "";
+    tournaments = [];
+
+    try {
+      const { data, error } = await db.from("opp_tournaments").select("tournament_code").order("tournament_code");
+      if (error) throw error;
+      tournaments = (data || []).map(r => r.tournament_code);
+    } catch (e) {
+      console.error(e);
+      statusText.textContent = "Could not load tournaments. Check server.";
+      statusText.classList.add("error");
+      return;
+    }
+
+    if (!tournaments.length) {
+      statusText.textContent = "No tournaments found. Create data/opponents/<tournament>/team-threat.csv";
+      statusText.classList.add("error");
+      return;
+    }
+
+    tournaments.forEach(code => {
+      const opt = document.createElement("option");
+      opt.value = code;
+      opt.textContent = code;
+      tournamentSelect.appendChild(opt);
+    });
+
+    tournamentSelect.selectedIndex = 0;
+    currentTournamentCode = tournamentSelect.value;
+
+    tournamentSelect.addEventListener("change", () => {
+      currentTournamentCode = tournamentSelect.value;
+      loadTournamentRows();
+      buildTournamentPowerRankings();
+    });
+
+    sortSelect.addEventListener("change", () => {
+      sortState.column = sortSelect.value;
+      applyFiltersAndRender();
+    });
+
+    minGamesInput.addEventListener("change", () => applyFiltersAndRender());
+    includeAllTeamsToggle.addEventListener("change", () => {
+      loadTournamentRows();
+      buildTournamentPowerRankings();
+    });
+
+    document.querySelectorAll("thead th.sortable").forEach(th => {
+      th.addEventListener("click", () => {
+        const col = th.dataset.sort;
+        if (sortState.column === col) {
+          sortState.direction = sortState.direction === "asc" ? "desc" : "asc";
+        } else {
+          sortState.column = col;
+          sortState.direction = (col === "team" || col === "pool") ? "asc" : "desc";
+        }
+        sortSelect.value = sortState.column;
+        applyFiltersAndRender();
+      });
+    });
+
+    await loadTournamentRows();
+    await buildTournamentPowerRankings();
+  }
+
+  function currentScopeParam() {
+    return includeAllTeamsToggle.checked ? "all" : "field";
+  }
+
+  async function loadTournamentRows() {
+    if (!currentTournamentCode) return;
+    statusText.textContent = "Loading tournament data…";
+    statusText.classList.remove("error");
+    threatTableBody.innerHTML = "";
+    watchListContainer.innerHTML = "";
+    tierBreakdown.textContent = "";
+
+    try {
+      const rowsRaw = await fetchThreatRows(currentTournamentCode);
+      computedRows = rowsRaw.map(normalizeRow);
+
+      const fieldCount = computedRows.length;
+      const totalRows = computedRows.length;
+
+      tournamentMeta.textContent =
+        `${currentTournamentCode} – teams ranked: ${totalRows} (field teams: ${fieldCount})`;
+
+      // default sort
+      sortState.column = "threat";
+      sortState.direction = "desc";
+      sortSelect.value = "threat";
+
+      applyFiltersAndRender();
+      statusText.textContent = "";
+    } catch (e) {
+      console.error(e);
+      statusText.textContent = "Error loading tournament. Check server logs.";
+      statusText.classList.add("error");
+    }
+  }
+
+  function applyFiltersAndRender() {
+    const minGames = parseInt(minGamesInput.value || "0", 10);
+    const mg = Number.isNaN(minGames) ? 0 : minGames;
+
+    let rows = computedRows.filter(r => r.g >= mg);
+
+    const col = sortState.column;
+    const dir = sortState.direction === "asc" ? 1 : -1;
+
+    rows.sort((a, b) => {
+      const va = a[col];
+      const vb = b[col];
+      if (typeof va === "string" || typeof vb === "string") {
+        return va.toString().localeCompare(vb.toString()) * dir;
+      }
+      return (va - vb) * dir;
+    });
+
+    renderTable(rows);
+    renderWatchList(rows);
+    renderTierBreakdown(rows);
+    updateHeaderSortIndicators();
+    updateMetaAfterFilter(rows, mg);
+  }
+
+  function updateMetaAfterFilter(rows, minGames) {
+    const total = computedRows.length;
+    const showing = rows.length;
+    tournamentMeta.textContent =
+      `${currentTournamentCode} – Showing ${showing} of ${total} teams (min G = ${minGames})`;
+  }
+
+  function updateHeaderSortIndicators() {
+    document.querySelectorAll("thead th.sortable").forEach(th => {
+      th.classList.remove("sort-asc", "sort-desc");
+      const col = th.dataset.sort;
+      if (col === sortState.column) {
+        th.classList.add(sortState.direction === "asc" ? "sort-asc" : "sort-desc");
+      }
+    });
+  }
+
+  function renderTable(rows) {
+    threatTableBody.innerHTML = "";
+    for (const r of rows) {
+      const tr = document.createElement("tr");
+      if (r.isAces) tr.classList.add("highlight-aces");
+
+      const tdTeam = document.createElement("td");
+      tdTeam.className = "td-team-name";
+      const spanName = document.createElement("span");
+      spanName.textContent = r.team || "";
+      tdTeam.appendChild(spanName);
+      if (r.isAces) {
+        const tag = document.createElement("span");
+        tag.className = "team-aces-tag";
+        tag.textContent = "Aces";
+        tdTeam.appendChild(tag);
+      }
+
+      const tdPool = document.createElement("td");
+      tdPool.textContent = r.pool || "-";
+
+      const tdG = document.createElement("td"); tdG.textContent = fmtInt(r.g);
+      const tdW = document.createElement("td"); tdW.textContent = fmtInt(r.w);
+      const tdL = document.createElement("td"); tdL.textContent = fmtInt(r.l);
+      const tdWin = document.createElement("td"); tdWin.textContent = fmtPct(r.win_pct);
+      const tdRS = document.createElement("td"); tdRS.textContent = fmtInt(r.rs);
+      const tdRA = document.createElement("td"); tdRA.textContent = fmtInt(r.ra);
+      const tdRD = document.createElement("td"); tdRD.textContent = fmtInt(r.run_diff);
+      const tdRDG = document.createElement("td"); tdRDG.textContent = fmtOne(r.rd_per_game);
+
+      const tdThreat = document.createElement("td");
+      tdThreat.textContent = r.hasData ? fmtInt(r.threat) : "—";
+
+      const tdTier = document.createElement("td");
+      const tierSpan = document.createElement("span");
+      tierSpan.className = "tier-chip tier-" + r.tier;
+      tierSpan.textContent = r.hasData ? r.tier : "NO DATA";
+      tdTier.appendChild(tierSpan);
+
+      tr.appendChild(tdTeam);
+      tr.appendChild(tdPool);
+      tr.appendChild(tdG);
+      tr.appendChild(tdW);
+      tr.appendChild(tdL);
+      tr.appendChild(tdWin);
+      tr.appendChild(tdRS);
+      tr.appendChild(tdRA);
+      tr.appendChild(tdRD);
+      tr.appendChild(tdRDG);
+      tr.appendChild(tdThreat);
+      tr.appendChild(tdTier);
+
+      threatTableBody.appendChild(tr);
+    }
+  }
+
+  function renderWatchList(rows) {
+    watchListContainer.innerHTML = "";
+    const usable = rows.filter(r => r.hasData && !r.isAces);
+    usable.sort((a, b) => b.threat - a.threat);
+    const top = usable.slice(0, 3);
+
+    if (!top.length) {
+      watchListContainer.textContent = "No opponent teams with data yet.";
+      return;
+    }
+
+    for (const r of top) {
+      const div = document.createElement("div");
+      div.className = "watch-list-item";
+
+      const name = document.createElement("div");
+      name.innerHTML = `<strong>${r.team}</strong>`;
+      div.appendChild(name);
+
+      const meta = document.createElement("div");
+      meta.className = "watch-list-meta";
+      meta.textContent =
+        `Pool ${r.pool || "-"} – Win% ${fmtPct(r.win_pct)} – RD ${fmtInt(r.run_diff)} (${fmtOne(r.rd_per_game)}/g) – Threat ${fmtInt(r.threat)} (${r.tier})`;
+      div.appendChild(meta);
+
+      watchListContainer.appendChild(div);
+    }
+  }
+
+  function renderTierBreakdown(rows) {
+    tierBreakdown.innerHTML = "";
+    const usable = rows.filter(r => r.hasData);
+    if (!usable.length) {
+      tierBreakdown.textContent = "No data yet.";
+      return;
+    }
+
+    const counts = { ELITE: 0, STRONG: 0, SOLID: 0, UNDERDOG: 0 };
+    for (const r of usable) counts[r.tier] = (counts[r.tier] || 0) + 1;
+
+    const spanElite = document.createElement("span"); spanElite.textContent = `Elite: ${counts.ELITE}`;
+    const spanStrong = document.createElement("span"); spanStrong.textContent = `Strong: ${counts.STRONG}`;
+    const spanSolid = document.createElement("span"); spanSolid.textContent = `Solid: ${counts.SOLID}`;
+    const spanUnderdog = document.createElement("span"); spanUnderdog.textContent = `Underdog: ${counts.UNDERDOG}`;
+
+    tierBreakdown.appendChild(spanElite);
+    tierBreakdown.appendChild(spanStrong);
+    tierBreakdown.appendChild(spanSolid);
+    tierBreakdown.appendChild(spanUnderdog);
+  }
+
+  function computeTournamentPower(rows) {
+    const usable = rows.filter(r => r.hasData);
+    const counts = { ELITE: 0, STRONG: 0, SOLID: 0, UNDERDOG: 0 };
+
+    if (!usable.length) return { score: 0, counts, total: 0 };
+
+    let sumThreat = 0;
+    for (const r of usable) {
+      sumThreat += r.threat;
+      counts[r.tier] = (counts[r.tier] || 0) + 1;
+    }
+
+    const avgThreat = sumThreat / usable.length;
+    const eliteDensity = counts.ELITE / usable.length;
+    const strongDensity = counts.STRONG / usable.length;
+
+    const score = avgThreat * 0.6 + eliteDensity * 100 * 0.25 + strongDensity * 100 * 0.15;
+    return { score, counts, total: usable.length };
+  }
+
+  function labelForPowerScore(score) {
+    if (score >= 80) return "Bloodbath";
+    if (score >= 65) return "Tough field";
+    if (score >= 50) return "Balanced";
+    if (score >= 35) return "Favorable";
+    return "Soft";
+  }
+
+  async function buildTournamentPowerRankings() {
+    if (!tournaments.length) return;
+
+    powerList.innerHTML = "Computing power rankings…";
+    try {
+      // Power rankings should be FIELD ONLY (scouting) by default
+      const scope = "field";
+
+      const results = await Promise.all(
+        tournaments.map(async code => {
+          const rowsRaw = await fetchThreatRows(code);
+          const normalized = rowsRaw.map(normalizeRow);
+          const rating = computeTournamentPower(normalized);
+          return { code, score: rating.score, counts: rating.counts, total: rating.total };
+        })
+      );
+
+      const usable = results.filter(r => r.total > 0);
+      usable.sort((a, b) => b.score - a.score);
+
+      powerList.innerHTML = "";
+      if (!usable.length) {
+        powerList.textContent = "No tournaments with data yet.";
+        return;
+      }
+
+      usable.forEach((t, idx) => {
+        const row = document.createElement("div");
+        row.className = "watch-list-item";
+
+        const name = document.createElement("div");
+        name.innerHTML = `<strong>${idx + 1}. ${t.code}</strong> – ${labelForPowerScore(t.score)} (${t.score.toFixed(0)})`;
+        row.appendChild(name);
+
+        const meta = document.createElement("div");
+        meta.className = "watch-list-meta";
+        meta.textContent = `Teams w/data: ${t.total} | Elite: ${t.counts.ELITE || 0} • Strong: ${t.counts.STRONG || 0} • Solid: ${t.counts.SOLID || 0}`;
+        row.appendChild(meta);
+
+        powerList.appendChild(row);
+      });
+
+      powerListMeta.textContent = "Field-only power rankings (scouting).";
+    } catch (e) {
+      console.error(e);
+      powerList.textContent = "Could not compute rankings. Check server logs.";
+    }
+  }
+
+  document.addEventListener("DOMContentLoaded", () => {
+    loadTournaments();
+  });
+</script>
+
+</body>
+</html>
