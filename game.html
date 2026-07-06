@@ -485,6 +485,12 @@ async function loadLiveGame() {
       .order('stream_start_utc', {ascending:false}).limit(1)
     if (error || !data || !data.length) { await loadNextGame(); return }
     var game = data[0]
+    // live_game_summary doesn't expose base_1b/2b/3b — pull those directly
+    // from the underlying table instead of relying on the view for them.
+    try {
+      var {data:baseRow} = await db.from('games').select('base_1b,base_2b,base_3b').eq('id', game.id).single()
+      if (baseRow) { game.base_1b = baseRow.base_1b; game.base_2b = baseRow.base_2b; game.base_3b = baseRow.base_3b }
+    } catch(e) {}
     liveGame = game
     updateScoreboard(game)
     // Bases already loaded via updateScoreboard above
@@ -605,12 +611,14 @@ function subscribeToGame(gameId) {
         // Re-fetch full game data from view to get team_name, opponent_name etc
         try {
           var {data} = await db.from('live_game_summary').select('*').eq('id', gameId).single()
-          if (data) {
-            liveGame = data
-            updateScoreboard(data)
-          } else {
-            updateScoreboard(p.new)
-          }
+          var merged = data || p.new
+          // live_game_summary doesn't expose base_1b/2b/3b — always trust the
+          // raw updated row for these regardless of whether the view fetch worked
+          merged.base_1b = p.new.base_1b
+          merged.base_2b = p.new.base_2b
+          merged.base_3b = p.new.base_3b
+          liveGame = merged
+          updateScoreboard(merged)
         } catch(e) {
           updateScoreboard(p.new)
         }
