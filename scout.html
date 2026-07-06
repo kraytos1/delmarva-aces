@@ -206,7 +206,7 @@ function computeScout(r){
 function mapRow(r){
   return {UniformNumber:r.uniform_number||"", PlayerName:r.player_name||"", Games:r.games||0,
     AB:r.ab||0, H:r.h||0, "2B":r.doubles||0, "3B":r.triples||0, HR:r.hr||0, TB:r.tb||0,
-    BB:r.bb||0, SO:r.so||0, AVG:Number(r.avg)||0, ISO:Number(r.iso)||0};
+    BB:r.bb||0, SO:r.so||0, SB:r.sb||0, AVG:Number(r.avg)||0, ISO:Number(r.iso)||0};
 }
 function combineTeams(rows){
   const b=new Map();
