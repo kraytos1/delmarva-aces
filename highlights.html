@@ -57,6 +57,8 @@
   .rbi{font-family:var(--mono);font-size:10px;color:var(--orange);letter-spacing:.5px;}
   .clip-batter{font-family:var(--display);font-size:19px;font-weight:600;letter-spacing:.3px;}
   .clip-batter em{color:var(--muted);font-style:normal;font-weight:400;font-size:14px;margin-right:5px;}
+  .clip-batter a{color:inherit;text-decoration:none;transition:color .15s;}
+  .clip-batter a:hover{color:var(--orange);}
   .clip-meta{font-family:var(--mono);font-size:11px;color:var(--muted);margin-top:5px;}
 
   .empty{text-align:center;padding:70px 24px;border:1px dashed var(--bdr);border-radius:14px;background:var(--dark);}
@@ -182,7 +184,9 @@ function render(){
       + '<div class="clip-vid"><video src="'+ab.clip_url+'" controls preload="metadata" playsinline></video></div>'
       + '<div class="clip-body">'
       + '<div class="clip-top"><span class="badge '+info.cls+'">'+info.label+'</span>'+rbi+'</div>'
-      + '<div class="clip-batter">'+(pl.num!=null?'<em>#'+pl.num+'</em>':'')+pl.name+'</div>'
+      + '<div class="clip-batter">'+(pl.num!=null
+          ? '<a href="/player/'+pl.num+'" title="View '+pl.name+'’s page"><em>#'+pl.num+'</em>'+pl.name+'</a>'
+          : pl.name)+'</div>'
       + '<div class="clip-meta">'+meta(ab)+'</div>'
       + '</div></div>';
   }).join('') + '</div>';
