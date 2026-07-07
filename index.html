@@ -424,6 +424,7 @@
 
 <script>
 var allGames = []
+var dbGamesLoaded = []   // DB games from init(), reused across season switches so box-score links survive
 var scheduleFilter = 'all'
 var monthFilter = 'all'
 // ─────────────────────────────────────────────────────────
@@ -566,14 +567,20 @@ function setSeason(season) {
   if (season === 'spring2026') {
     // Load archived Spring 2026 stats
     players = FALLBACK_PLAYERS
-    allGames = FALLBACK_GAMES.map(function(g){
-      return {
-        game_date: g.date, our_score: g.us, opp_score: g.them,
-        status: 'final', is_home: true,
-        tournament: g.event, location: g.location||'',
-        opponents: {name: g.opp}
-      }
-    })
+    // Prefer the real DB games (they carry id + gc_boxscore_url for the box-score links);
+    // only fall back to the hardcoded array when the DB games didn't load.
+    if (dbGamesLoaded && dbGamesLoaded.length) {
+      allGames = dbGamesLoaded
+    } else {
+      allGames = FALLBACK_GAMES.map(function(g){
+        return {
+          game_date: g.date, our_score: g.us, opp_score: g.them,
+          status: 'final', is_home: true,
+          tournament: g.event, location: g.location||'',
+          opponents: {name: g.opp}
+        }
+      })
+    }
     setText('ts-avg', '.467'); setText('ts-rbi', '685')
     setText('ts-r', '816');   setText('ts-sb', '316')
     setText('ts-hr', '177');  setText('ts-era', '2.99')
@@ -672,6 +679,7 @@ async function init() {
           if(opps) opps.forEach(function(o){oppMap[o.id]=o.name})
           dbGames.forEach(function(g){g.opponents={name:oppMap[g.opponent_id]||'Opponent'}})
           allGames = dbGames
+          dbGamesLoaded = dbGames
           games = dbGames.slice(0,5).map(mapDBGame)
         }
 
