@@ -432,8 +432,13 @@ var S = {
   oppPitcher:'',
   oppLineup:[],
   currentOppBatterIdx:0,
-  pitcherPitchCount:0   // running count for current pitcher
+  // Per-pitcher running totals for THIS game (pitchers alternate by half, so a
+  // single counter would mix both teams). isTop = Aces batting = opponent
+  // pitching -> oppPitchCount; bottom = Aces pitching -> acesPitchCount.
+  acesPitchCount:0,
+  oppPitchCount:0
 }
+function currentPC(){ return S.isTop ? S.oppPitchCount : S.acesPitchCount }
 
 // State history for undo — each entry is a snapshot + DB ids to delete
 var HISTORY = []
@@ -557,6 +562,18 @@ async function startScoring() {
     } catch(e) { console.log('Lineup parse error:', e) }
   }
 
+  // Initialize per-pitcher pitch counts from the DB (correct on resume / reload).
+  try {
+    var {count:opc}=await db.from('pitches').select('id',{count:'exact',head:true}).eq('game_id',gid).is('pitcher_id',null)
+    S.oppPitchCount = opc||0
+  } catch(e){ S.oppPitchCount = 0 }
+  try {
+    if(S.currentPitcherId){
+      var {count:apc}=await db.from('pitches').select('id',{count:'exact',head:true}).eq('game_id',gid).eq('pitcher_id',S.currentPitcherId)
+      S.acesPitchCount = apc||0
+    } else { S.acesPitchCount = 0 }
+  } catch(e){ S.acesPitchCount = 0 }
+
   document.getElementById('setup').style.display='none'
   document.getElementById('scorer').style.display='flex'
   var opp=g.opponents?.name||'Opponent'
@@ -594,7 +611,7 @@ function updateBatterDisplay() {
   // Pitcher
   var pitcherName = S.isTop ? (S.oppPitcher||'Opp. Pitcher') : (S.currentPitcherName||'—')
   setText('ab-pitcher', pitcherName)
-  setText('ab-pc', 'PC '+S.pitcherPitchCount)
+  setText('ab-pc', 'PC '+currentPC())
 }
 
 function advanceBatter() {
@@ -697,7 +714,7 @@ async function quickLog(result) {
   saveSnapshot(null, null)
 
   S.pitchCount++
-  S.pitcherPitchCount++
+  if(S.isTop) S.oppPitchCount++; else S.acesPitchCount++
   var bBefore=S.balls, sBefore=S.strikes
   var autoWalk=false, autoK=false, autoKLooking=false
 
@@ -1013,10 +1030,10 @@ function newBatter(){
 }
 function newHalf(){
   S.balls=0;S.strikes=0;S.outs=0;S.bases=[false,false,false];S.pitchCount=0;S.velo=null
-  // NOTE: pitcherPitchCount intentionally NOT reset here — it's the current
-  // pitcher's running total for the whole game, which should keep
-  // accumulating across innings while they're still in. It should only be
-  // reset when a new pitcher actually enters the game.
+  // NOTE: acesPitchCount/oppPitchCount are per-pitcher game totals and are NOT
+  // reset on a half change — each side's counter keeps accumulating across the
+  // innings that pitcher works. (No in-game pitching-change flow exists yet; if
+  // one is added, reset the relevant side's counter when a new pitcher enters.)
   document.getElementById('velo-val').textContent='—'
   var wasTop = S.isTop
   S.isTop=!S.isTop
@@ -1051,7 +1068,8 @@ async function undoLast(){
   S.lastPitchId = prev.lastPitchId
   S.currentBatterIdx = prev.currentBatterIdx
   S.currentOppBatterIdx = prev.currentOppBatterIdx
-  S.pitcherPitchCount = prev.pitcherPitchCount
+  S.acesPitchCount = prev.acesPitchCount
+  S.oppPitchCount = prev.oppPitchCount
 
   await pushState()
   renderAll()
@@ -1079,7 +1097,7 @@ function renderCount(){
   document.getElementById('sc-them').textContent=S.scores.them
   document.getElementById('top-meta').textContent=(S.isTop?'Top':'Bot')+' '+S.inning+' · '+S.outs+' out'+(S.outs===1?'':'s')
   document.getElementById('inn-lbl').textContent=(S.isTop?'▲':'▼')+' '+S.inning
-  document.getElementById('ab-pc').textContent='PC '+S.pitchCount
+  document.getElementById('ab-pc').textContent='PC '+currentPC()
 }
 function renderBases(){
   var bases=[{id:'b1b',hid:'h1',rid:'r1b',on:S.bases[0]},

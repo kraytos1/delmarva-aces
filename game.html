@@ -434,6 +434,10 @@ var db = null
 var liveGame = null
 var bases = [false,false,false]
 var totalPitches = 0
+var acesPitches = 0   // Aces pitcher's pitches this game
+var oppPitches = 0    // opponent pitcher's pitches this game (pitcher_id is null)
+// current pitcher = the side NOT batting. isTop => Aces batting => opponent pitching.
+function pcForHalf(){ var isTop = !liveGame || liveGame.half==='top' || !liveGame.half; return isTop ? oppPitches : acesPitches }
 
 async function init() {
   if (ACES_CONFIG.supabaseUrl && ACES_CONFIG.supabaseKey) {
@@ -575,7 +579,7 @@ function updateBatterCard(ab) {
         }
       }
     }
-    setText('p-count', totalPitches)
+    setText('p-count', pcForHalf())
   } catch(e) { console.log('updateBatterCard error:', e) }
 }
 
@@ -631,7 +635,7 @@ function subscribeToGame(gameId) {
         addPlay(p.new,true)
         applyViewerBases(p.new.result)
         updateBatterCard(p.new)
-        setText('p-count', totalPitches)
+        setText('p-count', pcForHalf())
       })
     .subscribe()
 
@@ -663,6 +667,7 @@ function updateScoreboard(game) {
 
   // Always update liveGame.half so lineup cards use freshest value
   if (liveGame) liveGame.half = game.half
+  setText('p-count', pcForHalf())  // switch PC to whoever is now pitching
 
   var isTop = game.half === 'top' || !game.half
   if (liveGame && liveGame.notes) {
@@ -756,8 +761,9 @@ var typeClass={FB:'pt-fb',CB:'pt-cb',SL:'pt-sl',CH:'pt-ch'}
 
 function addPitch(pitch, isNew) {
   totalPitches++
+  if(pitch.pitcher_id) acesPitches++; else oppPitches++
   setText('total-pitches', totalPitches+' pitch'+(totalPitches===1?'':'es'))
-  setText('p-count', totalPitches)
+  setText('p-count', pcForHalf())
 
   if (pitch.velocity_mph) {
     document.getElementById('ov-velo').textContent = pitch.velocity_mph+' MPH'
