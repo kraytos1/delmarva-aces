@@ -660,7 +660,7 @@ async function init() {
 
         var { data: dbGames } = await db
           .from('games')
-          .select('id,game_date,our_score,opp_score,status,tournament,location,is_home,opponent_id,inning,half')
+          .select('id,game_date,our_score,opp_score,status,tournament,location,is_home,opponent_id,inning,half,gc_boxscore_url')
           .eq('status', 'final')
           .order('game_date', { ascending: false })
           .limit(100)
@@ -1216,7 +1216,9 @@ function renderSchedule() {
       html += ' – '+(win?g.opp_score:g.our_score)+'</div>'
       html += '<div style="display:flex;align-items:center;gap:10px;min-width:160px;justify-content:flex-end;">'
       html += '<div style="font-family:var(--mono);font-size:11px;color:var(--muted);">'+dateStr+'</div>'
-      if (g.id) {
+      if (g.gc_boxscore_url) {
+        html += '<a href="'+g.gc_boxscore_url+'" target="_blank" rel="noopener" style="font-family:var(--mono);font-size:10px;color:var(--orange);text-decoration:none;border:1px solid var(--bdr-a);border-radius:4px;padding:3px 8px;white-space:nowrap;">Box score ↗</a>'
+      } else if (g.id) {
         html += '<a href="/boxscore/'+g.id+'" style="font-family:var(--mono);font-size:10px;color:var(--orange);text-decoration:none;border:1px solid var(--bdr-a);border-radius:4px;padding:3px 8px;white-space:nowrap;">Box score</a>'
       }
       html += '</div>'
