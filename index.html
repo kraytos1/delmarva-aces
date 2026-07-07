@@ -565,22 +565,30 @@ function setSeason(season) {
   }
 
   if (season === 'spring2026') {
-    // Load archived Spring 2026 stats
+    // Load archived Spring 2026 stats.
+    // The completed spring season is the curated FALLBACK_GAMES list (the true 62-2 —
+    // the DB only holds a subset, e.g. the Cooperstown games were never loaded), so the
+    // RECORD always comes from FALLBACK. We enrich each game with its box-score URL from
+    // the DB (matched by date+score) so the "Box score" links survive.
     players = FALLBACK_PLAYERS
-    // Prefer the real DB games (they carry id + gc_boxscore_url for the box-score links);
-    // only fall back to the hardcoded array when the DB games didn't load.
-    if (dbGamesLoaded && dbGamesLoaded.length) {
-      allGames = dbGamesLoaded
-    } else {
-      allGames = FALLBACK_GAMES.map(function(g){
-        return {
-          game_date: g.date, our_score: g.us, opp_score: g.them,
-          status: 'final', is_home: true,
-          tournament: g.event, location: g.location||'',
-          opponents: {name: g.opp}
-        }
-      })
-    }
+    var urlByKey = {}   // "date|us|them" -> [url, ...] (list handles same-score doubleheaders)
+    ;(dbGamesLoaded || []).forEach(function(g){
+      if (g.gc_boxscore_url) {
+        var k = g.game_date+'|'+g.our_score+'|'+g.opp_score
+        ;(urlByKey[k] = urlByKey[k] || []).push(g.gc_boxscore_url)
+      }
+    })
+    allGames = FALLBACK_GAMES.map(function(g){
+      var k = g.date+'|'+g.us+'|'+g.them
+      var url = (urlByKey[k] && urlByKey[k].length) ? urlByKey[k].shift() : null
+      return {
+        game_date: g.date, our_score: g.us, opp_score: g.them,
+        status: 'final', is_home: true,
+        tournament: g.event, location: g.location||'',
+        opponents: {name: g.opp},
+        gc_boxscore_url: url
+      }
+    })
     setText('ts-avg', '.467'); setText('ts-rbi', '685')
     setText('ts-r', '816');   setText('ts-sb', '316')
     setText('ts-hr', '177');  setText('ts-era', '2.99')
