@@ -236,7 +236,7 @@ function computeScout(r){
 function mapRow(r){
   return {pid:r.opp_player_id||"", UniformNumber:r.uniform_number||"", PlayerName:r.player_name||"", Games:r.games||0,
     AB:r.ab||0, H:r.h||0, "2B":r.doubles||0, "3B":r.triples||0, HR:r.hr||0, TB:r.tb||0,
-    BB:r.bb||0, SO:r.so||0, SB:r.sb||0, AVG:Number(r.avg)||0, ISO:Number(r.iso)||0};
+    RBI:r.rbi||0, BB:r.bb||0, SO:r.so||0, SB:r.sb||0, AVG:Number(r.avg)||0, ISO:Number(r.iso)||0};
 }
 function combineTeams(rows){
   const b=new Map();
@@ -260,7 +260,7 @@ function combinePlayersRows(rows){
   for(const r of rows){
     const k=playerId(r.PlayerName);
     if(!m.has(k)) m.set(k,{...r});
-    else{const a=m.get(k);for(const f of ["Games","AB","H","2B","3B","HR","TB","BB","SO"])a[f]=(a[f]||0)+(r[f]||0);}
+    else{const a=m.get(k);for(const f of ["Games","AB","H","2B","3B","HR","TB","RBI","BB","SO","SB"])a[f]=(a[f]||0)+(r[f]||0);}
   }
   const out=[...m.values()];
   for(const r of out){const ab=r.AB||0;r.AVG=ab?r.H/ab:0;r.ISO=ab?(r.TB-r.H)/ab:0;}
@@ -331,7 +331,7 @@ const COLS=[
   {k:"rank",label:"#",cls:"rank",noSort:true},
   {k:"PlayerName",label:"Player",cls:"player"},
   {k:"Games",label:"G"},{k:"AB",label:"AB"},{k:"AVG",label:"AVG"},{k:"OPS",label:"OPS"},
-  {k:"ISO",label:"ISO"},{k:"HR",label:"HR"},{k:"SB",label:"SB"},{k:"XBH",label:"XBH"},
+  {k:"ISO",label:"ISO"},{k:"HR",label:"HR"},{k:"RBI",label:"RBI"},{k:"SB",label:"SB"},{k:"XBH",label:"XBH"},
   {k:"score",label:"Score",cls:"score"},{k:"flags",label:"Flags",noSort:true}
 ];
 function render(){
@@ -348,7 +348,7 @@ function render(){
       <td class="rank">${i+1}</td>
       <td class="player">${r.PlayerName||""}</td>
       <td>${r.Games??0}</td><td>${r.AB??0}</td><td>${f3(r.AVG)}</td><td>${f3(s.ops)}</td>
-      <td>${f3(r.ISO)}</td><td>${r.HR??0}</td><td>${r.SB??0}</td><td>${s.xbh}</td>
+      <td>${f3(r.ISO)}</td><td>${r.HR??0}</td><td>${r.RBI??0}</td><td>${r.SB??0}</td><td>${s.xbh}</td>
       <td class="score">${s.score.toFixed(1)}</td>
       <td><div class="flags">${flags||'<span class="muted">—</span>'}</div></td>
     </tr>`;
@@ -413,14 +413,15 @@ function sparkline(vals){ const max=Math.max(...vals,1),W=320,H=46,n=Math.max(1,
 function renderGameLog(rows){
   if(!rows.length) return '<div class="muted" style="padding:14px">No game log.</div>';
   const tAB=rows.reduce((a,r)=>a+(r.ab||0),0),tH=rows.reduce((a,r)=>a+(r.h||0),0),
-        tHR=rows.reduce((a,r)=>a+(r.hr||0),0),tSB=rows.reduce((a,r)=>a+(r.sb||0),0),avg=tAB?tH/tAB:0;
-  let html=`<div class="drill-summary">${rows.length} games · ${tH}-for-${tAB} · ${avg.toFixed(3).replace(/^0/,'')} · ${tHR} HR · ${tSB} SB</div>`;
+        tHR=rows.reduce((a,r)=>a+(r.hr||0),0),tRBI=rows.reduce((a,r)=>a+(r.rbi||0),0),
+        tSB=rows.reduce((a,r)=>a+(r.sb||0),0),avg=tAB?tH/tAB:0;
+  let html=`<div class="drill-summary">${rows.length} games · ${tH}-for-${tAB} · ${avg.toFixed(3).replace(/^0/,'')} · ${tHR} HR · ${tRBI} RBI · ${tSB} SB</div>`;
   html+=`<div class="spark-label">Hits per game</div>${sparkline(rows.map(r=>r.h||0))}`;
-  html+=`<table class="drill-tbl"><thead><tr><th>Game</th><th>AB</th><th>H</th><th>2B</th><th>3B</th><th>HR</th><th>BB</th><th>SO</th><th>SB</th></tr></thead><tbody>`;
+  html+=`<table class="drill-tbl"><thead><tr><th>Game</th><th>AB</th><th>H</th><th>2B</th><th>3B</th><th>HR</th><th>RBI</th><th>BB</th><th>SO</th><th>SB</th></tr></thead><tbody>`;
   for(const r of rows){
     html+=`<tr><td class="gcell">${gLabel(r)}${resBadge(r)}</td><td>${r.ab||0}</td>`+
       `<td class="${(r.h||0)>=2?'hot':''}">${r.h||0}</td><td>${r.doubles||0}</td><td>${r.triples||0}</td>`+
-      `<td>${(r.hr||0)>0?'<b>'+r.hr+'</b>':0}</td><td>${r.bb||0}</td><td>${r.so||0}</td><td>${r.sb||0}</td></tr>`;
+      `<td>${(r.hr||0)>0?'<b>'+r.hr+'</b>':0}</td><td>${r.rbi||0}</td><td>${r.bb||0}</td><td>${r.so||0}</td><td>${r.sb||0}</td></tr>`;
   }
   return html+"</tbody></table>";
 }
