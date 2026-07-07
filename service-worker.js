@@ -1,7 +1,7 @@
 // Delmarva Aces Service Worker
 // Caches core files for offline use
 
-const CACHE_NAME = 'aces-v1'
+const CACHE_NAME = 'aces-v2'
 const CORE_FILES = [
   '/',
   '/index.html',
@@ -50,6 +50,15 @@ self.addEventListener('fetch', function(e) {
   if (e.request.url.includes('supabase.co') ||
       e.request.url.includes('googleapis.com/youtube') ||
       e.request.method !== 'GET') {
+    return
+  }
+
+  // Skip media & range requests — <video> playback needs 206 Partial Content
+  // straight from the network; range responses can't be cached and shouldn't be
+  // mediated by the SW (otherwise highlight clips can fail to play/seek).
+  if (e.request.headers.has('range') ||
+      e.request.destination === 'video' ||
+      e.request.destination === 'audio') {
     return
   }
 
