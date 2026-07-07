@@ -1,0 +1,249 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<link rel="icon" href="/icon-192.png"/>
+<meta name="theme-color" content="#E8530A"/>
+<title>Highlights · Delmarva Aces</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="config.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Inter:wght@300;400;500;600&family=Roboto+Mono:wght@400;500&display=swap');
+  :root{--orange:#E8530A;--orange-dim:#C44208;--og:rgba(232,83,10,.18);--black:#0A0C0E;--dark:#111418;--dark2:#181C22;--dark3:#1F242C;--bdr:rgba(255,255,255,.08);--bdr-a:rgba(232,83,10,.35);--text:#F0EDE8;--muted:#7A8290;--mono:'Roboto Mono',monospace;--display:'Oswald',sans-serif;--body:'Inter',sans-serif;--green:#3DDC6A;}
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+  html{scroll-behavior:smooth;}
+  body{background:var(--black);color:var(--text);font-family:var(--body);line-height:1.6;overflow-x:hidden;}
+  nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(10,12,14,.95);backdrop-filter:blur(16px);border-bottom:1px solid var(--bdr);display:flex;align-items:center;justify-content:space-between;padding:0 32px;height:64px;}
+  .nav-brand{display:flex;align-items:center;gap:10px;cursor:pointer;text-decoration:none;}
+  .nav-logo{width:40px;height:40px;display:flex;align-items:center;justify-content:center;}
+  .nav-logo img{width:40px;height:40px;object-fit:contain;filter:drop-shadow(0 0 8px rgba(232,83,10,.3));}
+  .nav-name{font-family:var(--display);font-size:17px;font-weight:600;color:var(--text);letter-spacing:.5px;}
+  .nav-name span{color:var(--orange);}
+  .nav-links{display:flex;gap:4px;flex-wrap:wrap;}
+  .nav-link{padding:6px 14px;border-radius:6px;font-size:13px;font-weight:500;color:var(--muted);cursor:pointer;border:none;background:none;text-decoration:none;transition:color .15s,background .15s;}
+  .nav-link:hover{color:var(--text);background:rgba(255,255,255,.06);}
+  .nav-link.active{color:var(--orange);}
+
+  .wrap{max-width:1200px;margin:0 auto;padding:96px 32px 64px;}
+  .page-head{margin-bottom:28px;}
+  .eyebrow{display:inline-flex;align-items:center;gap:8px;font-family:var(--mono);font-size:11px;color:var(--orange);letter-spacing:2px;text-transform:uppercase;margin-bottom:12px;}
+  .eyebrow::before{content:'';width:20px;height:1px;background:var(--orange);}
+  h1{font-family:var(--display);font-size:clamp(38px,6vw,60px);font-weight:700;line-height:1;letter-spacing:-1px;text-transform:uppercase;}
+  h1 span{color:var(--orange);}
+  .sub{font-size:15px;color:var(--muted);margin-top:12px;}
+
+  .filters{display:flex;flex-wrap:wrap;gap:10px;margin:26px 0 22px;align-items:center;}
+  .filter-btn{padding:7px 15px;border-radius:20px;font-family:var(--mono);font-size:11px;letter-spacing:.5px;text-transform:uppercase;color:var(--muted);background:var(--dark2);border:1px solid var(--bdr);cursor:pointer;transition:all .15s;}
+  .filter-btn:hover{color:var(--text);border-color:var(--bdr-a);}
+  .filter-btn.active{background:var(--orange);color:#fff;border-color:var(--orange);}
+  select{padding:7px 12px;border-radius:20px;background:var(--dark2);color:var(--text);border:1px solid var(--bdr);font-family:var(--mono);font-size:11px;letter-spacing:.5px;cursor:pointer;}
+  select:focus{outline:none;border-color:var(--orange);}
+  .spacer{flex:1;}
+  .count-tag{font-family:var(--mono);font-size:11px;color:var(--muted);}
+
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:18px;}
+  .clip{background:var(--dark);border:1px solid var(--bdr);border-radius:12px;overflow:hidden;transition:border-color .15s,transform .1s;}
+  .clip:hover{border-color:var(--bdr-a);transform:translateY(-2px);}
+  .clip-vid{position:relative;aspect-ratio:16/9;background:#000;}
+  .clip-vid video{width:100%;height:100%;object-fit:cover;display:block;background:#000;}
+  .clip-body{padding:13px 15px 15px;}
+  .clip-top{display:flex;align-items:center;gap:8px;margin-bottom:9px;flex-wrap:wrap;}
+  .badge{font-family:var(--mono);font-size:10px;font-weight:500;letter-spacing:.5px;text-transform:uppercase;padding:3px 9px;border-radius:5px;}
+  .b-hr{background:rgba(232,83,10,.16);color:var(--orange);border:1px solid var(--bdr-a);}
+  .b-hit{background:rgba(61,220,106,.12);color:var(--green);border:1px solid rgba(61,220,106,.3);}
+  .b-k{background:rgba(122,130,144,.14);color:#c3cad6;border:1px solid var(--bdr);}
+  .b-ob{background:rgba(72,149,239,.14);color:#7db1f5;border:1px solid rgba(72,149,239,.3);}
+  .rbi{font-family:var(--mono);font-size:10px;color:var(--orange);letter-spacing:.5px;}
+  .clip-batter{font-family:var(--display);font-size:19px;font-weight:600;letter-spacing:.3px;}
+  .clip-batter em{color:var(--muted);font-style:normal;font-weight:400;font-size:14px;margin-right:5px;}
+  .clip-meta{font-family:var(--mono);font-size:11px;color:var(--muted);margin-top:5px;}
+
+  .empty{text-align:center;padding:70px 24px;border:1px dashed var(--bdr);border-radius:14px;background:var(--dark);}
+  .empty-ico{font-size:44px;margin-bottom:14px;}
+  .empty h2{font-family:var(--display);font-size:24px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px;}
+  .empty p{color:var(--muted);font-size:14px;max-width:460px;margin:0 auto 6px;}
+  .empty .queued{display:inline-flex;align-items:center;gap:8px;margin-top:20px;font-family:var(--mono);font-size:12px;color:var(--orange);background:var(--og);border:1px solid var(--bdr-a);border-radius:20px;padding:8px 16px;}
+  .flow{display:flex;justify-content:center;gap:0;margin-top:26px;flex-wrap:wrap;}
+  .flow-step{font-family:var(--mono);font-size:10px;color:var(--muted);letter-spacing:.5px;padding:0 14px;position:relative;}
+  .flow-step:not(:last-child)::after{content:'→';position:absolute;right:-3px;color:var(--bdr-a);}
+  .flow-step b{color:var(--text);display:block;font-family:var(--body);font-size:12px;font-weight:600;text-transform:none;letter-spacing:0;}
+
+  .load-note{text-align:center;color:var(--muted);font-family:var(--mono);font-size:12px;padding:60px 0;}
+  .footer{margin-top:60px;padding-top:24px;border-top:1px solid var(--bdr);font-family:var(--mono);font-size:11px;color:var(--muted);text-align:center;}
+</style>
+</head>
+<body>
+<nav>
+  <a class="nav-brand" href="/">
+    <div class="nav-logo"><img src="/logo.png" alt="Aces"/></div>
+    <span class="nav-name">Delmarva <span>Aces</span></span>
+  </a>
+  <div class="nav-links">
+    <a class="nav-link" href="/">Home</a>
+    <a class="nav-link" href="/#schedule">Schedule</a>
+    <a class="nav-link" href="/#roster">Roster</a>
+    <a class="nav-link" href="/game.html">Live Game</a>
+    <span class="nav-link active">Highlights</span>
+  </div>
+</nav>
+
+<div class="wrap">
+  <div class="page-head">
+    <div class="eyebrow">Aces Family</div>
+    <h1>High<span>lights</span></h1>
+    <div class="sub" id="sub">Loading the reel…</div>
+  </div>
+
+  <div class="filters" id="filters" style="display:none;">
+    <button class="filter-btn active" data-type="all" onclick="setType('all',this)">All</button>
+    <button class="filter-btn" data-type="hr" onclick="setType('hr',this)">Home Runs</button>
+    <button class="filter-btn" data-type="xbh" onclick="setType('xbh',this)">Extra-Base</button>
+    <button class="filter-btn" data-type="hit" onclick="setType('hit',this)">Hits</button>
+    <button class="filter-btn" data-type="k" onclick="setType('k',this)">Strikeouts</button>
+    <select id="playerSel" onchange="render()"><option value="">All players</option></select>
+    <div class="spacer"></div>
+    <span class="count-tag" id="countTag"></span>
+  </div>
+
+  <div id="content"><div class="load-note">Loading highlights…</div></div>
+
+  <div class="footer">Delmarva Aces · Highlights are auto-clipped from live game streams</div>
+</div>
+
+<script>
+var db = supabase.createClient(ACES_CONFIG.supabaseUrl, ACES_CONFIG.supabaseKey);
+var CLIPS = [];
+var state = {type:'all', player:''};
+
+var RESULT = {
+  home_run:{label:'Home Run', cls:'b-hr', grp:'hr'},
+  triple:{label:'Triple', cls:'b-hit', grp:'xbh'},
+  double:{label:'Double', cls:'b-hit', grp:'xbh'},
+  single:{label:'Single', cls:'b-hit', grp:'hit'},
+  strikeout_swinging:{label:'Strikeout (swinging)', cls:'b-k', grp:'k'},
+  strikeout_looking:{label:'Strikeout (looking)', cls:'b-k', grp:'k'},
+  walk:{label:'Walk', cls:'b-ob', grp:'ob'},
+  hbp:{label:'HBP', cls:'b-ob', grp:'ob'},
+  double_play:{label:'Double Play', cls:'b-k', grp:'k'}
+};
+// which result-groups each filter shows
+var TYPE_MATCH = {
+  all:function(){return true;},
+  hr:function(g){return g==='hr';},
+  xbh:function(g){return g==='hr'||g==='xbh';},
+  hit:function(g){return g==='hr'||g==='xbh'||g==='hit';},
+  k:function(g){return g==='k';}
+};
+
+function pName(ab){
+  var p = ab.players || {};
+  var nm = ((p.first_name||'')+' '+(p.last_name||'')).trim() || 'Aces batter';
+  return {num:p.jersey_num, name:nm};
+}
+function fmtDate(d){
+  if(!d) return '';
+  return new Date(d).toLocaleDateString('en-US',{month:'short',day:'numeric',timeZone:'UTC'});
+}
+function meta(ab){
+  var g = ab.games || {};
+  var opp = (g.opponents && g.opponents.name) ? g.opponents.name : 'opponent';
+  var half = ab.half==='top' ? 'Top' : 'Bot';
+  var bits = ['Inn '+ab.inning+' ('+half+')', 'vs '+opp, fmtDate(g.game_date)];
+  return bits.filter(Boolean).join(' · ');
+}
+
+function setType(t, btn){
+  state.type = t;
+  document.querySelectorAll('.filter-btn').forEach(function(b){b.classList.remove('active');});
+  btn.classList.add('active');
+  render();
+}
+
+function render(){
+  state.player = document.getElementById('playerSel').value;
+  var rows = CLIPS.filter(function(ab){
+    var info = RESULT[ab.result] || {grp:'hit'};
+    if(!TYPE_MATCH[state.type](info.grp)) return false;
+    if(state.player){
+      var p = ab.players||{};
+      if(String(p.jersey_num||'')+((p.first_name||'')+(p.last_name||'')) !== state.player) return false;
+    }
+    return true;
+  });
+  document.getElementById('countTag').textContent = rows.length + (rows.length===1?' clip':' clips');
+  var c = document.getElementById('content');
+  if(!rows.length){ c.innerHTML = '<div class="load-note">No clips match this filter.</div>'; return; }
+  c.innerHTML = '<div class="grid">' + rows.map(function(ab){
+    var info = RESULT[ab.result] || {label:ab.result, cls:'b-hit'};
+    var pl = pName(ab);
+    var rbi = (ab.rbi>0) ? '<span class="rbi">'+ab.rbi+' RBI</span>' : '';
+    return '<div class="clip">'
+      + '<div class="clip-vid"><video src="'+ab.clip_url+'" controls preload="metadata" playsinline></video></div>'
+      + '<div class="clip-body">'
+      + '<div class="clip-top"><span class="badge '+info.cls+'">'+info.label+'</span>'+rbi+'</div>'
+      + '<div class="clip-batter">'+(pl.num!=null?'<em>#'+pl.num+'</em>':'')+pl.name+'</div>'
+      + '<div class="clip-meta">'+meta(ab)+'</div>'
+      + '</div></div>';
+  }).join('') + '</div>';
+}
+
+function buildPlayerFilter(){
+  var seen = {}, opts = [];
+  CLIPS.forEach(function(ab){
+    var p = ab.players||{};
+    var key = String(p.jersey_num||'')+((p.first_name||'')+(p.last_name||''));
+    if(!seen[key]){ seen[key]=1; opts.push({key:key, label:(p.jersey_num!=null?'#'+p.jersey_num+' ':'')+pName(ab).name}); }
+  });
+  opts.sort(function(a,b){return a.label.localeCompare(b.label);});
+  var sel = document.getElementById('playerSel');
+  sel.innerHTML = '<option value="">All players</option>' + opts.map(function(o){return '<option value="'+o.key+'">'+o.label+'</option>';}).join('');
+}
+
+function showEmpty(queued){
+  document.getElementById('sub').textContent = 'Big plays from Aces games, clipped automatically.';
+  var teaser = queued>0
+    ? '<div class="queued">🎬 '+queued+' play'+(queued===1?'':'s')+' queued from recent games — clips appear here once processed.</div>'
+    : '';
+  document.getElementById('content').innerHTML =
+    '<div class="empty">'
+    + '<div class="empty-ico">🎥</div>'
+    + '<h2>No highlights yet</h2>'
+    + '<p>When Aces games are streamed live, standout plays get flagged and clipped automatically. Finished clips show up right here.</p>'
+    + teaser
+    + '<div class="flow">'
+    +   '<div class="flow-step">Step 1<b>Stream the game</b></div>'
+    +   '<div class="flow-step">Step 2<b>Score a big play</b></div>'
+    +   '<div class="flow-step">Step 3<b>Auto-clip</b></div>'
+    +   '<div class="flow-step">Step 4<b>Watch here</b></div>'
+    + '</div>'
+    + '</div>';
+}
+
+async function init(){
+  try{
+    var res = await db.from('at_bats')
+      .select('id,result,rbi,inning,half,clip_url,created_at, players(first_name,last_name,jersey_num), games(game_date, youtube_url, opponents(name))')
+      .eq('clip_status','ready').not('clip_url','is',null)
+      .order('created_at',{ascending:false});
+    if(res.error) throw res.error;
+    CLIPS = res.data || [];
+
+    if(!CLIPS.length){
+      var q = await db.from('at_bats').select('id',{count:'exact',head:true}).eq('clip_status','queued');
+      showEmpty(q.count||0);
+      return;
+    }
+    document.getElementById('sub').textContent = CLIPS.length + ' plays worth watching.';
+    document.getElementById('filters').style.display = 'flex';
+    buildPlayerFilter();
+    render();
+  }catch(e){
+    document.getElementById('sub').textContent = '';
+    document.getElementById('content').innerHTML = '<div class="load-note">Couldn\'t load highlights: '+(e.message||e)+'</div>';
+  }
+}
+init();
+</script>
+</body>
+</html>

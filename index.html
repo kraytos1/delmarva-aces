@@ -199,6 +199,7 @@
     <button class="nav-link active" id="nav-home" onclick="showPage('home')">Home</button>
     <button class="nav-link" id="nav-schedule" onclick="showPage('schedule')">Schedule</button>
     <button class="nav-link" id="nav-roster" onclick="showPage('roster')">Roster</button>
+    <a class="nav-link" href="/highlights.html" style="text-decoration:none;">Highlights</a>
     <a class="nav-link" href="/game.html" style="text-decoration:none;">Live Game</a>
     <a class="nav-link" href="/scout.html" style="text-decoration:none;">Scout</a>
     <a class="nav-link" href="/pitching-scout.html" style="text-decoration:none;">Pitching</a>
@@ -270,7 +271,7 @@
 
   <footer>
     <div class="footer-brand">Delmarva <span>Aces</span> · 12U East · 2026</div>
-    <div class="footer-links"><a class="footer-link" href="#">Schedule</a><a class="footer-link" href="#">Highlights</a></div>
+    <div class="footer-links"><a class="footer-link" href="/#schedule">Schedule</a><a class="footer-link" href="/highlights.html">Highlights</a></div>
   </footer>
 </div>
 
@@ -367,7 +368,7 @@
 
   <footer>
     <div class="footer-brand">Delmarva <span>Aces</span> · 12U East · 2026</div>
-    <div class="footer-links"><a class="footer-link" href="#">Schedule</a><a class="footer-link" href="#">Highlights</a></div>
+    <div class="footer-links"><a class="footer-link" href="/#schedule">Schedule</a><a class="footer-link" href="/highlights.html">Highlights</a></div>
   </footer>
 </div>
 
@@ -418,7 +419,7 @@
 
   <footer>
     <div class="footer-brand">Delmarva <span>Aces</span> · 12U East · 2026</div>
-    <div class="footer-links"><a class="footer-link" href="#">Highlights</a></div>
+    <div class="footer-links"><a class="footer-link" href="/highlights.html">Highlights</a></div>
   </footer>
 </div>
 
@@ -1135,6 +1136,7 @@ function showPage(id){
   document.querySelectorAll('.nav-link').forEach(function(l){l.classList.remove('active')})
   var el=document.getElementById('nav-'+id);if(el)el.classList.add('active')
   window.scrollTo(0,0)
+  try{history.replaceState(null,'',id==='home'?location.pathname:'#'+id)}catch(e){}
   if(id==='schedule'){
     if(allGames.length===0){
       allGames = FALLBACK_GAMES.map(function(g){
@@ -1258,6 +1260,9 @@ function filterMonth(m, btn) {
 // GO
 // ─────────────────────────────────────────────────────────
 init()
+// Deep-link support: /#schedule, /#roster (used by cross-page nav + footer links)
+;(function(){var h=(location.hash||'').replace('#','');if(h&&document.getElementById('page-'+h))showPage(h)})()
+window.addEventListener('hashchange',function(){var h=(location.hash||'').replace('#','');if(h&&document.getElementById('page-'+h))showPage(h)})
 </script>
 <script>if("serviceWorker"in navigator){window.addEventListener("load",function(){navigator.serviceWorker.register("/service-worker.js").then(function(r){console.log("SW registered")}).catch(function(e){console.log("SW error:",e)})})}</script>
 </body>
