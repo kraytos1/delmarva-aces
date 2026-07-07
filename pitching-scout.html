@@ -302,7 +302,7 @@ const drawer=el("drawer"),backdrop=el("backdrop"),drawerTitle=el("drawerTitle"),
 function closeDrill(){drawer.classList.remove("open");backdrop.classList.remove("open");}
 el("drawerClose").onclick=closeDrill;backdrop.onclick=closeDrill;
 document.addEventListener("keydown",e=>{if(e.key==="Escape")closeDrill();});
-function fmtDate(iso){if(!iso)return"";const d=new Date(iso);return isNaN(d)?"":(d.getMonth()+1)+"/"+d.getDate();}
+function fmtDate(iso){if(!iso)return"";const d=new Date(iso);return isNaN(d)?"":(d.getUTCMonth()+1)+"/"+d.getUTCDate();}
 function shortOpp(n){return String(n||"").replace(/\s*\(?\d{1,2}\s*[uU]\)?.*$/,"").trim();}
 function gLabel(r){const p=[];const dt=fmtDate(r.game_date);if(dt)p.push(dt);if(r.opponent_name)p.push("vs "+shortOpp(r.opponent_name));return p.join(" ")||"Game";}
 function resBadge(r){if(r.opp_runs==null||r.aces_runs==null)return"";const w=r.opp_runs>r.aces_runs,l=r.opp_runs<r.aces_runs;
