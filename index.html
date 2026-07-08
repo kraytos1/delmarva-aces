@@ -166,6 +166,18 @@
 
   /* table */
   .table-wrap{padding:20px 40px;overflow-x:auto;}
+  .roster-viewsw{display:flex;gap:6px;padding:16px 40px 0;}
+  .rvsw-btn{font-family:var(--mono);font-size:12px;letter-spacing:.5px;padding:8px 16px;border-radius:8px;border:1px solid var(--bdr);background:var(--dark2);color:var(--muted);cursor:pointer;transition:background .15s,color .15s,border-color .15s;}
+  .rvsw-btn.active{background:var(--orange);border-color:var(--orange);color:#fff;}
+  .roster-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(158px,1fr));gap:14px;padding:20px 40px;}
+  .rp-card{position:relative;display:block;text-decoration:none;background:var(--dark2);border:1px solid var(--bdr);border-radius:14px;overflow:hidden;transition:transform .15s,border-color .15s;}
+  .rp-card:hover{transform:translateY(-3px);border-color:var(--bdr-a);}
+  .rp-photo{aspect-ratio:1/1;background:var(--dark3) center/cover no-repeat;display:flex;align-items:center;justify-content:center;position:relative;}
+  .rp-num-ph{font-family:var(--display);font-size:46px;font-weight:700;color:var(--orange);opacity:.5;}
+  .rp-badge{position:absolute;top:8px;left:8px;font-family:var(--display);font-size:15px;font-weight:700;color:#fff;background:rgba(232,83,10,.92);border-radius:6px;padding:1px 8px;line-height:1.35;}
+  .rp-info{padding:10px 12px 13px;}
+  .rp-name{font-family:var(--display);font-size:15px;font-weight:600;color:var(--text);line-height:1.15;}
+  .rp-pos{font-family:var(--mono);font-size:10px;color:var(--muted);letter-spacing:.5px;margin-top:4px;text-transform:uppercase;}
   table{width:100%;border-collapse:collapse;min-width:760px;}
   thead tr{border-bottom:1px solid var(--bdr);}
   th{font-family:var(--mono);font-size:10px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;padding:10px;text-align:left;font-weight:400;cursor:pointer;user-select:none;white-space:nowrap;}
@@ -200,7 +212,7 @@
   @media(max-width:640px){
     nav{padding:0 16px;}
     .hero,.section{padding:40px 20px;}
-    .next-game-strip,.roster-header,.roster-filters,.table-wrap,.last-updated{padding-left:20px;padding-right:20px;}
+    .next-game-strip,.roster-header,.roster-filters,.table-wrap,.last-updated,.roster-grid,.roster-viewsw{padding-left:20px;padding-right:20px;}
     .roster-tabs{padding:0 20px;}
     .hero-title{font-size:48px;}
     .countdown,.team-stat-bar{display:none;}
@@ -363,6 +375,14 @@
     </div>
   </div>
 
+  <div class="roster-viewsw">
+    <button class="rvsw-btn active" id="rvsw-grid" onclick="setRosterView('grid')">▦ Roster</button>
+    <button class="rvsw-btn" id="rvsw-stats" onclick="setRosterView('stats')">📊 Stats</button>
+  </div>
+
+  <div class="roster-grid" id="roster-grid"></div>
+
+  <div id="roster-stats-view" style="display:none">
   <div class="roster-tabs">
     <button class="roster-tab active" id="tab-batting" onclick="switchTab('batting')">Batting</button>
     <button class="roster-tab" id="tab-pitching" onclick="switchTab('pitching')">Pitching</button>
@@ -423,6 +443,7 @@
       <tbody id="pitching-body"></tbody>
     </table>
   </div>
+  </div><!-- /roster-stats-view -->
 
   <footer>
     <div class="footer-brand">Delmarva <span>Aces</span> · 13U East · 2026</div>
@@ -681,6 +702,7 @@ function setSeason(season) {
   try { renderPitching() } catch(e) {}
   try { renderSchedule() } catch(e) {}
   try { renderResults() } catch(e) {}
+  try { renderRosterGrid() } catch(e) {}
 }
 
 async function loadFall2026Stats() {
@@ -689,11 +711,46 @@ async function loadFall2026Stats() {
     var {data} = await db.from('player_season_stats').select('*').order('jersey_num')
     if (data && data.length) {
       players = data.map(mapDBPlayer)
-      renderHome(); renderBatting(); renderPitching()
+      renderHome(); renderBatting(); renderPitching(); renderRosterGrid()
     } else {
       setText('roster-meta', 'Delmarva Aces 13U East · Season starting soon')
     }
   } catch(e) {}
+}
+
+// ── Visual roster (photo grid) ──────────────────────────
+window._photoMap = window._photoMap || {}
+function setRosterView(v){
+  document.getElementById('rvsw-grid').classList.toggle('active', v==='grid')
+  document.getElementById('rvsw-stats').classList.toggle('active', v==='stats')
+  document.getElementById('roster-grid').style.display = v==='grid' ? 'grid' : 'none'
+  document.getElementById('roster-stats-view').style.display = v==='stats' ? 'block' : 'none'
+  if(v==='grid') renderRosterGrid()
+}
+function renderRosterGrid(){
+  var grid = document.getElementById('roster-grid'); if(!grid) return
+  var list = (players||[]).slice().sort(function(a,b){return (a.num||0)-(b.num||0)})
+  if(!list.length){ grid.innerHTML = '<div style="grid-column:1/-1;color:var(--muted);font-family:var(--mono);font-size:12px;padding:20px 0;">Roster loading…</div>'; return }
+  grid.innerHTML = list.map(function(p){
+    var meta = window._photoMap[p.num] || {}
+    var photo = meta.photo_url
+    var posArr = (p.pos && p.pos.length) ? p.pos : (meta.positions || [])
+    var pos = posArr.join(' · ')
+    var name = ((p.first||'')+' '+(p.last||'')).trim()
+    var photoStyle = photo ? "background-image:url('"+photo+"');" : ''
+    var ph = photo ? '' : '<span class="rp-num-ph">'+(p.num!=null?p.num:'')+'</span>'
+    return '<a class="rp-card" href="/player/'+p.num+'">'
+      + '<div class="rp-photo" style="'+photoStyle+'"><span class="rp-badge">#'+(p.num!=null?p.num:'')+'</span>'+ph+'</div>'
+      + '<div class="rp-info"><div class="rp-name">'+name+'</div>'+(pos?'<div class="rp-pos">'+pos+'</div>':'')+'</div>'
+      + '</a>'
+  }).join('')
+}
+async function loadRosterPhotos(){
+  if(!db) return
+  try{
+    var {data} = await db.from('players').select('jersey_num,photo_url,positions')
+    if(data){ data.forEach(function(r){ window._photoMap[r.jersey_num] = {photo_url:r.photo_url, positions:r.positions||[]} }); renderRosterGrid() }
+  }catch(e){}
 }
 var db = null
 var players = FALLBACK_PLAYERS
@@ -720,6 +777,7 @@ async function init() {
   if (configured) {
     try {
       db = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+      loadRosterPhotos()
 
       setLoadingText('Loading players...')
       var { data: dbPlayers, error: pErr } = await db
