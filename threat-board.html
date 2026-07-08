@@ -177,7 +177,8 @@
     }
     .inline-toggle input { transform: translateY(1px); }
 
-    table { width: 100%; border-collapse: collapse; margin-top: 0.5rem; font-size: 0.8rem; }
+    .table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; margin-top: 0.5rem; }
+    table { width: 100%; min-width: 620px; border-collapse: collapse; margin-top: 0.5rem; font-size: 0.8rem; }
     th, td { padding: 0.35rem 0.45rem; text-align: right; border-bottom: 1px solid #1F242C; white-space: nowrap; }
     th:first-child, td:first-child { text-align: left; }
 
@@ -292,6 +293,7 @@
 
     <div class="status-text" id="statusText">Loading tournaments…</div>
 
+    <div class="table-scroll">
     <table>
       <thead>
         <tr>
@@ -311,6 +313,7 @@
       </thead>
       <tbody id="threatTableBody"></tbody>
     </table>
+    </div>
   </section>
 
   <aside class="card">

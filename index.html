@@ -42,6 +42,7 @@
   .nav-name{font-family:var(--display);font-size:17px;font-weight:600;color:var(--text);letter-spacing:.5px;}
   .nav-name span{color:var(--orange);}
   .nav-links{display:flex;gap:4px;}
+  .nav-toggle{display:none;background:none;border:none;color:var(--text);font-size:26px;line-height:1;cursor:pointer;padding:4px 8px;-webkit-tap-highlight-color:transparent;}
   .nav-link{padding:6px 14px;border-radius:6px;font-size:13px;font-weight:500;color:var(--muted);cursor:pointer;border:none;background:none;transition:color .15s,background .15s;}
   .nav-link:hover{color:var(--text);background:rgba(255,255,255,.06);}
   .nav-link.active{color:var(--orange);}
@@ -202,6 +203,20 @@
     .hero-title{font-size:48px;}
     .countdown,.team-stat-bar{display:none;}
     footer{padding:24px 20px;}
+    /* ── mobile nav: collapse the link bar into a tap-to-open menu ── */
+    .nav-toggle{display:block;}
+    .nav-links{position:fixed;top:64px;left:0;right:0;flex-direction:column;align-items:stretch;gap:0;
+      background:rgba(10,12,14,.98);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);
+      border-bottom:1px solid var(--bdr);padding:6px 0;display:none;max-height:calc(100vh - 64px);overflow-y:auto;}
+    .nav-links.open{display:flex;}
+    .nav-link{padding:14px 20px;font-size:15px;text-align:left;border-radius:0;}
+    /* ── hero stat tiles: 2×2 grid instead of an overflowing single row ── */
+    .hero-stats{display:grid;grid-template-columns:1fr 1fr;width:100%;}
+    .hero-stat{border-right:none;border-bottom:1px solid var(--bdr);}
+    .hero-stat:nth-child(odd){border-right:1px solid var(--bdr);}
+    .hero-stat:nth-last-child(-n+2){border-bottom:none;}
+    /* dev/status badge clutters the footer on small screens */
+    .db-status{display:none;}
   }
 </style>
 </head>
@@ -237,6 +252,7 @@
   <div class="live-pill" id="live-pill" onclick="showPage('home')">
     <div class="live-dot"></div>LIVE NOW
   </div>
+  <button class="nav-toggle" id="nav-toggle" onclick="toggleNav()" aria-label="Menu">☰</button>
 </nav>
 
 <!-- ══ HOME ══ -->
@@ -1522,6 +1538,14 @@ function copyAIRecap(ev){
   try{ navigator.clipboard.writeText(window._aiRecapText); }catch(e){}
   var b = ev && ev.target; if(b){ var t=b.textContent; b.textContent='✓ Copied'; setTimeout(function(){ b.textContent=t; },1500); }
 }
+// Mobile nav: tap ☰ to open the menu; tapping any item closes it.
+function toggleNav(){ var n=document.querySelector('.nav-links'); if(n) n.classList.toggle('open'); }
+document.addEventListener('click', function(e){
+  if(e.target.closest && e.target.closest('.nav-link')){
+    var n=document.querySelector('.nav-links'); if(n) n.classList.remove('open');
+  }
+});
+window.toggleNav = toggleNav;
 window.openRecap = openRecap;
 </script>
 </body>
