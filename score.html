@@ -204,6 +204,18 @@ body{background:var(--black);color:var(--text);font-family:var(--body);min-heigh
     </div>
   </div>
 
+  <!-- ── STREAM VIDEO (drives clip timing while scoring) ── -->
+  <style>
+    #vid-panel .vid-wrap{position:relative;width:100%;max-width:520px;margin:0 auto;aspect-ratio:16/9;background:#000;}
+    #vid-panel #yt-player{position:absolute;inset:0;width:100%;height:100%;border:0;}
+  </style>
+  <div id="vid-panel" style="display:none;background:#000;border-bottom:1px solid var(--bdr);">
+    <div class="vid-wrap"><div id="yt-player"></div></div>
+    <div style="text-align:center;padding:2px 0;">
+      <button type="button" onclick="var w=document.querySelector('#vid-panel .vid-wrap');w.style.display=(w.style.display==='none'?'block':'none');" style="background:none;border:none;color:var(--muted);font-family:var(--mono);font-size:10px;cursor:pointer;letter-spacing:.5px;">▾ toggle video</button>
+    </div>
+  </div>
+
   <!-- Count bar -->
   <div class="count-bar">
     <div class="bso-grp">
@@ -503,6 +515,33 @@ async function init() {
   }).join('')
 }
 
+// ── Stream video → clip timing ──────────────────────────────
+// We embed the game's YouTube stream/VOD and stamp each play with the video's
+// actual current time (getCurrentTime). Exact + pause/rewind-safe, and works for
+// a live stream too (currentTime = live edge). Falls back to wall-clock if the
+// player isn't up (preserves the old behavior when no video is set).
+var ytPlayer=null, _ytApiReady=false, _ytPending=null;
+window.onYouTubeIframeAPIReady=function(){ _ytApiReady=true; if(_ytPending){ var v=_ytPending; _ytPending=null; createYtPlayer(v); } };
+function _loadYtApi(){ if(document.getElementById('yt-iframe-api')) return; var s=document.createElement('script'); s.id='yt-iframe-api'; s.src='https://www.youtube.com/iframe_api'; document.head.appendChild(s); }
+function extractVideoId(s){
+  s=(s||'').trim(); if(!s) return '';
+  var m=s.match(/(?:v=|\/live\/|\/embed\/|youtu\.be\/|\/shorts\/)([A-Za-z0-9_-]{11})/);
+  if(m) return m[1];
+  if(/^[A-Za-z0-9_-]{11}$/.test(s)) return s;
+  return s;
+}
+function createYtPlayer(videoId){
+  if(!videoId) return;
+  var panel=document.getElementById('vid-panel'); if(panel) panel.style.display='block';
+  if(!_ytApiReady){ _ytPending=videoId; _loadYtApi(); return; }
+  if(ytPlayer && ytPlayer.loadVideoById){ ytPlayer.loadVideoById(videoId); return; }
+  ytPlayer=new YT.Player('yt-player',{ videoId:videoId, playerVars:{playsinline:1, rel:0, modestbranding:1}, events:{} });
+}
+function currentClipOffset(){
+  try{ if(ytPlayer && ytPlayer.getCurrentTime){ var t=ytPlayer.getCurrentTime(); if(typeof t==='number' && t>0) return Math.floor(t); } }catch(e){}
+  return (S.game && S.game.stream_start_utc) ? Math.floor((Date.now()-new Date(S.game.stream_start_utc))/1000) : null;
+}
+
 async function startScoring() {
   var gid = document.getElementById('game-sel').value
   if(!gid){alert('Select a game');return}
@@ -517,8 +556,11 @@ async function startScoring() {
   try{
     await db.from('games').update({status:'final'}).eq('status','live').neq('id',gid)
   }catch(e){}
-  var ytId = document.getElementById('yt-id').value.trim()
-  if(ytId) await db.from('games').update({youtube_stream_id:ytId}).eq('id',gid)
+  var ytId = extractVideoId(document.getElementById('yt-id').value) || (g.youtube_stream_id || '')
+  if(ytId){
+    if(ytId !== g.youtube_stream_id) await db.from('games').update({youtube_stream_id:ytId}).eq('id',gid)
+    createYtPlayer(ytId)
+  }
   try{
     var {data:last}=await db.from('at_bats').select('ab_num').eq('game_id',gid).order('ab_num',{ascending:false}).limit(1)
     S.abNum=(last&&last.length)?(last[0].ab_num||0):0
@@ -748,7 +790,7 @@ async function quickLog(result) {
     // ball in play — count resets handled by logAB
   }
 
-  var offset=S.game?.stream_start_utc?Math.floor((Date.now()-new Date(S.game.stream_start_utc))/1000):null
+  var offset=currentClipOffset()
   var pd={game_id:S.gameId,
     pitcher_id: !S.isTop ? S.currentPitcherId : null,  // our pitcher only when bottom half
     pitch_num:S.pitchCount,pitch_type:S.pitchType,
@@ -818,7 +860,7 @@ async function logAB(result, label, skipPitchLog) {
   // those are the batter's doing.
   var noRbi=/(error|double_play|wp_advance|pb_advance|balk|stolen_base|caught_stealing|pickoff|out_advancing)/i.test(result)
   var rbi = (runs>0 && !noRbi) ? runs : 0
-  var offset=S.game?.stream_start_utc?Math.floor((Date.now()-new Date(S.game.stream_start_utc))/1000):null
+  var offset=currentClipOffset()
   var abd={
     game_id:S.gameId,
     batter_id: S.isTop ? getCurrentBatterId() : null,  // our batter only when top half
