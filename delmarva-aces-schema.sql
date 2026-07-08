@@ -29,8 +29,15 @@ create table players (
   grad_year   int,              -- 2032
   top_velo    int,              -- mph, updated each game
   active      boolean default true,
+  photo_url   text,             -- parent-uploaded profile photo (Supabase Storage 'player-photos' bucket)
   created_at  timestamptz default now()
 );
+-- Profile photos: public 'player-photos' bucket + open anon read/insert/update on
+-- storage.objects; players.photo_url writable by anon ONLY (column grant), so parents
+-- can set a photo with no PIN but cannot edit any other player field.
+--   insert into storage.buckets(id,name,public) values('player-photos','player-photos',true);
+--   grant update (photo_url) on players to anon;  -- (revoke update on players from anon first)
+--   create policy players_photo_update on players for update to anon using(true) with check(true);
 
 
 -- ── OPPONENTS ──────────────────────────────────────────────

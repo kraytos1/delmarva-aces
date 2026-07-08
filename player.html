@@ -37,7 +37,10 @@ nav{background:rgba(10,12,14,.95);border-bottom:1px solid var(--bdr);display:fle
 /* HERO */
 .hero{background:var(--dark2);border-bottom:1px solid var(--bdr);padding:32px 24px 24px;}
 .hero-inner{max-width:900px;margin:0 auto;display:flex;align-items:flex-start;gap:24px;}
-.player-avatar{width:80px;height:80px;border-radius:50%;background:var(--dark3);border:3px solid var(--bdr-a);display:flex;align-items:center;justify-content:center;font-family:var(--display);font-size:32px;font-weight:700;color:var(--orange);flex-shrink:0;}
+.player-avatar{width:80px;height:80px;border-radius:50%;background:var(--dark3);border:3px solid var(--bdr-a);display:flex;align-items:center;justify-content:center;font-family:var(--display);font-size:32px;font-weight:700;color:var(--orange);flex-shrink:0;background-size:cover;background-position:center;overflow:hidden;}
+.avatar-wrap{position:relative;flex-shrink:0;cursor:pointer;}
+.avatar-cam{position:absolute;right:-2px;bottom:-2px;width:26px;height:26px;border-radius:50%;background:var(--orange);border:2px solid var(--black);display:flex;align-items:center;justify-content:center;font-size:12px;line-height:1;}
+.avatar-wrap:hover .player-avatar{border-color:var(--orange);}
 .hero-info{flex:1;}
 .hero-number{font-family:var(--mono);font-size:13px;color:var(--orange);letter-spacing:2px;margin-bottom:4px;}
 .hero-name{font-family:var(--display);font-size:clamp(28px,5vw,48px);font-weight:700;line-height:1;margin-bottom:8px;}
@@ -137,7 +140,11 @@ nav{background:rgba(10,12,14,.95);border-bottom:1px solid var(--bdr);display:fle
   <!-- HERO -->
   <div class="hero">
     <div class="hero-inner">
-      <div class="player-avatar" id="p-avatar">—</div>
+      <div class="avatar-wrap" onclick="document.getElementById('photo-input').click()" title="Tap to add / change photo">
+        <div class="player-avatar" id="p-avatar">—</div>
+        <div class="avatar-cam" id="avatar-cam">📷</div>
+      </div>
+      <input type="file" id="photo-input" accept="image/*" style="display:none" onchange="uploadPhoto(this.files && this.files[0]); this.value='';"/>
       <div class="hero-info">
         <div class="hero-number" id="p-number">#—</div>
         <div class="hero-name" id="p-name">—</div>
@@ -326,6 +333,7 @@ async function init() {
       p.last      = data.last_name   || p.last  || '—'
       p.pos       = data.positions   || p.pos   || []
       p.grad      = data.grad_year   || p.grad  || '—'
+      p.photoUrl  = data.photo_url   || null
     }
   } catch(e) {}
 
@@ -432,7 +440,7 @@ function renderProfile(p) {
   var badges = getBadges(p, adv)
 
   // Hero
-  setText('p-avatar', '#'+p.jerseyNum)
+  renderAvatar(p)
   setText('p-number', '#'+p.jerseyNum)
   setText('p-name', p.first+' '+p.last)
   setText('p-pos', (p.pos||[]).join(' / '))
@@ -599,6 +607,46 @@ function showNotFound() {
   document.getElementById('not-found').style.display='block'
 }
 
+// ── Profile photo (open upload — any parent, no PIN) ──
+function renderAvatar(p){
+  var el=document.getElementById('p-avatar'); if(!el) return;
+  if(p && p.photoUrl){ el.style.backgroundImage='url("'+p.photoUrl+'")'; el.textContent=''; }
+  else { el.style.backgroundImage=''; el.textContent='#'+((p&&p.jerseyNum!=null)?p.jerseyNum:''); }
+}
+function resizeImage(file, maxDim){
+  return new Promise(function(resolve,reject){
+    var img=new Image();
+    img.onload=function(){
+      var s=Math.min(1, maxDim/Math.max(img.width,img.height));
+      var w=Math.max(1,Math.round(img.width*s)), h=Math.max(1,Math.round(img.height*s));
+      var c=document.createElement('canvas'); c.width=w; c.height=h;
+      c.getContext('2d').drawImage(img,0,0,w,h);
+      c.toBlob(function(b){ b?resolve(b):reject(new Error('resize failed')); },'image/jpeg',0.85);
+    };
+    img.onerror=function(){ reject(new Error('Not a valid image')); };
+    img.src=URL.createObjectURL(file);
+  });
+}
+async function uploadPhoto(file){
+  if(!file) return;
+  var p=window._player;
+  if(!p||!p.id){ alert('Photos can be added once the player loads from the roster.'); return; }
+  if(!/^image\//.test(file.type||'')){ alert('Please choose an image file.'); return; }
+  if(file.size > 12*1024*1024){ alert('That image is too large (max 12MB). Try a smaller one.'); return; }
+  var cam=document.getElementById('avatar-cam'); if(cam) cam.textContent='⏳';
+  try{
+    var blob=await resizeImage(file, 512);
+    var path=p.id+'.jpg';
+    var up=await db.storage.from('player-photos').upload(path, blob, {upsert:true, contentType:'image/jpeg', cacheControl:'3600'});
+    if(up.error) throw up.error;
+    var base=db.storage.from('player-photos').getPublicUrl(path).data.publicUrl;
+    await db.from('players').update({photo_url:base}).eq('id', p.id);
+    p.photoUrl = base+'?t='+Date.now();
+    renderAvatar(p);
+  }catch(e){ alert('Upload failed: '+(e.message||e)); }
+  finally{ if(cam) cam.textContent='📷'; }
+}
+
 function shareProfile() {
   var url = window.location.href
   if (navigator.share) {
@@ -624,6 +672,7 @@ init()
   #share-card .pc-team{font-family:var(--display);font-size:25px;font-weight:700;letter-spacing:1px;}
   #share-card .pc-team span{color:var(--orange);}
   #share-card .pc-subt{font-family:var(--mono);font-size:12px;color:var(--muted);letter-spacing:2px;}
+  #share-card .pc-photo{position:absolute;right:46px;top:118px;width:150px;height:150px;border-radius:50%;object-fit:cover;border:3px solid var(--orange);z-index:2;box-shadow:0 8px 24px rgba(0,0,0,.5);}
   #share-card .pc-hero{position:relative;z-index:1;}
   #share-card .pc-num{font-family:var(--display);font-size:78px;font-weight:700;color:var(--orange);line-height:.85;}
   #share-card .pc-name{font-family:var(--display);font-size:58px;font-weight:700;text-transform:uppercase;line-height:.95;letter-spacing:-1px;margin-top:8px;}
@@ -673,6 +722,7 @@ function buildCardInner(p){
   ];
   var badgeHtml = badges.map(function(b){ return '<span class="pc-badge" style="border-color:'+b.c+'66;color:'+b.c+';">'+b.e+' '+b.l+'</span>'; }).join('');
   return '<div class="pc-wm">'+(p.jerseyNum!=null?p.jerseyNum:'')+'</div>'
+    + (p.photoUrl ? '<img class="pc-photo" src="'+p.photoUrl+'" crossorigin="anonymous" alt=""/>' : '')
     + '<div class="pc-head"><img class="pc-logo" src="/logo.png" alt=""/><div><div class="pc-team">DELMARVA <span>ACES</span></div><div class="pc-subt">12U EAST · 2026 SEASON</div></div></div>'
     + '<div class="pc-hero"><div class="pc-num">#'+p.jerseyNum+'</div><div class="pc-name">'+name+'</div><div class="pc-pos">'+pos+' · Class of '+p.grad+'</div></div>'
     + '<div class="pc-bottom">'
