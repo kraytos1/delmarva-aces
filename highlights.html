@@ -78,6 +78,8 @@
   .flow-step:not(:last-child)::after{content:'→';position:absolute;right:-3px;color:var(--bdr-a);}
   .flow-step b{color:var(--text);display:block;font-family:var(--body);font-size:12px;font-weight:600;text-transform:none;letter-spacing:0;}
 
+  .fg-title{font-family:var(--display);font-size:20px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin-bottom:14px;display:flex;align-items:center;gap:10px;}
+  .fg-title::after{content:'';flex:1;height:1px;background:var(--bdr);}
   .load-note{text-align:center;color:var(--muted);font-family:var(--mono);font-size:12px;padding:60px 0;}
   .footer{margin-top:60px;padding-top:24px;border-top:1px solid var(--bdr);font-family:var(--mono);font-size:11px;color:var(--muted);text-align:center;}
 </style>
@@ -90,6 +92,11 @@
     <div class="eyebrow">Aces Family</div>
     <h1>High<span>lights</span></h1>
     <div class="sub" id="sub">Loading the reel…</div>
+  </div>
+
+  <div id="games-section" style="display:none;margin-bottom:34px;">
+    <div class="fg-title">🎬 Full Game Streams</div>
+    <div class="grid" id="games-grid"></div>
   </div>
 
   <div class="filters" id="filters" style="display:none;">
@@ -245,7 +252,35 @@ function showEmpty(queued){
     + '</div>';
 }
 
+// Full-game VOD streams (watch hub): any game with a youtube_stream_id.
+async function loadFullGames(){
+  try{
+    var res = await db.from('games')
+      .select('id, game_date, our_score, opp_score, is_home, youtube_stream_id, opponents(name)')
+      .not('youtube_stream_id','is',null)
+      .order('game_date',{ascending:false});
+    if(res.error) throw res.error;
+    var games = res.data || [];
+    if(!games.length) return;
+    document.getElementById('games-grid').innerHTML = games.map(function(g){
+      var opp = (g.opponents && g.opponents.name) ? g.opponents.name : 'Opponent';
+      var win = g.our_score > g.opp_score;
+      var d = g.game_date ? new Date(g.game_date+'T00:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'}) : '';
+      var embed = 'https://www.youtube.com/embed/'+g.youtube_stream_id+'?rel=0';
+      return '<div class="clip">'
+        + '<div class="clip-vid" data-embed="'+embed+'" onclick="playClip(this)">'
+        +   '<img loading="lazy" src="'+ytThumb(g.youtube_stream_id)+'" alt=""/>'
+        +   '<div class="clip-play"><span></span></div></div>'
+        + '<div class="clip-body"><div class="clip-top"><span class="badge '+(win?'b-hit':'b-k')+'">'+(win?'W':'L')+' '+(g.our_score||0)+'–'+(g.opp_score||0)+'</span></div>'
+        + '<div class="clip-batter">'+(g.is_home?'vs ':'@ ')+opp+'</div>'
+        + '<div class="clip-meta">'+d+' · full game</div></div></div>';
+    }).join('');
+    document.getElementById('games-section').style.display='block';
+  }catch(e){}
+}
+
 async function init(){
+  loadFullGames();
   try{
     // Hitting highlights — our batter's positive plays (hit/walk/hbp, not K/DP).
     var hitRes = await db.from('at_bats')

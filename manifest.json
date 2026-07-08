@@ -1,38 +1,21 @@
 {
-  "name": "Delmarva Aces Scorer",
-  "short_name": "Aces Scorer",
-  "description": "Live scoring tablet for Delmarva Aces 12U baseball",
-  "start_url": "/score.html",
+  "name": "Delmarva Aces",
+  "short_name": "Aces",
+  "description": "Delmarva Aces baseball — schedule, stats, highlights, scouting & live games",
+  "start_url": "/",
+  "scope": "/",
   "display": "standalone",
-  "orientation": "portrait",
   "background_color": "#0A0C0E",
   "theme_color": "#E8530A",
   "icons": [
-    {
-      "src": "icon-192.png",
-      "sizes": "192x192",
-      "type": "image/png",
-      "purpose": "any maskable"
-    },
-    {
-      "src": "icon-512.png",
-      "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "any maskable"
-    }
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
   ],
   "shortcuts": [
-    {
-      "name": "Live Game",
-      "short_name": "Live",
-      "url": "/game.html",
-      "description": "Watch live game"
-    },
-    {
-      "name": "Lineup",
-      "short_name": "Lineup",
-      "url": "/lineup.html",
-      "description": "Set lineup"
-    }
+    { "name": "Schedule", "short_name": "Schedule", "url": "/#schedule" },
+    { "name": "Highlights", "short_name": "Highlights", "url": "/highlights.html" },
+    { "name": "Live Game", "short_name": "Live", "url": "/game.html" },
+    { "name": "Scorer", "short_name": "Score", "url": "/score.html" }
   ]
 }

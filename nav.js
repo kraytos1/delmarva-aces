@@ -53,6 +53,11 @@
       '<div class="dva-links">' + links + '</div>' +
     '</nav>';
 
+  // Load the shared PWA setup (manifest + service worker + install chip) on every page.
+  if (!document.querySelector('script[src="/pwa.js"]')) {
+    var pw = document.createElement('script'); pw.src = '/pwa.js'; document.head.appendChild(pw);
+  }
+
   function mount() {
     var style = document.createElement('style');
     style.textContent = css;
