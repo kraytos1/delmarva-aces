@@ -14,6 +14,7 @@
 <script src="config.js"></script>
 <script src="/pin.js"></script>
 <script src="/nav.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Inter:wght@300;400;500;600&family=Roboto+Mono:wght@400;500&display=swap');
 :root{
@@ -182,6 +183,24 @@ nav{background:rgba(10,12,14,.95);border-bottom:1px solid var(--bdr);display:fle
     <div class="sb-name" id="home-name">Opponent</div>
     <div class="sb-score" id="home-score">0</div>
   </div>
+</div>
+
+<!-- WIN PROBABILITY -->
+<style>
+  .wp-panel{max-width:900px;margin:6px auto 0;padding:12px 16px 6px;}
+  .wp-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;gap:12px;}
+  .wp-label{font-family:'Roboto Mono',monospace;font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:#7A8290;}
+  .wp-est{opacity:.6;}
+  .wp-now{font-family:'Oswald',sans-serif;font-weight:700;font-size:26px;line-height:1;display:flex;align-items:baseline;gap:6px;}
+  .wp-now-lbl{font-size:11px;font-family:'Roboto Mono',monospace;color:#7A8290;font-weight:400;letter-spacing:1px;}
+  .wp-chart-wrap{position:relative;height:120px;}
+</style>
+<div class="wp-panel" id="wp-panel" style="display:none;">
+  <div class="wp-top">
+    <div class="wp-label">Win Probability <span class="wp-est">· estimated</span></div>
+    <div class="wp-now"><span id="wp-pct">50%</span><span class="wp-now-lbl">ACES</span></div>
+  </div>
+  <div class="wp-chart-wrap"><canvas id="wp-chart"></canvas></div>
 </div>
 
 <!-- MAIN -->
@@ -531,6 +550,15 @@ async function loadLiveGame() {
       if (plays && plays.length) plays.reverse().forEach(function(ab){addPlay(ab,false)})
     } catch(e) {}
 
+    // Win-probability history: pull every at-bat (light columns) for the curve
+    try {
+      var {data:wpabs} = await db.from('at_bats')
+        .select('id,inning,half,ab_num,runs_scored,batter_id,created_at')
+        .eq('game_id', game.id).order('created_at',{ascending:true})
+      window._wpAtBats = wpabs || []
+    } catch(e) { window._wpAtBats = [] }
+    try { updateWP() } catch(e) {}
+
     subscribeToGame(game.id)
     setBadge('live', 'Live · scoring')
   } catch(e) { await loadNextGame() }
@@ -633,6 +661,7 @@ function subscribeToGame(gameId) {
         applyViewerBases(p.new.result)
         updateBatterCard(p.new)
         setText('p-count', pcForHalf())
+        try { (window._wpAtBats = window._wpAtBats || []).push(p.new); updateWP() } catch(e) {}
       })
     .subscribe()
 
@@ -674,6 +703,7 @@ function updateScoreboard(game) {
       updatePlayerCards(lineup, isTop)
     } catch(e) {}
   }
+  try { updateWP() } catch(e) {}
 }
 
 function updateFieldOverlays(lineup, isTop) {
@@ -872,5 +902,72 @@ function setText(id,val){var el=document.getElementById(id);if(el)el.textContent
 init()
 </script>
 <script>if("serviceWorker"in navigator){window.addEventListener("load",function(){navigator.serviceWorker.register("/service-worker.js").then(function(r){console.log("SW registered")}).catch(function(e){console.log("SW error:",e)})})}</script>
+
+<!-- ══ LIVE WIN-PROBABILITY GRAPH ══ -->
+<script>
+(function(){
+  window._wpAtBats = window._wpAtBats || [];
+  var chart = null;
+  function wnum(v){ v=parseFloat(v); return isNaN(v)?0:v; }
+  // Estimated win probability for the Aces from run differential + game progress.
+  // Run-diff weight grows as outs run out, so late leads count for more.
+  function winProbAces(us,them,inning,half,outs,innings){
+    innings = innings||7;
+    var totalOuts = innings*6;
+    var elapsed = (Math.max(1,inning||1)-1)*6 + (half==='bottom'?3:0) + (outs||0);
+    elapsed = Math.max(0, Math.min(elapsed, totalOuts));
+    var p = totalOuts ? elapsed/totalOuts : 0;
+    var D = wnum(us) - wnum(them);
+    var w = 0.35 + 1.4*p;
+    return 1/(1+Math.exp(-D*w));
+  }
+  // Reconstruct the score progression from at-bats (Aces at-bats carry a batter_id;
+  // opponent at-bats don't), producing one WP point per at-bat.
+  function buildSeries(){
+    var abs = (window._wpAtBats||[]).slice().sort(function(a,b){
+      var ai=a.inning||0,bi=b.inning||0; if(ai!==bi) return ai-bi;
+      var ah=a.half==='bottom'?1:0,bh=b.half==='bottom'?1:0; if(ah!==bh) return ah-bh;
+      var an=a.ab_num||0,bn=b.ab_num||0; if(an!==bn) return an-bn;
+      return new Date(a.created_at||0)-new Date(b.created_at||0);
+    });
+    var innings=7, us=0, them=0, pts=[{x:'Start',wp:50}];
+    abs.forEach(function(ab){
+      if(ab.batter_id!=null) us+=wnum(ab.runs_scored); else them+=wnum(ab.runs_scored);
+      pts.push({x:(ab.half==='bottom'?'B':'T')+(ab.inning||'?'), wp:Math.round(winProbAces(us,them,ab.inning,ab.half,0,innings)*100)});
+    });
+    var g = window.liveGame;
+    if(g){
+      var wp;
+      if(g.status==='final'){ wp = g.our_score>g.opp_score?100:(g.our_score<g.opp_score?0:50); }
+      else { wp = Math.round(winProbAces(g.our_score,g.opp_score,g.inning,g.half,g.outs,innings)*100); }
+      pts.push({x:(g.status==='final'?'Final':'Now'), wp:wp});
+    }
+    return pts;
+  }
+  window.updateWP = function(){
+    var panel = document.getElementById('wp-panel');
+    if(!panel || typeof Chart==='undefined') return;
+    var g = window.liveGame;
+    var hasHistory = (window._wpAtBats && window._wpAtBats.length);
+    var isActive = g && (g.status==='live' || g.status==='final');
+    if(!isActive && !hasHistory){ panel.style.display='none'; return; }
+    panel.style.display='block';
+    var pts = buildSeries();
+    var cur = pts[pts.length-1].wp;
+    var pctEl = document.getElementById('wp-pct');
+    if(pctEl){ pctEl.textContent = cur+'%'; pctEl.style.color = cur>=50?'#3DDC6A':'#e07a5f'; }
+    var labels = pts.map(function(p){return p.x;});
+    var data = pts.map(function(p){return p.wp;});
+    var ctx = document.getElementById('wp-chart');
+    if(chart){ chart.data.labels=labels; chart.data.datasets[0].data=data; chart.update('none'); return; }
+    chart = new Chart(ctx,{type:'line',
+      data:{labels:labels,datasets:[{data:data,borderColor:'#E8530A',backgroundColor:'rgba(232,83,10,.12)',fill:true,tension:.25,pointRadius:0,borderWidth:2}]},
+      options:{responsive:true,maintainAspectRatio:false,animation:false,
+        plugins:{legend:{display:false},tooltip:{callbacks:{label:function(c){return 'Aces '+c.parsed.y+'%';}}}},
+        scales:{y:{min:0,max:100,ticks:{color:'#7A8290',stepSize:25,callback:function(v){return v+'%';}},grid:{color:'rgba(255,255,255,.06)'}},
+          x:{ticks:{color:'#7A8290',maxRotation:0,autoSkip:true,maxTicksLimit:8},grid:{display:false}}}}});
+  };
+})();
+</script>
 </body>
 </html>
