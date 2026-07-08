@@ -12,6 +12,7 @@
 <script src="/pin.js"></script>
 <script src="/nav.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Inter:wght@300;400;500;600&family=Roboto+Mono:wght@400;500&display=swap');
 :root{
@@ -148,6 +149,7 @@ nav{background:rgba(10,12,14,.95);border-bottom:1px solid var(--bdr);display:fle
         <div class="badges-row" id="p-badges"></div>
       </div>
       <div style="display:flex;flex-direction:column;align-items:flex-end;gap:8px;">
+        <button class="share-btn" onclick="openCard()">📸 Player card</button>
         <button class="share-btn" onclick="shareProfile()">🔗 Share profile</button>
       </div>
     </div>
@@ -329,6 +331,7 @@ async function init() {
 
   if (!p || !p.first) { showNotFound(); return }
 
+  window._player = p
   renderProfile(p)
   renderCharts(p)
   loadVeloChart(p.id)
@@ -611,6 +614,107 @@ function shareProfile() {
 }
 
 init()
+</script>
+<!-- ── Shareable player card ── -->
+<style>
+  #share-card{position:fixed;left:-9999px;top:0;width:640px;height:896px;background:radial-gradient(circle at 28% 12%,#20252d 0,#0A0C0E 55%,#000 100%);border:3px solid var(--orange);border-radius:32px;color:var(--text);font-family:var(--body);padding:46px 42px;display:flex;flex-direction:column;justify-content:space-between;overflow:hidden;}
+  #share-card .pc-wm{position:absolute;right:-30px;top:150px;font-family:var(--display);font-weight:700;font-size:520px;line-height:1;color:rgba(232,83,10,.06);z-index:0;}
+  #share-card .pc-head{display:flex;align-items:center;gap:14px;position:relative;z-index:1;}
+  #share-card .pc-logo{width:54px;height:54px;object-fit:contain;}
+  #share-card .pc-team{font-family:var(--display);font-size:25px;font-weight:700;letter-spacing:1px;}
+  #share-card .pc-team span{color:var(--orange);}
+  #share-card .pc-subt{font-family:var(--mono);font-size:12px;color:var(--muted);letter-spacing:2px;}
+  #share-card .pc-hero{position:relative;z-index:1;}
+  #share-card .pc-num{font-family:var(--display);font-size:78px;font-weight:700;color:var(--orange);line-height:.85;}
+  #share-card .pc-name{font-family:var(--display);font-size:58px;font-weight:700;text-transform:uppercase;line-height:.95;letter-spacing:-1px;margin-top:8px;}
+  #share-card .pc-pos{font-family:var(--mono);font-size:14px;color:var(--muted);letter-spacing:1px;margin-top:12px;text-transform:uppercase;}
+  #share-card .pc-bottom{position:relative;z-index:1;}
+  #share-card .pc-stats{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;padding:22px 0;border-top:1px solid var(--bdr);border-bottom:1px solid var(--bdr);}
+  #share-card .pc-stat{text-align:center;}
+  #share-card .pc-stat b{display:block;font-family:var(--display);font-size:32px;font-weight:700;color:var(--text);line-height:1;}
+  #share-card .pc-stat span{font-family:var(--mono);font-size:11px;color:var(--muted);letter-spacing:1px;}
+  #share-card .pc-rating{display:flex;align-items:center;gap:16px;margin-top:24px;}
+  #share-card .pc-rnum{font-family:var(--display);font-size:44px;font-weight:700;color:var(--orange);background:rgba(232,83,10,.12);border:2px solid var(--orange);border-radius:16px;width:86px;height:86px;display:flex;align-items:center;justify-content:center;}
+  #share-card .pc-rlbl{font-family:var(--mono);font-size:13px;color:var(--muted);letter-spacing:2px;line-height:1.6;}
+  #share-card .pc-badges{display:flex;flex-wrap:wrap;gap:8px;margin-top:22px;}
+  #share-card .pc-badge{font-family:var(--mono);font-size:13px;padding:6px 13px;border-radius:20px;border:1px solid;background:rgba(255,255,255,.03);}
+  #share-card .pc-foot{font-family:var(--mono);font-size:13px;color:var(--muted);letter-spacing:2px;text-align:center;margin-top:26px;}
+
+  #card-modal{position:fixed;inset:0;background:rgba(0,0,0,.88);display:none;flex-direction:column;align-items:center;justify-content:center;gap:18px;z-index:9999;padding:20px;}
+  #card-modal.open{display:flex;}
+  #card-modal img{max-width:min(90vw,400px);max-height:66vh;border-radius:20px;box-shadow:0 24px 70px rgba(0,0,0,.7);}
+  #card-modal .cm-note{font-family:var(--mono);font-size:12px;color:var(--muted);}
+  .card-actions{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;}
+  .card-btn{font-family:var(--display);font-size:14px;font-weight:600;letter-spacing:.5px;text-transform:uppercase;padding:11px 22px;border-radius:8px;border:1px solid var(--bdr);background:var(--dark2);color:var(--text);cursor:pointer;}
+  .card-btn.primary{background:var(--orange);border-color:var(--orange);color:#fff;}
+</style>
+
+<div id="share-card"></div>
+<div id="card-modal" onclick="if(event.target.id==='card-modal')closeCard()">
+  <div class="cm-note" id="cm-note">Generating card…</div>
+  <img id="card-img" style="display:none;" alt="Player card"/>
+  <div class="card-actions" id="card-actions" style="display:none;">
+    <button class="card-btn primary" onclick="shareCardImg()">📤 Share</button>
+    <button class="card-btn" onclick="downloadCard()">⬇ Download</button>
+    <button class="card-btn" onclick="closeCard()">Close</button>
+  </div>
+</div>
+
+<script>
+var _cardUrl = null;
+function buildCardInner(p){
+  var adv = calcAdv(p);
+  var badges = getBadges(p, adv).slice(0,3);
+  var name = ((p.first||'')+' '+(p.last||'')).trim();
+  var pos = (p.pos||[]).join(' / ') || '—';
+  var stats = [
+    {v:f3(p.avg), l:'AVG'}, {v:(p.ops||0).toFixed(3), l:'OPS'},
+    {v:p.hr, l:'HR'}, {v:p.rbi, l:'RBI'}, {v:p.sb, l:'SB'}
+  ];
+  var badgeHtml = badges.map(function(b){ return '<span class="pc-badge" style="border-color:'+b.c+'66;color:'+b.c+';">'+b.e+' '+b.l+'</span>'; }).join('');
+  return '<div class="pc-wm">'+(p.jerseyNum!=null?p.jerseyNum:'')+'</div>'
+    + '<div class="pc-head"><img class="pc-logo" src="/logo.png" alt=""/><div><div class="pc-team">DELMARVA <span>ACES</span></div><div class="pc-subt">12U EAST · 2026 SEASON</div></div></div>'
+    + '<div class="pc-hero"><div class="pc-num">#'+p.jerseyNum+'</div><div class="pc-name">'+name+'</div><div class="pc-pos">'+pos+' · Class of '+p.grad+'</div></div>'
+    + '<div class="pc-bottom">'
+    +   '<div class="pc-stats">'+stats.map(function(s){return '<div class="pc-stat"><b>'+s.v+'</b><span>'+s.l+'</span></div>';}).join('')+'</div>'
+    +   '<div class="pc-rating"><div class="pc-rnum">'+adv.acesRating+'</div><div class="pc-rlbl">ACES<br>RATING</div></div>'
+    +   (badgeHtml ? '<div class="pc-badges">'+badgeHtml+'</div>' : '')
+    +   '<div class="pc-foot">DELMARVA-ACES.VERCEL.APP</div>'
+    + '</div>';
+}
+async function openCard(){
+  var p = window._player; if(!p){ return; }
+  var modal=document.getElementById('card-modal');
+  document.getElementById('cm-note').style.display='block';
+  document.getElementById('card-img').style.display='none';
+  document.getElementById('card-actions').style.display='none';
+  modal.classList.add('open');
+  var card=document.getElementById('share-card');
+  card.innerHTML = buildCardInner(p);
+  try{ if(document.fonts&&document.fonts.ready) await document.fonts.ready; }catch(e){}
+  await new Promise(function(r){setTimeout(r,120);});
+  try{
+    var canvas = await html2canvas(card, {scale:2, backgroundColor:null, useCORS:true, logging:false});
+    _cardUrl = canvas.toDataURL('image/png');
+    var img=document.getElementById('card-img'); img.src=_cardUrl; img.style.display='block';
+    document.getElementById('cm-note').style.display='none';
+    document.getElementById('card-actions').style.display='flex';
+  }catch(e){ document.getElementById('cm-note').textContent='Could not generate card.'; }
+}
+function closeCard(){ document.getElementById('card-modal').classList.remove('open'); }
+function cardFilename(){ var p=window._player||{}; return ('aces-'+(p.first||'')+'-'+(p.last||'')+'-card.png').toLowerCase().replace(/[^a-z0-9.-]+/g,'-'); }
+function downloadCard(){ if(!_cardUrl) return; var a=document.createElement('a'); a.download=cardFilename(); a.href=_cardUrl; a.click(); }
+async function shareCardImg(){
+  if(!_cardUrl) return;
+  try{
+    var blob = await (await fetch(_cardUrl)).blob();
+    var p = window._player||{};
+    var file = new File([blob], cardFilename(), {type:'image/png'});
+    if(navigator.canShare && navigator.canShare({files:[file]})){
+      await navigator.share({files:[file], title:(p.first||'')+' '+(p.last||''), text:'Delmarva Aces · #'+p.jerseyNum+' '+(p.first||'')+' '+(p.last||'')});
+    } else { downloadCard(); }
+  }catch(e){ /* user cancelled or unsupported */ }
+}
 </script>
 </body>
 </html>
