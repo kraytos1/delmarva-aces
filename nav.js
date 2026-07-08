@@ -9,6 +9,7 @@
     { label: 'Roster',      href: '/#roster' },
     { label: 'Highlights',  href: '/highlights.html',     test: function (p) { return /\/highlights\.html$/.test(p); } },
     { label: 'Live Game',   href: '/game.html',           test: function (p) { return /\/game\.html$/.test(p); } },
+    { label: 'Bullpen',     href: '/bullpen.html',        test: function (p) { return /\/bullpen\.html$/.test(p); } },
     { label: 'Scout',       href: '/scout.html',          test: function (p) { return /\/scout\.html$/.test(p); } },
     { label: 'Pitching',    href: '/pitching-scout.html', test: function (p) { return /\/pitching-scout\.html$/.test(p); } },
     { label: 'Threat Board', href: '/threat-board.html',  test: function (p) { return /\/threat-board\.html$/.test(p); } }
