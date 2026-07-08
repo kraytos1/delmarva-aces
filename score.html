@@ -822,6 +822,7 @@ async function logAB(result, label, skipPitchLog) {
   var abd={
     game_id:S.gameId,
     batter_id: S.isTop ? getCurrentBatterId() : null,  // our batter only when top half
+    aces_pitcher_id: !S.isTop ? S.currentPitcherId : null,  // our pitcher only when bottom half
     inning:S.inning,half:S.isTop?'top':'bottom',
     ab_num:S.abNum,result:result,rbi:rbi,runs_scored:runs,notes:label,
     yt_offset_sec:offset,clip_status:CLIP.includes(result)?'queued':'none'

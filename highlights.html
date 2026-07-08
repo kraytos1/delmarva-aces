@@ -59,6 +59,7 @@
   .b-hit{background:rgba(61,220,106,.12);color:var(--green);border:1px solid rgba(61,220,106,.3);}
   .b-k{background:rgba(122,130,144,.14);color:#c3cad6;border:1px solid var(--bdr);}
   .b-ob{background:rgba(72,149,239,.14);color:#7db1f5;border:1px solid rgba(72,149,239,.3);}
+  .b-pitch{background:rgba(147,51,234,.16);color:#c084fc;border:1px solid rgba(147,51,234,.35);}
   .rbi{font-family:var(--mono);font-size:10px;color:var(--orange);letter-spacing:.5px;}
   .clip-batter{font-family:var(--display);font-size:19px;font-weight:600;letter-spacing:.3px;}
   .clip-batter em{color:var(--muted);font-style:normal;font-weight:400;font-size:14px;margin-right:5px;}
@@ -108,6 +109,7 @@
     <button class="filter-btn" data-type="xbh" onclick="setType('xbh',this)">Extra-Base</button>
     <button class="filter-btn" data-type="hit" onclick="setType('hit',this)">Hits</button>
     <button class="filter-btn" data-type="ob" onclick="setType('ob',this)">On-Base</button>
+    <button class="filter-btn" data-type="k" onclick="setType('k',this)">Strikeouts</button>
     <select id="playerSel" onchange="render()"><option value="">All players</option></select>
     <div class="spacer"></div>
     <span class="count-tag" id="countTag"></span>
@@ -140,7 +142,8 @@ var TYPE_MATCH = {
   hr:function(g){return g==='hr';},
   xbh:function(g){return g==='hr'||g==='xbh';},
   hit:function(g){return g==='hr'||g==='xbh'||g==='hit';},
-  ob:function(g){return g==='ob';}
+  ob:function(g){return g==='ob';},
+  k:function(g){return g==='k';}
 };
 
 function pName(ab){
@@ -211,7 +214,8 @@ function render(){
       +   '<div class="clip-play"><span></span></div>'
       + '</div>'
       + '<div class="clip-body">'
-      + '<div class="clip-top"><span class="badge '+info.cls+'">'+info.label+'</span>'+rbi+'</div>'
+      + '<div class="clip-top"><span class="badge '+info.cls+'">'+info.label+'</span>'
+        + (ab._kind==='pitching' ? '<span class="badge b-pitch">⚾ Pitching</span>' : rbi) + '</div>'
       + '<div class="clip-batter">'+(pl.num!=null
           ? '<a href="/player/'+pl.num+'" title="View '+pl.name+'’s page"><em>#'+pl.num+'</em>'+pl.name+'</a>'
           : pl.name)+'</div>'
@@ -254,18 +258,31 @@ function showEmpty(queued){
 
 async function init(){
   try{
-    var res = await db.from('at_bats')
-      .select('id,result,rbi,inning,half,yt_offset_sec,created_at, players(first_name,last_name,jersey_num), games(game_date, youtube_stream_id, opponents(name))')
+    // Hitting highlights — our batter's positive plays (hit/walk/hbp, not K/DP).
+    var hitRes = await db.from('at_bats')
+      .select('id,result,rbi,inning,half,yt_offset_sec,created_at, players!batter_id(first_name,last_name,jersey_num), games(game_date, youtube_stream_id, opponents(name))')
+      .not('batter_id','is',null)
       .neq('clip_status','none').not('yt_offset_sec','is',null)
-      .not('batter_id','is',null)   // Aces hitters only (opponent at-bats have no batter_id)
       .order('created_at',{ascending:false});
-    if(res.error) throw res.error;
-    // Watchable = a positive Aces hitting play (hit/walk/hbp — not a batter K or DP)
-    // + an offset + the game was actually streamed (has a VOD).
-    CLIPS = (res.data || []).filter(function(ab){
+    if(hitRes.error) throw hitRes.error;
+    var hitting = (hitRes.data || []).filter(function(ab){
       var grp = (RESULT[ab.result]||{}).grp;
       return ab.games && ab.games.youtube_stream_id && grp !== 'k';
     });
+
+    // Pitching highlights — our pitcher striking out the opponent (batter_id null,
+    // attributed via aces_pitcher_id). Player shown = the pitcher.
+    var pitRes = await db.from('at_bats')
+      .select('id,result,rbi,inning,half,yt_offset_sec,created_at, players!aces_pitcher_id(first_name,last_name,jersey_num), games(game_date, youtube_stream_id, opponents(name))')
+      .is('batter_id',null).not('aces_pitcher_id','is',null)
+      .in('result',['strikeout_looking','strikeout_swinging'])
+      .neq('clip_status','none').not('yt_offset_sec','is',null)
+      .order('created_at',{ascending:false});
+    if(pitRes.error) throw pitRes.error;
+    var pitching = (pitRes.data || []).filter(function(ab){ return ab.games && ab.games.youtube_stream_id; });
+    pitching.forEach(function(ab){ ab._kind = 'pitching'; });
+
+    CLIPS = hitting.concat(pitching).sort(function(a,b){ return (b.created_at||'').localeCompare(a.created_at||''); });
 
     if(!CLIPS.length){
       var q = await db.from('at_bats').select('id',{count:'exact',head:true}).neq('clip_status','none');

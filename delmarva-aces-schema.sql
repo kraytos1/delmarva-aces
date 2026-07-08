@@ -69,7 +69,8 @@ create table games (
 create table at_bats (
   id           uuid primary key default gen_random_uuid(),
   game_id      uuid references games(id) on delete cascade,
-  batter_id    uuid references players(id),
+  batter_id    uuid references players(id),   -- our batter (set only when we bat / top half)
+  aces_pitcher_id uuid references players(id),-- our pitcher (set only when we pitch / bottom half); powers pitching highlights
   pitcher_name text,             -- opponent pitcher (free text)
   inning       int  not null,
   half         text not null,    -- 'top' | 'bottom'

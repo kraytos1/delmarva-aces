@@ -93,6 +93,7 @@ nav{background:rgba(10,12,14,.95);border-bottom:1px solid var(--bdr);display:fle
 .pclip-body{padding:10px 12px 12px;}
 .pclip-top{display:flex;align-items:center;gap:7px;margin-bottom:5px;flex-wrap:wrap;}
 .pclip-badge{font-family:var(--mono);font-size:9px;letter-spacing:.5px;text-transform:uppercase;padding:2px 8px;border-radius:4px;background:var(--og);color:var(--orange);border:1px solid var(--bdr-a);}
+.pclip-badge-p{background:rgba(147,51,234,.16);color:#c084fc;border:1px solid rgba(147,51,234,.35);}
 .pclip-rbi{font-family:var(--mono);font-size:9px;color:var(--orange);}
 .pclip-meta{font-family:var(--mono);font-size:10px;color:var(--muted);}
 .clips-all{text-align:center;margin-top:16px;}
@@ -374,26 +375,41 @@ async function loadPlayerClips(playerId) {
   var backLink = '<div class="clips-all"><a href="/highlights.html">See all team highlights →</a></div>'
   if (!playerId) { section.insertAdjacentHTML('beforeend', backLink); return }
   try {
-    var { data, error } = await db.from('at_bats')
-      .select('id,result,rbi,inning,half,yt_offset_sec, games(game_date, youtube_stream_id, opponents(name))')
+    // Hitting clips — this player's positive plays (not their own K/DP)
+    var hit = await db.from('at_bats')
+      .select('id,result,rbi,inning,half,yt_offset_sec,created_at, games(game_date, youtube_stream_id, opponents(name))')
       .eq('batter_id', playerId).neq('clip_status', 'none').not('yt_offset_sec', 'is', null)
       .order('created_at', { ascending: false })
-    if (error) throw error
-    var SKIP = { strikeout_looking:1, strikeout_swinging:1, double_play:1 }  // not hitting highlights
-    var clips = (data || []).filter(function(ab){ return ab.games && ab.games.youtube_stream_id && !SKIP[ab.result] })
+    if (hit.error) throw hit.error
+    var SKIP = { strikeout_looking:1, strikeout_swinging:1, double_play:1 }
+    var hitting = (hit.data || []).filter(function(ab){ return ab.games && ab.games.youtube_stream_id && !SKIP[ab.result] })
+    // Pitching clips — this player striking out the opponent (attributed via aces_pitcher_id)
+    var pit = await db.from('at_bats')
+      .select('id,result,rbi,inning,half,yt_offset_sec,created_at, games(game_date, youtube_stream_id, opponents(name))')
+      .eq('aces_pitcher_id', playerId).is('batter_id', null)
+      .in('result', ['strikeout_looking','strikeout_swinging'])
+      .neq('clip_status', 'none').not('yt_offset_sec', 'is', null)
+      .order('created_at', { ascending: false })
+    if (pit.error) throw pit.error
+    var pitching = (pit.data || []).filter(function(ab){ return ab.games && ab.games.youtube_stream_id })
+    pitching.forEach(function(ab){ ab._kind = 'pitching' })
+    var clips = hitting.concat(pitching).sort(function(a,b){ return (b.created_at||'').localeCompare(a.created_at||'') })
     if (!clips.length) { section.insertAdjacentHTML('beforeend', backLink); return }
     var cards = clips.map(function(ab) {
       var g = ab.games || {}
       var opp = (g.opponents && g.opponents.name) ? g.opponents.name : 'opp'
       var dt = g.game_date ? new Date(g.game_date).toLocaleDateString('en-US', {month:'short',day:'numeric',timeZone:'UTC'}) : ''
-      var rbi = ab.rbi > 0 ? '<span class="pclip-rbi">'+ab.rbi+' RBI</span>' : ''
+      var badge = ab._kind === 'pitching'
+        ? '<span class="pclip-badge pclip-badge-p">'+(CLIP_LABEL[ab.result]||ab.result)+' · P</span>'
+        : '<span class="pclip-badge">'+(CLIP_LABEL[ab.result]||ab.result)+'</span>'
+      var rbi = (ab._kind !== 'pitching' && ab.rbi > 0) ? '<span class="pclip-rbi">'+ab.rbi+' RBI</span>' : ''
       var half = ab.half === 'top' ? 'Top' : 'Bot'
       return '<div class="pclip">'
         + '<div class="pclip-vid" data-embed="'+ytEmbed(g.youtube_stream_id, ab.yt_offset_sec)+'" onclick="playClip(this)">'
         +   '<img loading="lazy" src="'+ytThumb(g.youtube_stream_id)+'" alt="'+(CLIP_LABEL[ab.result]||ab.result)+'"/>'
         +   '<div class="pclip-play"><span></span></div>'
         + '</div>'
-        + '<div class="pclip-body"><div class="pclip-top"><span class="pclip-badge">'+(CLIP_LABEL[ab.result]||ab.result)+'</span>'+rbi+'</div>'
+        + '<div class="pclip-body"><div class="pclip-top">'+badge+rbi+'</div>'
         + '<div class="pclip-meta">Inn '+ab.inning+' ('+half+') · vs '+opp+' · '+dt+'</div></div></div>'
     }).join('')
     area.outerHTML = '<div class="clips-grid">'+cards+'</div>'+backLink
