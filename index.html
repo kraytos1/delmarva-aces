@@ -46,6 +46,12 @@
   .nav-links{display:flex;gap:4px;}
   .nav-toggle{display:none;background:none;border:none;color:var(--text);font-size:26px;line-height:1;cursor:pointer;padding:4px 8px;-webkit-tap-highlight-color:transparent;}
   .nav-link{padding:6px 14px;border-radius:6px;font-size:13px;font-weight:500;color:var(--muted);cursor:pointer;border:none;background:none;transition:color .15s,background .15s;}
+  .nav-coach{position:relative;display:inline-block;}
+  .nav-coach-btn{display:inline-flex;align-items:center;gap:3px;font-family:inherit;}
+  .nav-caret{font-size:10px;opacity:.7;}
+  .nav-coach-menu{position:absolute;top:100%;right:0;margin-top:6px;min-width:172px;display:none;flex-direction:column;gap:2px;background:rgba(16,19,23,.98);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border:1px solid var(--bdr);border-radius:10px;padding:6px;box-shadow:0 14px 34px rgba(0,0,0,.55);z-index:210;}
+  .nav-coach.open .nav-coach-menu{display:flex;}
+  .nav-coach-menu .nav-link{padding:9px 14px;text-align:left;}
   .nav-link:hover{color:var(--text);background:rgba(255,255,255,.06);}
   .nav-link.active{color:var(--orange);}
   .live-pill{display:flex;align-items:center;gap:6px;background:rgba(61,220,106,.1);border:1px solid rgba(61,220,106,.3);border-radius:20px;padding:4px 12px;font-family:var(--mono);font-size:11px;color:#3DDC6A;cursor:pointer;display:none;}
@@ -224,6 +230,11 @@
       border-bottom:1px solid var(--bdr);padding:6px 0;display:none;max-height:calc(100vh - 64px);overflow-y:auto;}
     .nav-links.open{display:flex;}
     .nav-link{padding:14px 20px;font-size:15px;text-align:left;border-radius:0;}
+    .nav-coach{position:static;width:100%;border-top:1px solid var(--bdr);margin-top:4px;padding-top:4px;display:block;}
+    .nav-coach-btn{width:100%;text-align:left;padding:12px 20px 4px;font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);pointer-events:none;}
+    .nav-caret{display:none;}
+    .nav-coach-menu{display:flex;position:static;margin:0;min-width:0;background:none;border:none;box-shadow:none;padding:0;border-radius:0;backdrop-filter:none;}
+    .nav-coach-menu .nav-link{padding:12px 20px 12px 34px;}
     /* ── hero stat tiles: 2×2 grid instead of an overflowing single row ── */
     .hero-stats{display:grid;grid-template-columns:1fr 1fr;width:100%;}
     .hero-stat{border-right:none;border-bottom:1px solid var(--bdr);}
@@ -259,9 +270,16 @@
     <button class="nav-link" id="nav-roster" onclick="showPage('roster')">Roster</button>
     <a class="nav-link" href="/highlights.html" style="text-decoration:none;">Highlights</a>
     <a class="nav-link" href="/game.html" style="text-decoration:none;">Live Game</a>
-    <a class="nav-link" href="/scout.html" style="text-decoration:none;">Scout</a>
-    <a class="nav-link" href="/pitching-scout.html" style="text-decoration:none;">Pitching</a>
-    <a class="nav-link" href="/threat-board.html" style="text-decoration:none;">Threat Board</a>
+    <div class="nav-coach" id="nav-coach">
+      <button class="nav-link nav-coach-btn" type="button" onclick="toggleCoach(event)">Coach<span class="nav-caret">▾</span></button>
+      <div class="nav-coach-menu">
+        <a class="nav-link" href="/bullpen.html" style="text-decoration:none;">Bullpen</a>
+        <a class="nav-link" href="/scout.html" style="text-decoration:none;">Scout</a>
+        <a class="nav-link" href="/pitching-scout.html" style="text-decoration:none;">Pitching</a>
+        <a class="nav-link" href="/threat-board.html" style="text-decoration:none;">Threat Board</a>
+        <a class="nav-link" href="/report.html" style="text-decoration:none;">Report</a>
+      </div>
+    </div>
   </div>
   <div class="live-pill" id="live-pill" onclick="showPage('home')">
     <div class="live-dot"></div>LIVE NOW
@@ -1605,12 +1623,20 @@ function copyAIRecap(ev){
 }
 // Mobile nav: tap ☰ to open the menu; tapping any item closes it.
 function toggleNav(){ var n=document.querySelector('.nav-links'); if(n) n.classList.toggle('open'); }
+function toggleCoach(e){ if(e) e.stopPropagation(); var c=document.getElementById('nav-coach'); if(c) c.classList.toggle('open'); }
 document.addEventListener('click', function(e){
-  if(e.target.closest && e.target.closest('.nav-link')){
+  var link = e.target.closest && e.target.closest('.nav-link');
+  var c = document.getElementById('nav-coach');
+  // Close the desktop Coach dropdown when clicking outside it
+  if(c && (!e.target.closest || !e.target.closest('#nav-coach'))) c.classList.remove('open');
+  // Tapping a real nav link closes the mobile menu (but not the Coach label button)
+  if(link && !e.target.closest('.nav-coach-btn')){
     var n=document.querySelector('.nav-links'); if(n) n.classList.remove('open');
+    if(c) c.classList.remove('open');
   }
 });
 window.toggleNav = toggleNav;
+window.toggleCoach = toggleCoach;
 window.openRecap = openRecap;
 </script>
 </body>
