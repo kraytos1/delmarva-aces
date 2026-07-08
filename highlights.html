@@ -163,7 +163,7 @@ function meta(ab){
 // ── Path A: a "clip" is a YouTube deep-link into the game's live-stream VOD.
 // yt_offset_sec is captured when the scorer taps the result (a few sec AFTER the
 // play), so we open the window ~20s before that and end ~3s after. Tune here.
-var CLIP_PRE = 20, CLIP_POST = 3;
+var CLIP_PRE = 20, CLIP_POST = 10;
 function ytEmbed(streamId, offset){
   if(!streamId) return '';
   var o = offset||0;

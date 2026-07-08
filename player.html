@@ -354,7 +354,7 @@ var CLIP_LABEL = {
   walk:'Walk', hbp:'HBP', double_play:'Double Play'
 }
 // Path A: a clip is a YouTube deep-link into the game's live-stream VOD.
-var CLIP_PRE = 20, CLIP_POST = 3
+var CLIP_PRE = 20, CLIP_POST = 10
 function ytEmbed(streamId, offset){
   if(!streamId) return ''
   var o = offset||0, start = Math.max(0, o - CLIP_PRE), end = o + CLIP_POST
