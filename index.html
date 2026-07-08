@@ -18,11 +18,13 @@
 <meta property="og:title" content="Delmarva Aces 13U East"/>
 <meta property="og:description" content="Live streams, stats, highlights, and scouting for the Delmarva Aces. Spring 2026: 62–2 champions."/>
 <meta property="og:url" content="https://delmarva-aces.vercel.app/"/>
-<meta property="og:image" content="https://delmarva-aces.vercel.app/icon-512.png"/>
-<meta name="twitter:card" content="summary"/>
+<meta property="og:image" content="https://delmarva-aces.vercel.app/og-banner.png"/>
+<meta property="og:image:width" content="1200"/>
+<meta property="og:image:height" content="630"/>
+<meta name="twitter:card" content="summary_large_image"/>
 <meta name="twitter:title" content="Delmarva Aces 13U East"/>
 <meta name="twitter:description" content="Live streams, stats, highlights, and scouting for the Delmarva Aces."/>
-<meta name="twitter:image" content="https://delmarva-aces.vercel.app/icon-512.png"/>
+<meta name="twitter:image" content="https://delmarva-aces.vercel.app/og-banner.png"/>
 <!-- Supabase JS (loads from CDN — no build step needed for the standalone version) -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
@@ -326,7 +328,7 @@
   </section>
 
   <footer>
-    <div class="footer-brand">Delmarva <span>Aces</span> · 12U East · 2026</div>
+    <div class="footer-brand">Delmarva <span>Aces</span> · 13U East · 2026</div>
     <div class="footer-links"><a class="footer-link" href="/#schedule">Schedule</a><a class="footer-link" href="/highlights.html">Highlights</a></div>
   </footer>
 </div>
@@ -423,7 +425,7 @@
   </div>
 
   <footer>
-    <div class="footer-brand">Delmarva <span>Aces</span> · 12U East · 2026</div>
+    <div class="footer-brand">Delmarva <span>Aces</span> · 13U East · 2026</div>
     <div class="footer-links"><a class="footer-link" href="/#schedule">Schedule</a><a class="footer-link" href="/highlights.html">Highlights</a></div>
   </footer>
 </div>
@@ -474,7 +476,7 @@
   <div style="padding:24px 40px;" id="schedule-grid"></div>
 
   <footer>
-    <div class="footer-brand">Delmarva <span>Aces</span> · 12U East · 2026</div>
+    <div class="footer-brand">Delmarva <span>Aces</span> · 13U East · 2026</div>
     <div class="footer-links"><a class="footer-link" href="/highlights.html">Highlights</a></div>
   </footer>
 </div>
@@ -623,6 +625,11 @@ function setSeason(season) {
     setText('schedule-season-label', meta.schLabel)
     setText('hero-eyebrow-txt', meta.hero)
   }
+  // Season-aware footers (one per in-page tab)
+  var footAge = season==='fall2026' ? '13U' : '12U'
+  document.querySelectorAll('.footer-brand').forEach(function(el){
+    el.innerHTML = 'Delmarva <span>Aces</span> · '+footAge+' East · 2026'
+  })
 
   if (season === 'spring2026') {
     // Load archived Spring 2026 stats.
