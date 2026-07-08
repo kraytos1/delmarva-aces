@@ -97,6 +97,19 @@
   .leader-val{font-family:var(--display);font-size:28px;font-weight:700;color:var(--orange);}
   .leader-rest{font-size:11px;color:var(--muted);margin-top:6px;line-height:1.6;}
 
+  /* awards */
+  .awards-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:12px;}
+  .award-card{display:flex;gap:14px;align-items:center;background:var(--dark2);border:1px solid var(--bdr);border-radius:12px;padding:14px 16px;position:relative;overflow:hidden;transition:border-color .15s,transform .1s;}
+  .award-card:hover{border-color:var(--bdr-a);transform:translateY(-2px);}
+  .award-card::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;background:linear-gradient(var(--orange),var(--orange-dim));}
+  .award-ico{font-size:30px;line-height:1;flex-shrink:0;filter:drop-shadow(0 2px 6px rgba(0,0,0,.5));}
+  .award-body{min-width:0;}
+  .award-name{font-family:var(--mono);font-size:9px;color:var(--orange);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:3px;}
+  .award-winner{font-family:var(--display);font-size:16px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .award-stat{font-family:var(--mono);font-size:12px;color:var(--muted);margin-top:2px;}
+  .award-stat b{color:var(--text);font-weight:500;}
+  .awards-empty{color:var(--muted);font-family:var(--mono);font-size:12px;padding:16px 0;}
+
   /* results */
   .results-grid{display:flex;flex-direction:column;gap:8px;}
   .result-row{display:flex;align-items:center;background:var(--dark2);border:1px solid var(--bdr);border-radius:8px;padding:14px 20px;gap:16px;cursor:pointer;transition:border-color .15s,background .15s;}
@@ -254,6 +267,17 @@
       <div class="section-sub" id="leaders-sub">Spring 2026</div>
     </div>
     <div class="leaders-grid" id="leaders-grid">
+      <!-- populated by JS -->
+    </div>
+  </section>
+
+  <section class="section" style="padding-top:0">
+    <div class="section-header">
+      <h2 class="section-title">Team Awards</h2>
+      <div class="section-rule"></div>
+      <div class="section-sub" id="awards-sub">Spring 2026</div>
+    </div>
+    <div class="awards-grid" id="awards-grid">
       <!-- populated by JS -->
     </div>
   </section>
@@ -801,6 +825,7 @@ function renderHome() {
   setText('roster-meta', ageLabel+' · '+players.length+' Players · '+gpMax+' Games Played')
 
   renderLeaders()
+  renderAwards()
   renderResults()
 }
 
@@ -843,6 +868,45 @@ function renderLeaders() {
       '<div class="leader-val">'+c.val+(c.unit?'<span style="font-size:14px;color:var(--muted);margin-left:4px;">'+c.unit+'</span>':'')+'</div>'+
       '<div class="leader-rest">'+c.rest+'</div>'+
     '</div>'
+  }).join('')
+}
+
+// Team Awards — celebratory superlatives from the season stats (season-aware via `players`).
+function renderAwards() {
+  var grid = document.getElementById('awards-grid')
+  if (!grid) return
+  var subEl = document.getElementById('awards-sub')
+  if (subEl) subEl.textContent = (ACTIVE_SEASON === 'fall2026') ? 'Fall 2026' : 'Spring 2026'
+
+  if (players.filter(function(p){return p.ab>=1}).length < 3) {
+    grid.innerHTML = '<div class="awards-empty">Team awards appear once games are scored.</div>'
+    return
+  }
+  var abGate = function(p){ return p.ab >= 15 }
+  var ipGate = function(p){ return p.ip >= 10 && p.era < 99 }
+  var pitched = function(p){ return p.ip > 0 && p.so_p > 0 }
+  function top(scoreFn, filter){
+    var arr = players.filter(filter || function(){return true}).slice().sort(function(a,b){ return scoreFn(b) - scoreFn(a) })
+    return arr[0]
+  }
+  var A = [
+    {ico:'🏆', name:'Team MVP',        p:top(function(p){return p.ops}, abGate),   stat:function(p){return p.ops.toFixed(3)+' OPS'}},
+    {ico:'💣', name:'Home Run King',   p:top(function(p){return p.hr}),            stat:function(p){return p.hr+' HR'}},
+    {ico:'🏅', name:'RBI Machine',     p:top(function(p){return p.rbi}),           stat:function(p){return p.rbi+' RBI'}},
+    {ico:'🚀', name:'Speed Demon',     p:top(function(p){return p.sb}),            stat:function(p){return p.sb+' SB'}},
+    {ico:'🎯', name:'Batting Champ',   p:top(function(p){return p.avg}, abGate),   stat:function(p){return f3(p.avg)+' AVG'}},
+    {ico:'🧲', name:'On-Base Machine', p:top(function(p){return p.obp}, abGate),   stat:function(p){return f3(p.obp)+' OBP'}},
+    {ico:'⚾', name:'Ace',             p:top(function(p){return -p.era}, ipGate),  stat:function(p){return p.era.toFixed(2)+' ERA'}},
+    {ico:'🔥', name:'Strikeout King',  p:top(function(p){return p.so_p}, pitched), stat:function(p){return p.so_p+' K'}}
+  ]
+  grid.innerHTML = A.filter(function(a){ return a.p }).map(function(a){
+    return '<div class="award-card">'
+      + '<div class="award-ico">'+a.ico+'</div>'
+      + '<div class="award-body">'
+      +   '<div class="award-name">'+a.name+'</div>'
+      +   '<div class="award-winner">#'+a.p.num+' '+a.p.first+' '+a.p.last+'</div>'
+      +   '<div class="award-stat"><b>'+a.stat(a.p)+'</b></div>'
+      + '</div></div>'
   }).join('')
 }
 
