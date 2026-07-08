@@ -646,12 +646,15 @@ async function uploadPhoto(file){
   var cam=document.getElementById('avatar-cam'); if(cam) cam.textContent='⏳';
   try{
     var blob=await resizeImage(file, 512);
-    var path=p.id+'.jpg';
-    var up=await db.storage.from('player-photos').upload(path, blob, {upsert:true, contentType:'image/jpeg', cacheControl:'3600'});
+    // Unique path per upload so a new photo is always a brand-new URL — avoids
+    // the CDN serving the previously-cached image (upsert to a fixed path doesn't
+    // invalidate the cache, which made a 2nd photo "stick" to the first).
+    var path=p.id+'-'+Date.now()+'.jpg';
+    var up=await db.storage.from('player-photos').upload(path, blob, {contentType:'image/jpeg', cacheControl:'3600'});
     if(up.error) throw up.error;
-    var base=db.storage.from('player-photos').getPublicUrl(path).data.publicUrl;
-    await db.from('players').update({photo_url:base}).eq('id', p.id);
-    p.photoUrl = base+'?t='+Date.now();
+    var url=db.storage.from('player-photos').getPublicUrl(path).data.publicUrl;
+    await db.from('players').update({photo_url:url}).eq('id', p.id);
+    p.photoUrl = url;
     renderAvatar(p);
   }catch(e){ alert('Upload failed: '+(e.message||e)); }
   finally{ if(cam) cam.textContent='📷'; }
