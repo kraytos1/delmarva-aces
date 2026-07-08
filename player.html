@@ -198,7 +198,7 @@ nav{background:rgba(10,12,14,.95);border-bottom:1px solid var(--bdr);display:fle
           <div class="chart-wrap"><canvas id="ops-chart"></canvas></div>
         </div>
         <div class="chart-card">
-          <div class="chart-title">Pitch velocity</div>
+          <div class="chart-title" id="velo-title">Pitch velocity</div>
           <div class="chart-wrap"><canvas id="velo-chart"></canvas></div>
         </div>
       </div>
@@ -331,6 +331,7 @@ async function init() {
 
   renderProfile(p)
   renderCharts(p)
+  loadVeloChart(p.id)
   loadPlayerClips(p.id)
 
   document.getElementById('loading').style.display = 'none'
@@ -538,34 +539,43 @@ function renderCharts(p) {
     })
   })
 
-  // Velocity chart — placeholder until live game data
-  var veloData = p.ip>0 ? simulateVelo(p) : []
-  if (veloData.length) {
-    new Chart(document.getElementById('velo-chart'), {
+  // Velocity chart is loaded from REAL per-game pitch data — see loadVeloChart().
+}
+
+// Real pitch-velocity trend from the pitches table (per-game average, with season
+// top annotated). Replaces the old simulated placeholder.
+var _veloChart = null
+async function loadVeloChart(playerId){
+  var canvas = document.getElementById('velo-chart')
+  if(!canvas) return
+  var wrap = canvas.parentElement
+  function msg(t){ wrap.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:160px;font-family:var(--mono);font-size:11px;color:var(--muted);text-align:center;padding:0 12px;">'+t+'</div>' }
+  if(!playerId){ msg('Velocity appears here once this player pitches in a scored game.'); return }
+  try{
+    var { data, error } = await db.from('pitches')
+      .select('velocity_mph, game_id, games(game_date)')
+      .eq('pitcher_id', playerId).not('velocity_mph','is',null)
+    if(error) throw error
+    if(!data || !data.length){ msg('Velocity appears here once this player pitches in a scored game.'); return }
+    var byG = {}
+    data.forEach(function(pt){ if(!pt.games||!pt.games.game_date) return; var g=byG[pt.game_id]||(byG[pt.game_id]={date:pt.games.game_date,velos:[]}); g.velos.push(pt.velocity_mph) })
+    var games = Object.keys(byG).map(function(k){return byG[k]}).sort(function(a,b){return a.date<b.date?-1:1})
+    var labels = games.map(function(g){return new Date(g.date+'T00:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'})})
+    var avg = games.map(function(g){return Math.round(g.velos.reduce(function(a,b){return a+b},0)/g.velos.length)})
+    var allV = []; games.forEach(function(g){ allV=allV.concat(g.velos) })
+    var top = Math.max.apply(null, allV)
+    var lo = Math.max(40, Math.min.apply(null,avg)-4), hi = top+3
+    var tt = document.getElementById('velo-title'); if(tt) tt.textContent = 'Pitch velocity · Top '+top+' mph'
+    if(_veloChart){ try{_veloChart.destroy()}catch(e){} }
+    _veloChart = new Chart(canvas, {
       type:'bar',
-      data:{
-        labels: months,
-        datasets:[{
-          data: veloData,
-          backgroundColor:'rgba(232,83,10,.6)',
-          borderColor:'#E8530A',
-          borderWidth:1,
-          borderRadius:4
-        }]
-      },
-      options: Object.assign({},chartOpts,{
-        scales:Object.assign({},chartOpts.scales,{
-          y:Object.assign({},chartOpts.scales.y,{min:50,max:90})
-        }),
-        plugins:Object.assign({},chartOpts.plugins,{
-          tooltip:{callbacks:{label:function(c){return 'Avg velo: '+c.raw+' mph'}}}
-        })
-      })
+      data:{ labels:labels, datasets:[{ data:avg, backgroundColor:'rgba(232,83,10,.6)', borderColor:'#E8530A', borderWidth:1, borderRadius:4 }] },
+      options:{ responsive:true, maintainAspectRatio:false,
+        plugins:{ legend:{display:false}, tooltip:{callbacks:{label:function(c){return 'Avg velo: '+c.raw+' mph'}}} },
+        scales:{ x:{grid:{color:'rgba(255,255,255,.06)'},ticks:{color:'#7A8290',font:{size:10}}},
+                 y:{min:lo,max:hi,grid:{color:'rgba(255,255,255,.06)'},ticks:{color:'#7A8290',font:{size:10}}} } }
     })
-  } else {
-    document.getElementById('velo-chart').parentElement.innerHTML =
-      '<div style="display:flex;align-items:center;justify-content:center;height:160px;font-family:var(--mono);font-size:11px;color:var(--muted);">Velo data available once live games are scored</div>'
-  }
+  }catch(e){ msg('Couldn\'t load velocity.') }
 }
 
 // Simulate monthly OPS from season average (will be replaced with real data)
