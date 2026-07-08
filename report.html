@@ -55,6 +55,10 @@
   .plan li{background:var(--dark);border:1px solid var(--bdr);border-left:3px solid var(--orange);border-radius:8px;padding:11px 15px;font-size:14.5px;}
   .plan li b{color:var(--orange);}
 
+  .ai-brief{background:var(--dark);border:1px solid var(--bdr);border-left:3px solid var(--orange);border-radius:8px;padding:14px 16px;font-size:14.5px;line-height:1.7;white-space:pre-wrap;}
+  .ai-loading{font-family:var(--mono);font-size:12px;color:var(--muted);padding:6px 0;}
+  .ai-err{font-family:var(--mono);font-size:12px;color:#e07a5f;padding:6px 0;}
+
   table{width:100%;border-collapse:collapse;font-size:13px;display:block;overflow-x:auto;-webkit-overflow-scrolling:touch;}
   th,td{padding:8px 10px;text-align:right;border-bottom:1px solid var(--bdr);white-space:nowrap;}
   th:first-child,td:first-child,th:nth-child(2),td:nth-child(2){text-align:left;}
@@ -68,7 +72,7 @@
   .empty-note{color:var(--muted);font-family:var(--mono);font-size:12px;padding:8px 0;}
 
   @media print{
-    .dva-nav,.controls,.eyebrow,.btn-print{display:none !important;}
+    .dva-nav,.controls,.eyebrow,.btn-print,#ai-plan button{display:none !important;}
     body{background:#fff;color:#111;}
     .wrap{padding:0;max-width:100%;}
     .rpt-head{background:#f4f4f4;border-color:#ccc;}
@@ -196,6 +200,16 @@ async function generate(){
     if(!pitchers.length) pitchers=allPitchers;
     pitchers.sort(function(a,b){return b.score-a.score;});
     var threat=threatOf(t.base,(thrRes.data||[]));
+    // Compact snapshot for the AI game-plan endpoint (top threats only).
+    window._lastScout = {
+      opponent: {
+        name: t.base, level: t.level||'',
+        tier: threat?threat.tier:'', threat: threat?threat.threat:null,
+        record: threat?(threat.w+'-'+threat.l):'', runDiff: threat?threat.rd:null
+      },
+      hitters: hitters.slice(0,6).map(function(h){return {num:h.num||'', name:h.name, avg:f3(h.avg), hr:h.hr, sb:h.sb, ops:h.ops.toFixed(3), flags:h.flags.map(function(f){return f.k;})};}),
+      pitchers: pitchers.slice(0,4).map(function(p){return {num:p.num||'', name:p.name, ip:p.ip.toFixed(1), era:f2(p.era), k9:f2(p.k9), bb9:f2(p.bb9), whip:f2(p.whip), flags:p.flags.map(function(f){return f.k;})};})
+    };
     render(t,threat,hitters,pitchers);
     document.getElementById('status').style.display='none';
     document.getElementById('report').style.display='block';
@@ -219,6 +233,9 @@ function render(t,threat,hitters,pitchers){
     + '<div class="rpt-sub">'+(t.level?t.level+' · ':'')+(document.getElementById('tourn').value||'All tournaments')+' · Aces scouting report</div>'
     + '</div>'+tierChip+'</div>'+statLine+'</div>';
 
+  html += '<div class="sect" id="ai-sect"><div class="sect-t">✨ AI Game Plan</div>'
+    + '<div id="ai-plan"><button class="btn-go" type="button" onclick="genAIPlan()">✨ Generate AI game plan</button></div></div>';
+
   var bullets=planBullets(threat,hitters,pitchers);
   html += '<div class="sect"><div class="sect-t">🎯 Game Plan</div><ul class="plan">'+bullets.map(function(b){return '<li>'+b+'</li>';}).join('')+'</ul></div>';
 
@@ -241,6 +258,25 @@ function render(t,threat,hitters,pitchers){
   document.getElementById('report').innerHTML = html;
 }
 
+function esc(s){ return String(s).replace(/[&<>]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;'}[c];}); }
+async function genAIPlan(){
+  var d = window._lastScout; if(!d) return;
+  var el = document.getElementById('ai-plan');
+  el.innerHTML = '<div class="ai-loading">✨ Writing game plan…</div>';
+  try{
+    var r = await fetch('/api/scout',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(d)});
+    var data = await r.json().catch(function(){return {};});
+    if(r.ok && data.brief){
+      el.innerHTML = '<div class="ai-brief">'+esc(data.brief)+'</div>';
+    } else {
+      el.innerHTML = '<div class="ai-err">'+esc(data.message||'Could not generate a game plan right now.')+'</div>'
+        + '<button class="btn-go" type="button" onclick="genAIPlan()" style="margin-top:10px;">Try again</button>';
+    }
+  }catch(e){
+    el.innerHTML = '<div class="ai-err">Could not reach the game-plan service. Is it deployed?</div>'
+      + '<button class="btn-go" type="button" onclick="genAIPlan()" style="margin-top:10px;">Try again</button>';
+  }
+}
 async function init(){
   try{
     await loadTournaments();
