@@ -589,9 +589,12 @@ function setSeason(season) {
     setText('roster-season-label', 'Spring 2026 · 12U East · 62–2 Champions 🏆')
     setText('last-updated', 'Final season stats · Spring 2026 · GameChanger')
   } else {
-    // Fall 2026 — load from Supabase live data
+    // Fall 2026 — live data from Supabase. Games are the DB games tagged
+    // season='fall2026' (Spring games live in the same table but are tagged
+    // 'spring2026'); player stats come from player_season_stats (loadFall2026Stats).
     players = []
-    allGames = []
+    allGames = (dbGamesLoaded || []).filter(function(g){ return g.season === season })
+    games = allGames.slice(0,5).map(mapDBGame)
     setText('ts-avg','—');setText('ts-rbi','—')
     setText('ts-r','—');setText('ts-sb','—')
     setText('ts-hr','—');setText('ts-era','—')
@@ -599,10 +602,11 @@ function setSeason(season) {
     setText('sch-pct','—')
     setText('roster-season-label','Fall 2026 · 13U East · Season in progress')
     setText('last-updated','Live stats · Fall 2026')
-    // Try to load from Supabase
+    // Loads player_season_stats → players, then re-renders home/batting/pitching.
     loadFall2026Stats()
   }
 
+  try { renderHome() } catch(e) {}
   try { renderBatting() } catch(e) {}
   try { renderPitching() } catch(e) {}
   try { renderSchedule() } catch(e) {}
@@ -615,7 +619,7 @@ async function loadFall2026Stats() {
     var {data} = await db.from('player_season_stats').select('*').order('jersey_num')
     if (data && data.length) {
       players = data.map(mapDBPlayer)
-      renderBatting(); renderPitching()
+      renderHome(); renderBatting(); renderPitching()
     } else {
       setText('roster-meta', 'Delmarva Aces 13U East · Season starting soon')
     }
@@ -667,7 +671,7 @@ async function init() {
 
         var { data: dbGames } = await db
           .from('games')
-          .select('id,game_date,our_score,opp_score,status,tournament,location,is_home,opponent_id,inning,half,gc_boxscore_url')
+          .select('id,game_date,our_score,opp_score,status,tournament,location,is_home,opponent_id,inning,half,gc_boxscore_url,season')
           .eq('status', 'final')
           .order('game_date', { ascending: false })
           .limit(100)
@@ -792,8 +796,9 @@ function renderHome() {
   setText('ts-r', totals.r)
   setText('ts-sb', totals.sb)
   setText('ts-hr', totals.hr)
-  setText('roster-meta', '12U East · '+players.length+' Players · '+
-    Math.max(...players.map(function(p){return p.gp}))+ ' Games Played')
+  var ageLabel = ACTIVE_SEASON==='fall2026' ? '13U East' : '12U East'
+  var gpMax = players.length ? Math.max.apply(null, players.map(function(p){return p.gp||0})) : 0
+  setText('roster-meta', ageLabel+' · '+players.length+' Players · '+gpMax+' Games Played')
 
   renderLeaders()
   renderResults()
@@ -1138,7 +1143,9 @@ function showPage(id){
   window.scrollTo(0,0)
   try{history.replaceState(null,'',id==='home'?location.pathname:'#'+id)}catch(e){}
   if(id==='schedule'){
-    if(allGames.length===0){
+    // Only the archived Spring season falls back to the hardcoded list; Fall
+    // shows its live DB games (empty until games are played).
+    if(allGames.length===0 && ACTIVE_SEASON==='spring2026'){
       allGames = FALLBACK_GAMES.map(function(g){
         return {
           game_date: g.date,

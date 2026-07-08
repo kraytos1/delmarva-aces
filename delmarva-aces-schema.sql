@@ -55,6 +55,7 @@ create table games (
   opp_score         int  default 0,
   status            text default 'scheduled',
   -- status: 'scheduled' | 'live' | 'final'
+  season            text,  -- 'spring2026' | 'fall2026' | ... ; set by lineup.html from ACES_CONFIG.activeSeason. Separates archived vs live season data.
   youtube_url       text,
   youtube_stream_id text,
   stream_start_utc  timestamptz,   -- for clip offset math

@@ -11,6 +11,6 @@ const ACES_CONFIG = {
   ytApiKey:     'AIzaSyDqxQVhuhZHHaycgMA34vqfemQnqAAy_RQ',
   teamId:       'a0000000-0000-0000-0000-000000000001',
   pin:          '2000',
-  activeSeason: 'spring2026'
+  activeSeason: 'fall2026'
 }
 

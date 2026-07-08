@@ -343,6 +343,7 @@ async function createGame() {
       team_id:     ACES_CONFIG.teamId,
       opponent_id: oppId,
       game_date:   gameDate,
+      season:      (typeof ACES_CONFIG!=='undefined' && ACES_CONFIG.activeSeason) || 'fall2026',
       status:      'scheduled',
       our_score:   0,
       opp_score:   0,
