@@ -1,0 +1,248 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<link rel="icon" href="/icon-192.png"/>
+<meta name="theme-color" content="#E8530A"/>
+<title>Scouting Report · Delmarva Aces</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="/config.js"></script>
+<script src="/pin.js"></script>
+<script src="/nav.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Inter:wght@300;400;500;600&family=Roboto+Mono:wght@400;500&display=swap');
+  :root{--orange:#E8530A;--orange-dim:#C44208;--og:rgba(232,83,10,.18);--black:#0A0C0E;--dark:#111418;--dark2:#181C22;--dark3:#1F242C;--bdr:rgba(255,255,255,.08);--bdr-a:rgba(232,83,10,.35);--text:#F0EDE8;--muted:#7A8290;--mono:'Roboto Mono',monospace;--display:'Oswald',sans-serif;--body:'Inter',sans-serif;--pow:#ef476f;--spd:#06d6a0;--gap:#f7b267;--ob:#4895ef;--ctl:#4895ef;--horse:#06d6a0;--elite:#22c55e;--strong:#3b82f6;--solid:#eab308;--underdog:#6b7280;}
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+  body{background:var(--black);color:var(--text);font-family:var(--body);line-height:1.6;}
+  h1,h2,h3{font-family:var(--display);font-weight:600;}
+  .wrap{max-width:960px;margin:0 auto;padding:26px 26px 80px;}
+  .eyebrow{display:inline-flex;align-items:center;gap:8px;font-family:var(--mono);font-size:11px;color:var(--orange);letter-spacing:2px;text-transform:uppercase;margin-bottom:10px;}
+  .eyebrow::before{content:'';width:20px;height:1px;background:var(--orange);}
+  h1{font-size:clamp(30px,5vw,46px);line-height:1;letter-spacing:-1px;text-transform:uppercase;}
+  h1 span{color:var(--orange);}
+  .controls{display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end;margin:22px 0;}
+  .fld{display:flex;flex-direction:column;gap:5px;}
+  .fld label{font-family:var(--mono);font-size:10px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;}
+  select{padding:9px 12px;border-radius:8px;background:var(--dark2);color:var(--text);border:1px solid var(--bdr);font-size:14px;min-width:200px;}
+  select:focus{outline:none;border-color:var(--orange);}
+  button{font-family:var(--display);font-size:14px;font-weight:600;letter-spacing:.5px;text-transform:uppercase;padding:10px 20px;border-radius:8px;border:none;cursor:pointer;}
+  .btn-go{background:var(--orange);color:#fff;}
+  .btn-print{background:var(--dark2);color:var(--text);border:1px solid var(--bdr);}
+  .note{color:var(--muted);font-family:var(--mono);font-size:12px;padding:40px 0;}
+
+  #report{display:none;}
+  .rpt-head{border:1px solid var(--bdr-a);border-radius:14px;padding:20px 22px;background:linear-gradient(120deg,var(--dark2),var(--dark));margin-bottom:20px;}
+  .rpt-top{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap;}
+  .rpt-opp{font-family:var(--display);font-size:30px;font-weight:700;text-transform:uppercase;line-height:1;}
+  .rpt-sub{font-family:var(--mono);font-size:12px;color:var(--muted);margin-top:6px;letter-spacing:1px;}
+  .tier{font-family:var(--mono);font-size:12px;font-weight:600;letter-spacing:1px;text-transform:uppercase;padding:6px 14px;border-radius:20px;border:1px solid;white-space:nowrap;}
+  .tier .ts{opacity:.8;font-weight:400;}
+  .tier-ELITE{border-color:var(--elite);background:rgba(34,197,94,.12);color:#bbf7d0;}
+  .tier-STRONG{border-color:var(--strong);background:rgba(59,130,246,.12);color:#bfdbfe;}
+  .tier-SOLID{border-color:var(--solid);background:rgba(234,179,8,.14);color:#fef3c7;}
+  .tier-UNDERDOG{border-color:var(--underdog);background:rgba(107,114,128,.15);color:#e5e7eb;}
+  .rpt-line{display:flex;gap:26px;flex-wrap:wrap;margin-top:16px;}
+  .rpt-stat{}
+  .rpt-stat b{font-family:var(--display);font-size:24px;font-weight:700;color:var(--orange);}
+  .rpt-stat span{font-family:var(--mono);font-size:10px;color:var(--muted);letter-spacing:1px;display:block;text-transform:uppercase;}
+
+  .sect{margin-bottom:22px;}
+  .sect-t{font-family:var(--display);font-size:16px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin-bottom:12px;display:flex;align-items:center;gap:10px;}
+  .sect-t::after{content:'';flex:1;height:1px;background:var(--bdr);}
+
+  .plan{list-style:none;display:flex;flex-direction:column;gap:9px;}
+  .plan li{background:var(--dark);border:1px solid var(--bdr);border-left:3px solid var(--orange);border-radius:8px;padding:11px 15px;font-size:14.5px;}
+  .plan li b{color:var(--orange);}
+
+  table{width:100%;border-collapse:collapse;font-size:13px;}
+  th,td{padding:8px 10px;text-align:right;border-bottom:1px solid var(--bdr);white-space:nowrap;}
+  th:first-child,td:first-child,th:nth-child(2),td:nth-child(2){text-align:left;}
+  thead th{font-family:var(--mono);font-size:10px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;}
+  td.name{font-weight:600;}
+  .flags{display:flex;gap:4px;flex-wrap:wrap;}
+  .flag{font-family:var(--mono);font-size:9px;font-weight:700;letter-spacing:.3px;padding:2px 6px;border-radius:10px;border:1px solid;}
+  .f-pow{border-color:rgba(239,71,111,.5);color:#ff8fab;} .f-spd{border-color:rgba(6,214,160,.5);color:#7ff0d0;}
+  .f-gap{border-color:rgba(247,178,103,.5);color:#f7b267;} .f-ob{border-color:rgba(72,149,239,.5);color:#93b8f5;}
+  .f-ctl{border-color:rgba(72,149,239,.5);color:#93b8f5;} .f-horse{border-color:rgba(6,214,160,.5);color:#7ff0d0;}
+  .empty-note{color:var(--muted);font-family:var(--mono);font-size:12px;padding:8px 0;}
+
+  @media print{
+    .dva-nav,.controls,.eyebrow,.btn-print{display:none !important;}
+    body{background:#fff;color:#111;}
+    .wrap{padding:0;max-width:100%;}
+    .rpt-head{background:#f4f4f4;border-color:#ccc;}
+    .rpt-opp,h1{color:#111;} .rpt-stat b,.plan li b,h1 span{color:#c2410c;}
+    .plan li{background:#fafafa;border-color:#ddd;} .sect-t::after{background:#ddd;}
+    th,td{border-color:#ddd;} thead th,.rpt-sub,.rpt-stat span{color:#555;}
+    td.name{color:#111;}
+  }
+</style>
+</head>
+<body>
+<div id="site-nav"></div>
+
+<div class="wrap">
+  <div class="eyebrow">Coach Tools</div>
+  <h1>Pre-Game <span>Scouting Report</span></h1>
+
+  <div class="controls">
+    <div class="fld"><label>Tournament</label><select id="tourn"><option value="">ALL</option></select></div>
+    <div class="fld"><label>Opponent</label><select id="team"><option value="">Select team…</option></select></div>
+    <button class="btn-go" onclick="generate()">Generate</button>
+    <button class="btn-print" onclick="window.print()">🖨 Print</button>
+  </div>
+
+  <div id="status" class="note">Pick a tournament and opponent, then Generate.</div>
+  <div id="report"></div>
+</div>
+
+<script>
+var db = supabase.createClient(ACES_CONFIG.supabaseUrl, ACES_CONFIG.supabaseKey);
+var TEAMS = [];
+function num(v){ v=parseFloat(v); return isNaN(v)?0:v; }
+function f3(v){ return v?v.toFixed(3).replace(/^0/,''):'.000'; }
+function f2(v){ return (v||0).toFixed(2); }
+function teamBaseName(n){ return String(n||'').replace(/\s*\(?\d{1,2}\s*[uU]\)?\s*$/,'').replace(/\s+/g,' ').trim(); }
+
+function computeScout(r){
+  var ab=num(r.ab),h=num(r.h),tb=num(r.tb),hr=num(r.hr),sb=num(r.sb);
+  var avg=ab>0?h/ab:0, slg=ab>0?tb/ab:0, ops=avg+slg;
+  var xbh=num(r.doubles)+num(r.triples)+hr;
+  var score=ops*100 + hr*18 + xbh*8 + sb*3 + Math.min(ab,40)*0.35;
+  var flags=[];
+  if(hr>=2) flags.push({k:'POWER',c:'pow'});
+  if(sb>=5) flags.push({k:'SPEED',c:'spd'});
+  if(xbh>=3) flags.push({k:'GAP',c:'gap'});
+  if(avg>=0.450 && ab>=10) flags.push({k:'ON-BASE',c:'ob'});
+  return {ops:ops,avg:avg,score:score,xbh:xbh,hr:hr,sb:sb,ab:ab,flags:flags,name:r.player_name,num:r.uniform_number};
+}
+function computeDom(r){
+  var ip=num(r.ip),k9=num(r.k9),bb9=num(r.bb9),whip=num(r.whip),era=num(r.era);
+  var score=k9*4 + ip*2 - whip*20 - bb9*2 - era*1.5; if(score<0)score=0;
+  var flags=[];
+  if(k9>=13) flags.push({k:'POWER',c:'pow'});
+  if(bb9<=4 && ip>=4) flags.push({k:'CONTROL',c:'ctl'});
+  if(ip>=15) flags.push({k:'WORKHORSE',c:'horse'});
+  return {ip:ip,era:era,k9:k9,bb9:bb9,whip:whip,score:score,flags:flags,name:r.player_name,num:r.uniform_number};
+}
+function threatOf(base, rows){
+  var g=0,w=0,l=0,rs=0,ra=0,n=0;
+  rows.forEach(function(r){ if(teamBaseName(r.team_name).toLowerCase()===base.toLowerCase()){ n++; g+=num(r.games); w+=num(r.w); l+=num(r.l); rs+=num(r.runs_for); ra+=num(r.runs_against); } });
+  if(!n||!g) return null;
+  var winPct=g>0?w/g:0, rdg=g>0?(rs-ra)/g:0;
+  var threat=Math.max(0,Math.min(100, Math.round(winPct*70 + Math.max(-10,Math.min(10,rdg))*3)));
+  var tier='UNDERDOG'; if(threat>=90)tier='ELITE'; else if(threat>=75)tier='STRONG'; else if(threat>=60)tier='SOLID';
+  return {g:g,w:w,l:l,rs:rs,ra:ra,rd:rs-ra,rdg:rdg,winPct:winPct,threat:threat,tier:tier};
+}
+
+async function loadTournaments(){
+  var {data}=await db.from('opp_tournaments').select('tournament_code').order('tournament_code');
+  document.getElementById('tourn').innerHTML='<option value="">ALL</option>'+(data||[]).map(function(r){return '<option>'+r.tournament_code+'</option>';}).join('');
+}
+async function loadTeams(){
+  var {data}=await db.rpc('opp_team_stats',{p_tournament:document.getElementById('tourn').value||null});
+  var m={};
+  (data||[]).forEach(function(r){ var base=teamBaseName(r.team_name)||r.team_name||'Team'; var k=base.toLowerCase(); (m[k]=m[k]||{base:base,ids:[],level:r.level}); m[k].ids.push(r.opp_team_id); });
+  TEAMS=Object.keys(m).map(function(k){return m[k];}).sort(function(a,b){return a.base.localeCompare(b.base);});
+  document.getElementById('team').innerHTML='<option value="">Select team…</option>'+TEAMS.map(function(t,i){return '<option value="'+i+'">'+t.base+(t.level?' ('+t.level+')':'')+'</option>';}).join('');
+}
+
+function planBullets(t, hitters, pitchers){
+  var out=[];
+  if(t){
+    var frame = t.tier==='ELITE'?'Top-tier opponent — bring your best, minimize free bases.'
+      : t.tier==='STRONG'?'Strong, dangerous team — stay disciplined, don\'t give them extra outs.'
+      : t.tier==='SOLID'?'Solid but beatable — win the small battles and pull away.'
+      : 'You should be favored — stay locked in and don\'t overlook them.';
+    out.push('<b>'+t.tier+' ('+t.threat+' threat)</b> · '+t.w+'–'+t.l+', '+(t.rd>=0?'+':'')+t.rd+' run diff. '+frame);
+  }
+  var top=hitters[0];
+  if(top) out.push('<b>🔒 Contain '+(top.num?'#'+top.num+' ':'')+top.name+'</b> — their top bat ('+top.hr+' HR, '+f3(top.avg)+', '+top.sb+' SB). Don\'t let him beat you; pitch around him with 1st base open.');
+  var power=hitters.filter(function(h){return h.hr>=2;}).length;
+  if(power>=2) out.push('<b>'+power+' power threats</b> in the order — keep the ball down, avoid middle-middle, work the corners.');
+  var teamSB=hitters.reduce(function(a,h){return a+h.sb;},0);
+  if(teamSB>=8) out.push('<b>They run ('+teamSB+' SB)</b> — hold runners, be quick to the plate, and back up throws.');
+  var ace=pitchers[0];
+  if(ace){
+    var acePlan = ace.k9>=13 ? 'misses bats (K/9 '+f2(ace.k9)+') — be aggressive early in the count, don\'t get to two strikes.'
+      : ace.bb9>=5 ? 'is wild (BB/9 '+f2(ace.bb9)+') — be patient, make him throw strikes, don\'t chase.'
+      : 'throws strikes (ERA '+f2(ace.era)+') — get a good pitch early and drive it.';
+    out.push('<b>Their arm '+(ace.num?'#'+ace.num+' ':'')+ace.name+'</b> '+acePlan);
+  }
+  var wild=pitchers.filter(function(p){return p.bb9>=5 && p.ip>=3;}).length;
+  if(wild>=2) out.push('<b>Shaky staff</b> — multiple arms with control issues. Grind at-bats, make them come to you.');
+  if(!hitters.length && !pitchers.length) out.push('Limited data on this opponent — scout them live and update after the first game.');
+  return out;
+}
+
+async function generate(){
+  var idx=document.getElementById('team').value;
+  if(idx===''){ return; }
+  var t=TEAMS[idx];
+  var tourn=document.getElementById('tourn').value||null;
+  document.getElementById('status').textContent='Building report…';
+  document.getElementById('report').style.display='none';
+  try{
+    var hitRes=await db.rpc('opp_player_stats',{p_team_ids:t.ids,p_tournament:tourn,p_level:null});
+    var pitRes=await db.rpc('opp_pitcher_stats',{p_team_ids:t.ids,p_tournament:tourn,p_level:null});
+    var thrRes=await db.rpc('opp_threat_board',{p_tournament:tourn});
+    var hitters=(hitRes.data||[]).map(computeScout).filter(function(h){return h.ab>0;}).sort(function(a,b){return b.score-a.score;});
+    var pitchers=(pitRes.data||[]).map(computeDom).filter(function(p){return p.ip>0;}).sort(function(a,b){return b.score-a.score;});
+    var threat=threatOf(t.base,(thrRes.data||[]));
+    render(t,threat,hitters,pitchers);
+    document.getElementById('status').style.display='none';
+    document.getElementById('report').style.display='block';
+  }catch(e){ document.getElementById('status').textContent='Failed: '+(e.message||e); }
+}
+
+function flagsHtml(flags){ return '<div class="flags">'+flags.map(function(f){return '<span class="flag f-'+f.c+'">'+f.k+'</span>';}).join('')+'</div>'; }
+
+function render(t,threat,hitters,pitchers){
+  var topH=hitters.slice(0,6), topP=pitchers.slice(0,4);
+  var tierChip = threat ? '<span class="tier tier-'+threat.tier+'">'+threat.tier+' <span class="ts">· '+threat.threat+'</span></span>' : '';
+  var statLine = threat ? '<div class="rpt-line">'
+      + '<div class="rpt-stat"><b>'+threat.w+'–'+threat.l+'</b><span>Record</span></div>'
+      + '<div class="rpt-stat"><b>'+(threat.rd>=0?'+':'')+threat.rd+'</b><span>Run Diff</span></div>'
+      + '<div class="rpt-stat"><b>'+threat.rs+'</b><span>Runs For</span></div>'
+      + '<div class="rpt-stat"><b>'+threat.ra+'</b><span>Runs Against</span></div>'
+      + '<div class="rpt-stat"><b>'+threat.g+'</b><span>Games</span></div></div>' : '';
+
+  var html = '<div class="rpt-head"><div class="rpt-top"><div>'
+    + '<div class="rpt-opp">'+t.base+'</div>'
+    + '<div class="rpt-sub">'+(t.level?t.level+' · ':'')+(document.getElementById('tourn').value||'All tournaments')+' · Aces scouting report</div>'
+    + '</div>'+tierChip+'</div>'+statLine+'</div>';
+
+  var bullets=planBullets(threat,hitters,pitchers);
+  html += '<div class="sect"><div class="sect-t">🎯 Game Plan</div><ul class="plan">'+bullets.map(function(b){return '<li>'+b+'</li>';}).join('')+'</ul></div>';
+
+  html += '<div class="sect"><div class="sect-t">🔥 Top Threats (Hitters)</div>';
+  if(topH.length){
+    html += '<table><thead><tr><th>#</th><th>Player</th><th>Watch</th><th>AVG</th><th>HR</th><th>SB</th><th>OPS</th><th>Score</th></tr></thead><tbody>'
+      + topH.map(function(h){return '<tr><td>'+(h.num||'')+'</td><td class="name">'+h.name+'</td><td>'+flagsHtml(h.flags)+'</td><td>'+f3(h.avg)+'</td><td>'+h.hr+'</td><td>'+h.sb+'</td><td>'+h.ops.toFixed(3)+'</td><td>'+Math.round(h.score)+'</td></tr>';}).join('')
+      + '</tbody></table>';
+  } else html += '<div class="empty-note">No hitting data for this opponent yet.</div>';
+  html += '</div>';
+
+  html += '<div class="sect"><div class="sect-t">⚾ Pitching Staff</div>';
+  if(topP.length){
+    html += '<table><thead><tr><th>#</th><th>Pitcher</th><th>Watch</th><th>IP</th><th>ERA</th><th>K/9</th><th>BB/9</th><th>WHIP</th></tr></thead><tbody>'
+      + topP.map(function(p){return '<tr><td>'+(p.num||'')+'</td><td class="name">'+p.name+'</td><td>'+flagsHtml(p.flags)+'</td><td>'+p.ip.toFixed(1)+'</td><td>'+f2(p.era)+'</td><td>'+f2(p.k9)+'</td><td>'+f2(p.bb9)+'</td><td>'+f2(p.whip)+'</td></tr>';}).join('')
+      + '</tbody></table>';
+  } else html += '<div class="empty-note">No pitching data for this opponent yet.</div>';
+  html += '</div>';
+
+  document.getElementById('report').innerHTML = html;
+}
+
+async function init(){
+  try{
+    await loadTournaments();
+    await loadTeams();
+    document.getElementById('tourn').addEventListener('change', loadTeams);
+  }catch(e){ document.getElementById('status').textContent='Init failed: '+(e.message||e); }
+}
+init();
+</script>
+</body>
+</html>

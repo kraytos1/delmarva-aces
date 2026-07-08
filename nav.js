@@ -12,7 +12,8 @@
     { label: 'Bullpen',     href: '/bullpen.html',        test: function (p) { return /\/bullpen\.html$/.test(p); } },
     { label: 'Scout',       href: '/scout.html',          test: function (p) { return /\/scout\.html$/.test(p); } },
     { label: 'Pitching',    href: '/pitching-scout.html', test: function (p) { return /\/pitching-scout\.html$/.test(p); } },
-    { label: 'Threat Board', href: '/threat-board.html',  test: function (p) { return /\/threat-board\.html$/.test(p); } }
+    { label: 'Threat Board', href: '/threat-board.html',  test: function (p) { return /\/threat-board\.html$/.test(p); } },
+    { label: 'Report',      href: '/report.html',         test: function (p) { return /\/report\.html$/.test(p); } }
   ];
   var path = location.pathname;
   // player detail pages (/player/:num or /player.html) belong to the Roster section
