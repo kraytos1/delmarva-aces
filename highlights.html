@@ -45,8 +45,13 @@
   .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:18px;}
   .clip{background:var(--dark);border:1px solid var(--bdr);border-radius:12px;overflow:hidden;transition:border-color .15s,transform .1s;}
   .clip:hover{border-color:var(--bdr-a);transform:translateY(-2px);}
-  .clip-vid{position:relative;aspect-ratio:16/9;background:#000;}
-  .clip-vid video{width:100%;height:100%;object-fit:cover;display:block;background:#000;}
+  .clip-vid{position:relative;aspect-ratio:16/9;background:#000;cursor:pointer;overflow:hidden;}
+  .clip-vid img{width:100%;height:100%;object-fit:cover;display:block;}
+  .clip-vid iframe{width:100%;height:100%;border:0;display:block;}
+  .clip-play{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;transition:background .15s;}
+  .clip-vid:hover .clip-play{background:rgba(0,0,0,.15);}
+  .clip-play span{width:54px;height:54px;border-radius:50%;background:rgba(232,83,10,.92);box-shadow:0 6px 20px rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;}
+  .clip-play span::after{content:'';border-style:solid;border-width:9px 0 9px 15px;border-color:transparent transparent transparent #fff;margin-left:4px;}
   .clip-body{padding:13px 15px 15px;}
   .clip-top{display:flex;align-items:center;gap:8px;margin-bottom:9px;flex-wrap:wrap;}
   .badge{font-family:var(--mono);font-size:10px;font-weight:500;letter-spacing:.5px;text-transform:uppercase;padding:3px 9px;border-radius:5px;}
@@ -102,7 +107,7 @@
     <button class="filter-btn" data-type="hr" onclick="setType('hr',this)">Home Runs</button>
     <button class="filter-btn" data-type="xbh" onclick="setType('xbh',this)">Extra-Base</button>
     <button class="filter-btn" data-type="hit" onclick="setType('hit',this)">Hits</button>
-    <button class="filter-btn" data-type="k" onclick="setType('k',this)">Strikeouts</button>
+    <button class="filter-btn" data-type="ob" onclick="setType('ob',this)">On-Base</button>
     <select id="playerSel" onchange="render()"><option value="">All players</option></select>
     <div class="spacer"></div>
     <span class="count-tag" id="countTag"></span>
@@ -135,7 +140,7 @@ var TYPE_MATCH = {
   hr:function(g){return g==='hr';},
   xbh:function(g){return g==='hr'||g==='xbh';},
   hit:function(g){return g==='hr'||g==='xbh'||g==='hit';},
-  k:function(g){return g==='k';}
+  ob:function(g){return g==='ob';}
 };
 
 function pName(ab){
@@ -153,6 +158,25 @@ function meta(ab){
   var half = ab.half==='top' ? 'Top' : 'Bot';
   var bits = ['Inn '+ab.inning+' ('+half+')', 'vs '+opp, fmtDate(g.game_date)];
   return bits.filter(Boolean).join(' · ');
+}
+
+// ── Path A: a "clip" is a YouTube deep-link into the game's live-stream VOD.
+// yt_offset_sec is captured when the scorer taps the result (a few sec AFTER the
+// play), so we open the window ~20s before that and end ~3s after. Tune here.
+var CLIP_PRE = 20, CLIP_POST = 3;
+function ytEmbed(streamId, offset){
+  if(!streamId) return '';
+  var o = offset||0;
+  var start = Math.max(0, o - CLIP_PRE), end = o + CLIP_POST;
+  return 'https://www.youtube.com/embed/'+streamId+'?start='+start+'&end='+end+'&rel=0&modestbranding=1';
+}
+function ytThumb(streamId){
+  return streamId ? 'https://i.ytimg.com/vi/'+streamId+'/hqdefault.jpg' : '';
+}
+function playClip(el){
+  var url = el.getAttribute('data-embed');
+  if(!url) return;
+  el.innerHTML = '<iframe src="'+url+'&autoplay=1" allow="autoplay; encrypted-media; fullscreen" allowfullscreen></iframe>';
 }
 
 function setType(t, btn){
@@ -180,8 +204,12 @@ function render(){
     var info = RESULT[ab.result] || {label:ab.result, cls:'b-hit'};
     var pl = pName(ab);
     var rbi = (ab.rbi>0) ? '<span class="rbi">'+ab.rbi+' RBI</span>' : '';
+    var g = ab.games || {};
     return '<div class="clip">'
-      + '<div class="clip-vid"><video src="'+ab.clip_url+'" controls preload="metadata" playsinline></video></div>'
+      + '<div class="clip-vid" data-embed="'+ytEmbed(g.youtube_stream_id, ab.yt_offset_sec)+'" onclick="playClip(this)">'
+      +   '<img loading="lazy" src="'+ytThumb(g.youtube_stream_id)+'" alt="'+info.label+'"/>'
+      +   '<div class="clip-play"><span></span></div>'
+      + '</div>'
       + '<div class="clip-body">'
       + '<div class="clip-top"><span class="badge '+info.cls+'">'+info.label+'</span>'+rbi+'</div>'
       + '<div class="clip-batter">'+(pl.num!=null
@@ -207,7 +235,7 @@ function buildPlayerFilter(){
 function showEmpty(queued){
   document.getElementById('sub').textContent = 'Big plays from Aces games, clipped automatically.';
   var teaser = queued>0
-    ? '<div class="queued">🎬 '+queued+' play'+(queued===1?'':'s')+' queued from recent games — clips appear here once processed.</div>'
+    ? '<div class="queued">🎬 '+queued+' play'+(queued===1?'':'s')+' flagged — clips appear here once the game\'s live stream is linked.</div>'
     : '';
   document.getElementById('content').innerHTML =
     '<div class="empty">'
@@ -227,14 +255,20 @@ function showEmpty(queued){
 async function init(){
   try{
     var res = await db.from('at_bats')
-      .select('id,result,rbi,inning,half,clip_url,created_at, players(first_name,last_name,jersey_num), games(game_date, youtube_url, opponents(name))')
-      .eq('clip_status','ready').not('clip_url','is',null)
+      .select('id,result,rbi,inning,half,yt_offset_sec,created_at, players(first_name,last_name,jersey_num), games(game_date, youtube_stream_id, opponents(name))')
+      .neq('clip_status','none').not('yt_offset_sec','is',null)
+      .not('batter_id','is',null)   // Aces hitters only (opponent at-bats have no batter_id)
       .order('created_at',{ascending:false});
     if(res.error) throw res.error;
-    CLIPS = res.data || [];
+    // Watchable = a positive Aces hitting play (hit/walk/hbp — not a batter K or DP)
+    // + an offset + the game was actually streamed (has a VOD).
+    CLIPS = (res.data || []).filter(function(ab){
+      var grp = (RESULT[ab.result]||{}).grp;
+      return ab.games && ab.games.youtube_stream_id && grp !== 'k';
+    });
 
     if(!CLIPS.length){
-      var q = await db.from('at_bats').select('id',{count:'exact',head:true}).eq('clip_status','queued');
+      var q = await db.from('at_bats').select('id',{count:'exact',head:true}).neq('clip_status','none');
       showEmpty(q.count||0);
       return;
     }

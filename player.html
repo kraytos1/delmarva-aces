@@ -84,8 +84,12 @@ nav{background:rgba(10,12,14,.95);border-bottom:1px solid var(--bdr);display:fle
 .clips-sub{font-family:var(--mono);font-size:11px;color:var(--muted);line-height:1.8;}
 .clips-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;}
 .pclip{background:var(--dark2);border:1px solid var(--bdr);border-radius:10px;overflow:hidden;}
-.pclip-vid{aspect-ratio:16/9;background:#000;}
-.pclip-vid video{width:100%;height:100%;object-fit:cover;display:block;}
+.pclip-vid{position:relative;aspect-ratio:16/9;background:#000;cursor:pointer;overflow:hidden;}
+.pclip-vid img{width:100%;height:100%;object-fit:cover;display:block;}
+.pclip-vid iframe{width:100%;height:100%;border:0;display:block;}
+.pclip-play{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;}
+.pclip-play span{width:44px;height:44px;border-radius:50%;background:rgba(232,83,10,.92);display:flex;align-items:center;justify-content:center;box-shadow:0 4px 14px rgba(0,0,0,.5);}
+.pclip-play span::after{content:'';border-style:solid;border-width:7px 0 7px 12px;border-color:transparent transparent transparent #fff;margin-left:3px;}
 .pclip-body{padding:10px 12px 12px;}
 .pclip-top{display:flex;align-items:center;gap:7px;margin-bottom:5px;flex-wrap:wrap;}
 .pclip-badge{font-family:var(--mono);font-size:9px;letter-spacing:.5px;text-transform:uppercase;padding:2px 8px;border-radius:4px;background:var(--og);color:var(--orange);border:1px solid var(--bdr-a);}
@@ -349,7 +353,19 @@ var CLIP_LABEL = {
   strikeout_swinging:'Strikeout', strikeout_looking:'Strikeout (looking)',
   walk:'Walk', hbp:'HBP', double_play:'Double Play'
 }
-// Fill the Highlights section with this player's ready clips (or keep the
+// Path A: a clip is a YouTube deep-link into the game's live-stream VOD.
+var CLIP_PRE = 20, CLIP_POST = 3
+function ytEmbed(streamId, offset){
+  if(!streamId) return ''
+  var o = offset||0, start = Math.max(0, o - CLIP_PRE), end = o + CLIP_POST
+  return 'https://www.youtube.com/embed/'+streamId+'?start='+start+'&end='+end+'&rel=0&modestbranding=1'
+}
+function ytThumb(streamId){ return streamId ? 'https://i.ytimg.com/vi/'+streamId+'/hqdefault.jpg' : '' }
+function playClip(el){
+  var url = el.getAttribute('data-embed'); if(!url) return
+  el.innerHTML = '<iframe src="'+url+'&autoplay=1" allow="autoplay; encrypted-media; fullscreen" allowfullscreen></iframe>'
+}
+// Fill the Highlights section with this player's clips (or keep the
 // "coming soon" placeholder), plus a link to the full team reel.
 async function loadPlayerClips(playerId) {
   var area = document.getElementById('clips-area')
@@ -359,18 +375,24 @@ async function loadPlayerClips(playerId) {
   if (!playerId) { section.insertAdjacentHTML('beforeend', backLink); return }
   try {
     var { data, error } = await db.from('at_bats')
-      .select('id,result,rbi,inning,half,clip_url, games(game_date, opponents(name))')
-      .eq('batter_id', playerId).eq('clip_status', 'ready').not('clip_url', 'is', null)
+      .select('id,result,rbi,inning,half,yt_offset_sec, games(game_date, youtube_stream_id, opponents(name))')
+      .eq('batter_id', playerId).neq('clip_status', 'none').not('yt_offset_sec', 'is', null)
       .order('created_at', { ascending: false })
     if (error) throw error
-    if (!data || !data.length) { section.insertAdjacentHTML('beforeend', backLink); return }
-    var cards = data.map(function(ab) {
+    var SKIP = { strikeout_looking:1, strikeout_swinging:1, double_play:1 }  // not hitting highlights
+    var clips = (data || []).filter(function(ab){ return ab.games && ab.games.youtube_stream_id && !SKIP[ab.result] })
+    if (!clips.length) { section.insertAdjacentHTML('beforeend', backLink); return }
+    var cards = clips.map(function(ab) {
       var g = ab.games || {}
       var opp = (g.opponents && g.opponents.name) ? g.opponents.name : 'opp'
       var dt = g.game_date ? new Date(g.game_date).toLocaleDateString('en-US', {month:'short',day:'numeric',timeZone:'UTC'}) : ''
       var rbi = ab.rbi > 0 ? '<span class="pclip-rbi">'+ab.rbi+' RBI</span>' : ''
       var half = ab.half === 'top' ? 'Top' : 'Bot'
-      return '<div class="pclip"><div class="pclip-vid"><video src="'+ab.clip_url+'" controls preload="metadata" playsinline></video></div>'
+      return '<div class="pclip">'
+        + '<div class="pclip-vid" data-embed="'+ytEmbed(g.youtube_stream_id, ab.yt_offset_sec)+'" onclick="playClip(this)">'
+        +   '<img loading="lazy" src="'+ytThumb(g.youtube_stream_id)+'" alt="'+(CLIP_LABEL[ab.result]||ab.result)+'"/>'
+        +   '<div class="pclip-play"><span></span></div>'
+        + '</div>'
         + '<div class="pclip-body"><div class="pclip-top"><span class="pclip-badge">'+(CLIP_LABEL[ab.result]||ab.result)+'</span>'+rbi+'</div>'
         + '<div class="pclip-meta">Inn '+ab.inning+' ('+half+') · vs '+opp+' · '+dt+'</div></div></div>'
     }).join('')
