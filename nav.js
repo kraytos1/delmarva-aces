@@ -33,7 +33,17 @@
     '.dva-link{padding:6px 13px;border-radius:6px;font-size:13px;font-weight:500;color:#7A8290;text-decoration:none;',
       'white-space:nowrap;transition:color .15s,background .15s;}',
     '.dva-link:hover{color:#F0EDE8;background:rgba(255,255,255,.06);}',
-    '.dva-link.dva-active{color:#E8530A;}'
+    '.dva-link.dva-active{color:#E8530A;}',
+    '.dva-toggle{display:none;background:none;border:none;color:#F0EDE8;font-size:24px;line-height:1;cursor:pointer;padding:4px 8px;-webkit-tap-highlight-color:transparent;}',
+    '@media(max-width:640px){',
+      '.dva-nav{padding:0 16px;}',
+      '.dva-toggle{display:block;}',
+      '.dva-links{position:absolute;top:100%;left:0;right:0;flex-direction:column;align-items:stretch;gap:0;',
+        'background:rgba(10,12,14,.98);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);',
+        'border-bottom:1px solid rgba(255,255,255,.08);padding:6px 0;display:none;max-height:80vh;overflow-y:auto;}',
+      '.dva-links.dva-open{display:flex;}',
+      '.dva-link{padding:14px 20px;font-size:15px;border-radius:0;}',
+    '}'
   ].join('');
 
   function isActive(it) {
@@ -51,6 +61,7 @@
       '<a class="dva-brand" href="/"><img class="dva-logo" src="/logo.png" alt="Aces"/>' +
         '<span class="dva-name">Delmarva <span>Aces</span></span></a>' +
       '<div class="dva-links">' + links + '</div>' +
+      '<button class="dva-toggle" aria-label="Menu">☰</button>' +
     '</nav>';
 
   // Load the shared PWA setup (manifest + service worker + install chip) on every page.
@@ -65,6 +76,15 @@
     var host = document.getElementById('site-nav');
     if (host) host.outerHTML = html;
     else document.body.insertAdjacentHTML('afterbegin', html);
+    // Wire the mobile hamburger: toggle the dropdown; close it when a link is tapped.
+    var toggle = document.querySelector('.dva-toggle');
+    var linkbar = document.querySelector('.dva-links');
+    if (toggle && linkbar) {
+      toggle.addEventListener('click', function () { linkbar.classList.toggle('dva-open'); });
+      linkbar.addEventListener('click', function (e) {
+        if (e.target.closest && e.target.closest('.dva-link')) linkbar.classList.remove('dva-open');
+      });
+    }
   }
   if (document.body) mount();
   else document.addEventListener('DOMContentLoaded', mount);
