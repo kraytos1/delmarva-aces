@@ -100,6 +100,7 @@
 <script>
 var db = supabase.createClient(ACES_CONFIG.supabaseUrl, ACES_CONFIG.supabaseKey);
 var TEAMS = [];
+var MIN_IP = 5;   // pitchers need this many innings to qualify for the report (filters small-sample noise)
 function num(v){ v=parseFloat(v); return isNaN(v)?0:v; }
 function f3(v){ return v?v.toFixed(3).replace(/^0/,''):'.000'; }
 function f2(v){ return (v||0).toFixed(2); }
@@ -188,7 +189,12 @@ async function generate(){
     var pitRes=await db.rpc('opp_pitcher_stats',{p_team_ids:t.ids,p_tournament:tourn,p_level:null});
     var thrRes=await db.rpc('opp_threat_board',{p_tournament:tourn});
     var hitters=(hitRes.data||[]).map(computeScout).filter(function(h){return h.ab>0;}).sort(function(a,b){return b.score-a.score;});
-    var pitchers=(pitRes.data||[]).map(computeDom).filter(function(p){return p.ip>0;}).sort(function(a,b){return b.score-a.score;});
+    // Require a minimum sample so a 1-inning arm doesn't skew the ranking; fall
+    // back to everyone if nobody clears the bar.
+    var allPitchers=(pitRes.data||[]).map(computeDom).filter(function(p){return p.ip>0;});
+    var pitchers=allPitchers.filter(function(p){return p.ip>=MIN_IP;});
+    if(!pitchers.length) pitchers=allPitchers;
+    pitchers.sort(function(a,b){return b.score-a.score;});
     var threat=threatOf(t.base,(thrRes.data||[]));
     render(t,threat,hitters,pitchers);
     document.getElementById('status').style.display='none';
@@ -224,7 +230,7 @@ function render(t,threat,hitters,pitchers){
   } else html += '<div class="empty-note">No hitting data for this opponent yet.</div>';
   html += '</div>';
 
-  html += '<div class="sect"><div class="sect-t">⚾ Pitching Staff</div>';
+  html += '<div class="sect"><div class="sect-t">⚾ Pitching Staff <span style="font-family:var(--mono);font-size:10px;color:var(--muted);font-weight:400;letter-spacing:.5px;text-transform:none;">min '+MIN_IP+' IP</span></div>';
   if(topP.length){
     html += '<table><thead><tr><th>#</th><th>Pitcher</th><th>Watch</th><th>IP</th><th>ERA</th><th>K/9</th><th>BB/9</th><th>WHIP</th></tr></thead><tbody>'
       + topP.map(function(p){return '<tr><td>'+(p.num||'')+'</td><td class="name">'+p.name+'</td><td>'+flagsHtml(p.flags)+'</td><td>'+p.ip.toFixed(1)+'</td><td>'+f2(p.era)+'</td><td>'+f2(p.k9)+'</td><td>'+f2(p.bb9)+'</td><td>'+f2(p.whip)+'</td></tr>';}).join('')
