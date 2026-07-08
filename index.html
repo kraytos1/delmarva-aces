@@ -6,12 +6,26 @@
   <link rel="manifest" href="/manifest.json"/>
   <meta name="apple-mobile-web-app-capable" content="yes"/>
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
-  <meta name="apple-mobile-web-app-title" content="Aces Scorer"/>
+  <meta name="apple-mobile-web-app-title" content="Delmarva Aces"/>
   <link rel="apple-touch-icon" href="/icon-192.png"/>
   <meta name="theme-color" content="#E8530A"/>
-<title>Delmarva Aces 12U</title>
+<title>Delmarva Aces 13U East</title>
+<meta name="description" content="Home of the Delmarva Aces 13U East — live game streams, box scores, player stats, highlights, and opponent scouting. Spring 2026: 62–2 champions."/>
+<link rel="canonical" href="https://delmarva-aces.vercel.app/"/>
+<!-- Social share preview (Open Graph + Twitter) -->
+<meta property="og:type" content="website"/>
+<meta property="og:site_name" content="Delmarva Aces"/>
+<meta property="og:title" content="Delmarva Aces 13U East"/>
+<meta property="og:description" content="Live streams, stats, highlights, and scouting for the Delmarva Aces. Spring 2026: 62–2 champions."/>
+<meta property="og:url" content="https://delmarva-aces.vercel.app/"/>
+<meta property="og:image" content="https://delmarva-aces.vercel.app/icon-512.png"/>
+<meta name="twitter:card" content="summary"/>
+<meta name="twitter:title" content="Delmarva Aces 13U East"/>
+<meta name="twitter:description" content="Live streams, stats, highlights, and scouting for the Delmarva Aces."/>
+<meta name="twitter:image" content="https://delmarva-aces.vercel.app/icon-512.png"/>
 <!-- Supabase JS (loads from CDN — no build step needed for the standalone version) -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 <script src="config.js"></script>
 <link rel="manifest" href="/manifest.json"/>
 <script src="/pwa.js" defer></script>
@@ -232,7 +246,7 @@
     <div class="hero-content">
       <div style="display:flex;align-items:center;gap:16px;margin-bottom:20px;">
         <img src="/logo.png" alt="Aces" style="width:80px;height:80px;object-fit:contain;filter:drop-shadow(0 0 24px rgba(232,83,10,.5));"/>
-        <div class="hero-eyebrow" style="margin-bottom:0;">Delmarva Aces · 12U East · Spring 2026</div>
+        <div class="hero-eyebrow" style="margin-bottom:0;" id="hero-eyebrow-txt">Delmarva Aces · 13U East · Fall 2026</div>
       </div>
       <h1 class="hero-title"><div>Play Hard,</div><div class="line2">Play Smart.</div></h1>
       <p class="hero-desc">Live game streams, pitch-by-pitch scoring, velocity tracking, and auto-generated highlight clips — all in one place for the Aces family.</p>
@@ -560,12 +574,14 @@ var SEASON_META = {
     label:    'Spring 2026 · 12U East · 62–2 Champions 🏆',
     schLabel: 'Spring 2026 · 12U East',
     teamName: 'Delmarva Aces 12U East',
+    hero:     'Delmarva Aces · 12U East · Spring 2026',
     record:   '62–2',
   },
   fall2026: {
     label:    'Fall 2026 · 13U East',
     schLabel: 'Fall 2026 · 13U East',
     teamName: 'Delmarva Aces 13U East',
+    hero:     'Delmarva Aces · 13U East · Fall 2026',
     record:   '—',
   }
 }
@@ -589,6 +605,7 @@ function setSeason(season) {
   if (meta) {
     setText('roster-season-label', meta.label)
     setText('schedule-season-label', meta.schLabel)
+    setText('hero-eyebrow-txt', meta.hero)
   }
 
   if (season === 'spring2026') {
@@ -607,6 +624,10 @@ function setSeason(season) {
         gc_boxscore_url: g.box || null
       }
     })
+    // Recent Results = the 5 most-recent Spring games (newest first)
+    games = allGames.slice().sort(function(a,b){
+      return new Date(b.game_date) - new Date(a.game_date)
+    }).slice(0,5).map(mapDBGame)
     setText('ts-avg', '.467'); setText('ts-rbi', '685')
     setText('ts-r', '816');   setText('ts-sb', '316')
     setText('ts-hr', '177');  setText('ts-era', '2.99')
@@ -913,7 +934,7 @@ function renderAwards() {
 }
 
 function renderResults() {
-  document.getElementById('results-grid').innerHTML = games.map(function(g) {
+  document.getElementById('results-grid').innerHTML = games.map(function(g, i) {
     return '<div class="result-row">'+
       '<div class="result-badge '+(g.W?'W':'L')+'">'+(g.W?'W':'L')+'</div>'+
       '<div class="result-teams">'+
@@ -921,7 +942,7 @@ function renderResults() {
         '<div class="result-event">'+(g.event||'')+' · '+g.date+'</div>'+
       '</div>'+
       '<div class="result-score"><span class="us">'+g.us+'</span> – '+g.them+'</div>'+
-      '<div class="result-date">'+g.date+'</div>'+
+      '<button class="recap-share-btn" title="Share recap card" onclick="openRecap('+i+')">📸</button>'+
     '</div>'
   }).join('')
 }
@@ -1338,5 +1359,170 @@ init()
 window.addEventListener('hashchange',function(){var h=(location.hash||'').replace('#','');if(h&&document.getElementById('page-'+h))showPage(h)})
 </script>
 <script>if("serviceWorker"in navigator){window.addEventListener("load",function(){navigator.serviceWorker.register("/service-worker.js").then(function(r){console.log("SW registered")}).catch(function(e){console.log("SW error:",e)})})}</script>
+
+<!-- ══ SHAREABLE GAME-RECAP CARD ══ -->
+<style>
+  .recap-share-btn{background:var(--dark3);border:1px solid var(--bdr);color:var(--muted);width:38px;height:38px;border-radius:8px;
+    font-size:16px;cursor:pointer;flex-shrink:0;transition:background .15s,color .15s,border-color .15s;}
+  .recap-share-btn:hover{background:var(--orange);border-color:var(--orange);color:#fff;}
+
+  /* off-screen render target — the actual image html2canvas snapshots */
+  #recap-card{position:fixed;left:-9999px;top:0;width:380px;padding:30px 28px 26px;background:
+    radial-gradient(ellipse 90% 60% at 50% -10%,rgba(232,83,10,.22) 0%,transparent 70%),var(--black);
+    border:1px solid var(--bdr);border-radius:22px;font-family:var(--body);overflow:hidden;}
+  #recap-card .rc-head{display:flex;align-items:center;gap:11px;margin-bottom:22px;}
+  #recap-card .rc-logo{width:42px;height:42px;object-fit:contain;filter:drop-shadow(0 0 10px rgba(232,83,10,.4));}
+  #recap-card .rc-team{font-family:var(--display);font-size:19px;font-weight:700;color:var(--text);letter-spacing:.5px;line-height:1;}
+  #recap-card .rc-team span{color:var(--orange);}
+  #recap-card .rc-sub{font-family:var(--mono);font-size:10px;color:var(--muted);letter-spacing:1.5px;margin-top:4px;}
+  #recap-card .rc-result{display:flex;align-items:center;gap:12px;margin-bottom:18px;}
+  #recap-card .rc-badge{font-family:var(--display);font-size:30px;font-weight:700;width:56px;height:56px;border-radius:14px;
+    display:flex;align-items:center;justify-content:center;color:#fff;}
+  #recap-card .rc-badge.W{background:linear-gradient(135deg,#2fb45a,#1c8a42);}
+  #recap-card .rc-badge.L{background:linear-gradient(135deg,#4a5260,#2b3038);}
+  #recap-card .rc-final{font-family:var(--mono);font-size:12px;letter-spacing:3px;color:var(--muted);text-transform:uppercase;}
+  #recap-card .rc-outcome{font-family:var(--display);font-size:22px;font-weight:600;letter-spacing:.5px;line-height:1.1;}
+  #recap-card .rc-outcome.W{color:#3DDC6A;}#recap-card .rc-outcome.L{color:var(--muted);}
+  #recap-card .rc-score{display:flex;align-items:stretch;text-align:center;background:var(--dark2);border:1px solid var(--bdr);
+    border-radius:14px;overflow:hidden;margin-bottom:16px;}
+  #recap-card .rc-side{flex:1;padding:16px 8px;}
+  #recap-card .rc-side + .rc-side{border-left:1px solid var(--bdr);}
+  #recap-card .rc-side .rc-name{font-family:var(--mono);font-size:11px;color:var(--muted);letter-spacing:.5px;margin-bottom:8px;
+    height:26px;display:flex;align-items:center;justify-content:center;line-height:1.15;}
+  #recap-card .rc-side .rc-runs{font-family:var(--display);font-size:46px;font-weight:700;line-height:1;}
+  #recap-card .rc-side.aces .rc-runs{color:var(--orange);}
+  #recap-card .rc-side.aces .rc-name{color:var(--text);}
+  #recap-card .rc-side.opp .rc-runs{color:var(--text);}
+  #recap-card .rc-side.opp .rc-name{color:var(--muted);}
+  #recap-card .rc-meta{font-family:var(--mono);font-size:11px;color:var(--muted);letter-spacing:.5px;text-align:center;line-height:1.7;margin-bottom:20px;}
+  #recap-card .rc-foot{display:flex;align-items:center;justify-content:space-between;border-top:1px solid var(--bdr);padding-top:14px;}
+  #recap-card .rc-rec{font-family:var(--display);font-size:15px;font-weight:600;color:var(--text);}
+  #recap-card .rc-rec span{color:var(--muted);font-size:10px;font-family:var(--mono);display:block;letter-spacing:1px;margin-top:2px;}
+  #recap-card .rc-url{font-family:var(--mono);font-size:10px;color:var(--orange);letter-spacing:1px;}
+
+  #recap-modal{position:fixed;inset:0;background:rgba(0,0,0,.9);display:none;flex-direction:column;align-items:center;
+    justify-content:center;gap:18px;z-index:9999;padding:20px;}
+  #recap-modal.open{display:flex;}
+  #recap-modal img{max-width:min(90vw,380px);max-height:66vh;border-radius:20px;box-shadow:0 24px 70px rgba(0,0,0,.7);}
+  #recap-modal .rm-note{font-family:var(--mono);font-size:12px;color:var(--muted);}
+  #recap-modal .rc-actions{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;}
+  #recap-modal .rc-btn{font-family:var(--display);font-size:14px;font-weight:600;letter-spacing:.5px;text-transform:uppercase;
+    padding:11px 22px;border-radius:8px;border:1px solid var(--bdr);background:var(--dark2);color:var(--text);cursor:pointer;}
+  #recap-modal .rc-btn.primary{background:var(--orange);border-color:var(--orange);color:#fff;}
+  #ai-recap-panel{max-width:min(90vw,440px);width:100%;display:flex;flex-direction:column;gap:12px;}
+  #ai-recap-body{background:var(--dark2);border:1px solid var(--bdr);border-radius:14px;padding:18px 20px;
+    font-family:var(--body);font-size:15px;line-height:1.65;color:var(--text);white-space:pre-wrap;max-height:38vh;overflow:auto;}
+  #ai-recap-body.err{color:var(--muted);font-family:var(--mono);font-size:13px;text-align:center;}
+</style>
+<div id="recap-card"></div>
+<div id="recap-modal" onclick="if(event.target.id==='recap-modal')closeRecap()">
+  <div class="rm-note" id="rm-note">Generating recap…</div>
+  <img id="recap-img" style="display:none;" alt="Game recap"/>
+  <div class="rc-actions" id="recap-actions" style="display:none;">
+    <button class="rc-btn primary" onclick="shareRecap()">📤 Share</button>
+    <button class="rc-btn" onclick="downloadRecap()">⬇ Download</button>
+    <button class="rc-btn" onclick="genAIRecap()">✨ AI Recap</button>
+    <button class="rc-btn" onclick="closeRecap()">Close</button>
+  </div>
+  <div id="ai-recap-panel" style="display:none;">
+    <div id="ai-recap-body"></div>
+    <div class="rc-actions"><button class="rc-btn" onclick="copyAIRecap(event)">📋 Copy</button></div>
+  </div>
+</div>
+<script>
+var _recapUrl = null, _recapGame = null;
+function buildRecapInner(g){
+  var meta = (typeof SEASON_META!=='undefined' && SEASON_META[ACTIVE_SEASON]) || {};
+  var won = !!g.W;
+  var margin = Math.abs((g.us||0) - (g.them||0));
+  var outcome = won ? 'Aces Win' + (margin>=10 ? ' Big 🔥' : '') : 'Tough One';
+  var metaLine = [g.event, g.date].filter(Boolean).join(' · ');
+  var recLabel = (meta.record && meta.record!=='—') ? meta.record : null;
+  return ''
+    + '<div class="rc-head"><img class="rc-logo" src="/logo.png" alt=""/>'
+    +   '<div><div class="rc-team">DELMARVA <span>ACES</span></div>'
+    +   '<div class="rc-sub">'+((meta.schLabel||'2026 SEASON').toUpperCase())+'</div></div></div>'
+    + '<div class="rc-result"><div class="rc-badge '+(won?'W':'L')+'">'+(won?'W':'L')+'</div>'
+    +   '<div><div class="rc-final">Final</div><div class="rc-outcome '+(won?'W':'L')+'">'+outcome+'</div></div></div>'
+    + '<div class="rc-score">'
+    +   '<div class="rc-side aces"><div class="rc-name">ACES</div><div class="rc-runs">'+(g.us!=null?g.us:'–')+'</div></div>'
+    +   '<div class="rc-side opp"><div class="rc-name">'+(g.opp||'OPP').toUpperCase()+'</div><div class="rc-runs">'+(g.them!=null?g.them:'–')+'</div></div>'
+    + '</div>'
+    + '<div class="rc-meta">'+(metaLine||'&nbsp;')+'</div>'
+    + '<div class="rc-foot">'
+    +   (recLabel ? '<div class="rc-rec">'+recLabel+'<span>SEASON RECORD</span></div>' : '<div class="rc-rec">⚾<span>PLAY HARD · PLAY SMART</span></div>')
+    +   '<div class="rc-url">DELMARVA-ACES.VERCEL.APP</div>'
+    + '</div>';
+}
+async function openRecap(i){
+  var g = (window.games||[])[i]; if(!g) return;
+  _recapGame = g;
+  var modal=document.getElementById('recap-modal');
+  document.getElementById('rm-note').style.display='block';
+  document.getElementById('recap-img').style.display='none';
+  document.getElementById('recap-actions').style.display='none';
+  document.getElementById('ai-recap-panel').style.display='none';
+  window._aiRecapText=null;
+  modal.classList.add('open');
+  var card=document.getElementById('recap-card');
+  card.innerHTML = buildRecapInner(g);
+  try{ if(document.fonts&&document.fonts.ready) await document.fonts.ready; }catch(e){}
+  await new Promise(function(r){setTimeout(r,120);});
+  try{
+    var canvas = await html2canvas(card, {scale:2, backgroundColor:null, useCORS:true, logging:false});
+    _recapUrl = canvas.toDataURL('image/png');
+    var img=document.getElementById('recap-img'); img.src=_recapUrl; img.style.display='block';
+    document.getElementById('rm-note').style.display='none';
+    document.getElementById('recap-actions').style.display='flex';
+  }catch(e){ document.getElementById('rm-note').textContent='Could not generate card.'; }
+}
+function closeRecap(){ document.getElementById('recap-modal').classList.remove('open'); }
+function recapFilename(){ var g=_recapGame||{}; return ('aces-'+(g.us||0)+'-'+(g.them||0)+'-vs-'+(g.opp||'game')+'.png').toLowerCase().replace(/[^a-z0-9.-]+/g,'-'); }
+function downloadRecap(){ if(!_recapUrl) return; var a=document.createElement('a'); a.download=recapFilename(); a.href=_recapUrl; a.click(); }
+async function shareRecap(){
+  if(!_recapUrl) return;
+  try{
+    var blob = await (await fetch(_recapUrl)).blob();
+    var g = _recapGame||{};
+    var file = new File([blob], recapFilename(), {type:'image/png'});
+    var txt = 'Delmarva Aces '+(g.us!=null?g.us:'')+'–'+(g.them!=null?g.them:'')+' vs '+(g.opp||'')+' ⚾';
+    if(navigator.canShare && navigator.canShare({files:[file]})){
+      await navigator.share({files:[file], title:'Delmarva Aces', text:txt});
+    } else { downloadRecap(); }
+  }catch(e){ /* user cancelled or unsupported */ }
+}
+async function genAIRecap(){
+  var g = _recapGame; if(!g) return;
+  var panel = document.getElementById('ai-recap-panel');
+  var bodyEl = document.getElementById('ai-recap-body');
+  panel.style.display = 'flex';
+  bodyEl.classList.remove('err');
+  bodyEl.textContent = '✨ Writing recap…';
+  window._aiRecapText = null;
+  try{
+    var r = await fetch('/api/recap', {
+      method:'POST', headers:{'content-type':'application/json'},
+      body: JSON.stringify({ game: g })
+    });
+    var data = await r.json().catch(function(){ return {}; });
+    if (r.ok && data.recap){
+      bodyEl.textContent = data.recap;
+      window._aiRecapText = data.recap;
+    } else {
+      bodyEl.classList.add('err');
+      bodyEl.textContent = data.message || 'Could not generate a recap right now.';
+    }
+  }catch(e){
+    bodyEl.classList.add('err');
+    bodyEl.textContent = 'Could not reach the recap service. Is it deployed?';
+  }
+}
+function copyAIRecap(ev){
+  if(!window._aiRecapText) return;
+  try{ navigator.clipboard.writeText(window._aiRecapText); }catch(e){}
+  var b = ev && ev.target; if(b){ var t=b.textContent; b.textContent='✓ Copied'; setTimeout(function(){ b.textContent=t; },1500); }
+}
+window.openRecap = openRecap;
+</script>
 </body>
 </html>

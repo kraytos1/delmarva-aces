@@ -1,0 +1,10 @@
+# OS / editor cruft
+.DS_Store
+Thumbs.db
+*.swp
+
+# Local backups / archives — never ship these to the live site
+*.zip
+*.bak
+*_BACKUP*
+files.zip

@@ -1,7 +1,7 @@
 // Delmarva Aces Service Worker
 // Caches core files for offline use
 
-const CACHE_NAME = 'aces-v2'
+const CACHE_NAME = 'aces-v3'
 const CORE_FILES = [
   '/',
   '/index.html',
@@ -78,9 +78,9 @@ self.addEventListener('fetch', function(e) {
         // Network failed — try cache
         return caches.match(e.request).then(function(cached) {
           if (cached) return cached
-          // Return offline page for navigation requests
+          // Return the home page for navigation requests when offline
           if (e.request.mode === 'navigate') {
-            return caches.match('/score.html')
+            return caches.match('/index.html')
           }
         })
       })
