@@ -13,6 +13,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script src="config.js"></script>
 <script src="/pin.js"></script>
+<script src="/nav.js"></script>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Inter:wght@300;400;500;600&family=Roboto+Mono:wght@400;500&display=swap');
 :root{
@@ -145,17 +146,13 @@ nav{background:rgba(10,12,14,.95);border-bottom:1px solid var(--bdr);display:fle
 </head>
 <body>
 
-<nav>
-  <div class="nav-brand" onclick="window.location="/index.html"">
-    <div class="nav-logo"><img src="/logo.png" alt="Aces"/></div>
-    <span class="nav-name">Delmarva <span>Aces</span></span>
-  </div>
+<div id="site-nav"></div>
+<div style="display:flex;justify-content:center;padding:8px 16px;">
   <div id="nav-badge" class="pre-badge">
     <div class="pulse"></div>
     <span id="nav-badge-txt">Checking stream</span>
   </div>
-  <a href="/index.html" style="font-family:var(--mono);font-size:11px;color:var(--muted);text-decoration:none;">← Back</a>
-</nav>
+</div>
 
 <!-- SCOREBOARD -->
 <div class="scoreboard">

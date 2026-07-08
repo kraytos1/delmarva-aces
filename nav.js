@@ -1,0 +1,64 @@
+// nav.js · Delmarva Aces — one shared top nav for every non-index page.
+// index.html keeps its own SPA nav (Home/Schedule/Roster are in-page tabs there);
+// this renders the identical bar everywhere else so the whole site links together
+// and looks consistent regardless of a page's own theme. Self-contained styling.
+(function () {
+  var ITEMS = [
+    { label: 'Home',        href: '/#home' },
+    { label: 'Schedule',    href: '/#schedule' },
+    { label: 'Roster',      href: '/#roster' },
+    { label: 'Highlights',  href: '/highlights.html',     test: function (p) { return /\/highlights\.html$/.test(p); } },
+    { label: 'Live Game',   href: '/game.html',           test: function (p) { return /\/game\.html$/.test(p); } },
+    { label: 'Scout',       href: '/scout.html',          test: function (p) { return /\/scout\.html$/.test(p); } },
+    { label: 'Pitching',    href: '/pitching-scout.html', test: function (p) { return /\/pitching-scout\.html$/.test(p); } },
+    { label: 'Threat Board', href: '/threat-board.html',  test: function (p) { return /\/threat-board\.html$/.test(p); } }
+  ];
+  var path = location.pathname;
+  // player detail pages (/player/:num or /player.html) belong to the Roster section
+  var rosterActive = /\/player(\.html)?(\/|$)/.test(path);
+
+  var css = [
+    '.dva-nav{position:sticky;top:0;z-index:200;display:flex;align-items:center;justify-content:space-between;',
+      'gap:12px;flex-wrap:wrap;padding:0 24px;min-height:60px;background:rgba(10,12,14,.96);',
+      'backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border-bottom:1px solid rgba(255,255,255,.08);',
+      "font-family:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;}",
+    '.dva-nav *{box-sizing:border-box;}',
+    '.dva-brand{display:flex;align-items:center;gap:10px;text-decoration:none;padding:8px 0;}',
+    '.dva-logo{width:34px;height:34px;object-fit:contain;filter:drop-shadow(0 0 8px rgba(232,83,10,.3));}',
+    ".dva-name{font-family:'Oswald','Inter',sans-serif;font-size:17px;font-weight:600;color:#F0EDE8;letter-spacing:.5px;white-space:nowrap;}",
+    '.dva-name span{color:#E8530A;}',
+    '.dva-links{display:flex;flex-wrap:wrap;gap:2px;}',
+    '.dva-link{padding:6px 13px;border-radius:6px;font-size:13px;font-weight:500;color:#7A8290;text-decoration:none;',
+      'white-space:nowrap;transition:color .15s,background .15s;}',
+    '.dva-link:hover{color:#F0EDE8;background:rgba(255,255,255,.06);}',
+    '.dva-link.dva-active{color:#E8530A;}'
+  ].join('');
+
+  function isActive(it) {
+    if (it.test) return it.test(path);
+    if (it.label === 'Roster') return rosterActive;
+    return false;
+  }
+
+  var links = ITEMS.map(function (it) {
+    return '<a class="dva-link' + (isActive(it) ? ' dva-active' : '') + '" href="' + it.href + '">' + it.label + '</a>';
+  }).join('');
+
+  var html =
+    '<nav class="dva-nav">' +
+      '<a class="dva-brand" href="/"><img class="dva-logo" src="/logo.png" alt="Aces"/>' +
+        '<span class="dva-name">Delmarva <span>Aces</span></span></a>' +
+      '<div class="dva-links">' + links + '</div>' +
+    '</nav>';
+
+  function mount() {
+    var style = document.createElement('style');
+    style.textContent = css;
+    document.head.appendChild(style);
+    var host = document.getElementById('site-nav');
+    if (host) host.outerHTML = html;
+    else document.body.insertAdjacentHTML('afterbegin', html);
+  }
+  if (document.body) mount();
+  else document.addEventListener('DOMContentLoaded', mount);
+})();

@@ -8,6 +8,7 @@
 <title>Highlights · Delmarva Aces</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script src="config.js"></script>
+<script src="/nav.js"></script>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Inter:wght@300;400;500;600&family=Roboto+Mono:wght@400;500&display=swap');
   :root{--orange:#E8530A;--orange-dim:#C44208;--og:rgba(232,83,10,.18);--black:#0A0C0E;--dark:#111418;--dark2:#181C22;--dark3:#1F242C;--bdr:rgba(255,255,255,.08);--bdr-a:rgba(232,83,10,.35);--text:#F0EDE8;--muted:#7A8290;--mono:'Roboto Mono',monospace;--display:'Oswald',sans-serif;--body:'Inter',sans-serif;--green:#3DDC6A;}
@@ -25,7 +26,7 @@
   .nav-link:hover{color:var(--text);background:rgba(255,255,255,.06);}
   .nav-link.active{color:var(--orange);}
 
-  .wrap{max-width:1200px;margin:0 auto;padding:96px 32px 64px;}
+  .wrap{max-width:1200px;margin:0 auto;padding:32px 32px 64px;}
   .page-head{margin-bottom:28px;}
   .eyebrow{display:inline-flex;align-items:center;gap:8px;font-family:var(--mono);font-size:11px;color:var(--orange);letter-spacing:2px;text-transform:uppercase;margin-bottom:12px;}
   .eyebrow::before{content:'';width:20px;height:1px;background:var(--orange);}
@@ -82,19 +83,7 @@
 </style>
 </head>
 <body>
-<nav>
-  <a class="nav-brand" href="/">
-    <div class="nav-logo"><img src="/logo.png" alt="Aces"/></div>
-    <span class="nav-name">Delmarva <span>Aces</span></span>
-  </a>
-  <div class="nav-links">
-    <a class="nav-link" href="/">Home</a>
-    <a class="nav-link" href="/#schedule">Schedule</a>
-    <a class="nav-link" href="/#roster">Roster</a>
-    <a class="nav-link" href="/game.html">Live Game</a>
-    <span class="nav-link active">Highlights</span>
-  </div>
-</nav>
+<div id="site-nav"></div>
 
 <div class="wrap">
   <div class="page-head">
