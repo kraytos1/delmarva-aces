@@ -80,6 +80,7 @@
   .hero-bg{position:absolute;inset:0;z-index:0;background:radial-gradient(ellipse 60% 50% at 70% 50%,rgba(232,83,10,.07) 0%,transparent 70%),repeating-linear-gradient(0deg,transparent,transparent 39px,rgba(255,255,255,.015) 39px,rgba(255,255,255,.015) 40px),repeating-linear-gradient(90deg,transparent,transparent 39px,rgba(255,255,255,.015) 39px,rgba(255,255,255,.015) 40px);}
   .hero-bg::after{content:'';position:absolute;inset:0;background:radial-gradient(ellipse 80% 80% at 50% 50%,transparent 60%,var(--black) 100%);}
   .hero-content{position:relative;z-index:1;max-width:780px;}
+  .hero-wordmark{display:block;width:min(440px,84vw);height:auto;margin-bottom:16px;filter:drop-shadow(0 8px 26px rgba(0,0,0,.55));}
   .hero-eyebrow{display:inline-flex;align-items:center;gap:8px;font-family:var(--mono);font-size:11px;color:var(--orange);letter-spacing:2px;text-transform:uppercase;margin-bottom:20px;}
   .hero-eyebrow::before{content:'';width:20px;height:1px;background:var(--orange);}
   .hero-title{font-family:var(--display);font-size:clamp(56px,9vw,96px);font-weight:700;line-height:.92;letter-spacing:-1px;text-transform:uppercase;margin-bottom:24px;}
@@ -292,10 +293,8 @@
   <section class="hero">
     <div class="hero-bg"></div>
     <div class="hero-content">
-      <div style="display:flex;align-items:center;gap:16px;margin-bottom:20px;">
-        <img src="/logo.png" alt="Aces" style="width:80px;height:80px;object-fit:contain;filter:drop-shadow(0 0 24px rgba(232,83,10,.5));"/>
-        <div class="hero-eyebrow" style="margin-bottom:0;" id="hero-eyebrow-txt">Delmarva Aces · 13U East · Fall 2026</div>
-      </div>
+      <img src="/logo-wordmark.png" alt="Delmarva Aces Baseball" class="hero-wordmark"/>
+      <div class="hero-eyebrow" id="hero-eyebrow-txt">13U East · Fall 2026</div>
       <h1 class="hero-title"><div>Play Hard,</div><div class="line2">Play Smart.</div></h1>
       <p class="hero-desc">Live game streams, pitch-by-pitch scoring, velocity tracking, and auto-generated highlight clips — all in one place for the Aces family.</p>
       <div class="hero-stats" id="hero-stats">
@@ -631,14 +630,14 @@ var SEASON_META = {
     label:    'Spring 2026 · 12U East · 62–2 Champions 🏆',
     schLabel: 'Spring 2026 · 12U East',
     teamName: 'Delmarva Aces 12U East',
-    hero:     'Delmarva Aces · 12U East · Spring 2026',
+    hero:     '12U East · Spring 2026',
     record:   '62–2',
   },
   fall2026: {
     label:    'Fall 2026 · 13U East',
     schLabel: 'Fall 2026 · 13U East',
     teamName: 'Delmarva Aces 13U East',
-    hero:     'Delmarva Aces · 13U East · Fall 2026',
+    hero:     '13U East · Fall 2026',
     record:   '—',
   }
 }
