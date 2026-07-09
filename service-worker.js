@@ -1,7 +1,7 @@
 // Delmarva Aces Service Worker
 // Caches core files for offline use
 
-const CACHE_NAME = 'aces-v6'
+const CACHE_NAME = 'aces-v7'
 const CORE_FILES = [
   '/',
   '/index.html',
