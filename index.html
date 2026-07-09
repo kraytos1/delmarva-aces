@@ -1033,6 +1033,7 @@ function renderLeaders() {
     countBoard('Home Runs','hr','HR'),
     countBoard('RBI','rbi','RBI'),
     countBoard('Runs','r','R'),
+    countBoard('Hits','h','H'),
     countBoard('Stolen Bases','sb','SB'),
     eraArr.length ? { cat:'ERA (min 10 IP)', rows: topN(eraArr,6).map(function(p){return {p:p, val:p.era.toFixed(2)}}) } : null,
     countBoard('Strikeouts','so_p','K')
