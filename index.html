@@ -116,6 +116,12 @@
   .section-sub{font-family:var(--mono);font-size:11px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;}
 
   /* leaders */
+  .squad-strip{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:10px;}
+  .squad-card{display:flex;flex-direction:column;align-items:center;gap:7px;text-decoration:none;padding:12px 6px;border-radius:12px;background:var(--dark2);border:1px solid var(--bdr);transition:background .12s,border-color .12s,transform .1s;}
+  .squad-card:hover{border-color:var(--bdr-a);transform:translateY(-2px);}
+  .squad-card .hs{width:60px;height:60px;border-width:2px;}
+  .squad-name{font-size:12px;color:var(--text);text-align:center;line-height:1.2;font-weight:500;}
+  .squad-num{font-family:var(--mono);font-size:10px;color:var(--orange);letter-spacing:.5px;}
   .leaders-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(248px,1fr));gap:12px;}
   .leader-card{background:var(--dark2);border:1px solid var(--bdr);border-radius:10px;padding:16px 18px;}
   .leader-cat{font-family:var(--mono);font-size:9px;color:var(--orange);letter-spacing:2px;text-transform:uppercase;margin-bottom:10px;}
@@ -340,6 +346,17 @@
   </div>
 
   <section class="section">
+    <div class="section-header">
+      <h2 class="section-title">The Squad</h2>
+      <div class="section-rule"></div>
+      <div class="section-sub" id="squad-sub">13U East</div>
+    </div>
+    <div class="squad-strip" id="squad-strip">
+      <!-- populated by JS -->
+    </div>
+  </section>
+
+  <section class="section" style="padding-top:0">
     <div class="section-header">
       <h2 class="section-title">Season Leaders</h2>
       <div class="section-rule"></div>
@@ -786,6 +803,7 @@ async function loadRosterPhotos(){
       data.forEach(function(r){ window._photoMap[r.jersey_num] = {photo_url:r.photo_url, positions:r.positions||[]} })
       // photos arrived — refresh the surfaces that show them
       try{ renderRosterGrid() }catch(e){}
+      try{ renderSquad() }catch(e){}
       try{ renderLeaders() }catch(e){}
       try{ renderAwards() }catch(e){}
     }
@@ -967,9 +985,25 @@ function renderHome() {
   var gpMax = players.length ? Math.max.apply(null, players.map(function(p){return p.gp||0})) : 0
   setText('roster-meta', ageLabel+' · '+players.length+' Players · '+gpMax+' Games Played')
 
+  renderSquad()
   renderLeaders()
   renderAwards()
   renderResults()
+}
+
+// Full roster on the home page — every kid gets a spot, links to their profile.
+function renderSquad(){
+  var strip = document.getElementById('squad-strip'); if(!strip) return
+  setText('squad-sub', ACTIVE_SEASON==='fall2026' ? '13U East' : '12U East')
+  var list = (players||[]).slice().sort(function(a,b){return (a.num||0)-(b.num||0)})
+  if(!list.length){ strip.innerHTML = '<div style="grid-column:1/-1;color:var(--muted);font-family:var(--mono);font-size:12px;padding:14px 0;">Roster loading…</div>'; return }
+  strip.innerHTML = list.map(function(p){
+    return '<a class="squad-card" href="/player/'+p.num+'">'
+      + avatarHtml(p.num,60)
+      + '<div class="squad-name">'+p.first+' '+p.last+'</div>'
+      + '<div class="squad-num">#'+(p.num!=null?p.num:'')+'</div>'
+      + '</a>'
+  }).join('')
 }
 
 function renderLeaders() {
@@ -983,22 +1017,24 @@ function renderLeaders() {
   // Rate stat: apply a min-sample gate, but fall back to all hitters if too few qualify.
   function rateBoard(cat, gateFn, keyFn, fmt){
     var a = players.filter(gateFn).sort(function(x,y){return keyFn(y)-keyFn(x)})
-    if(a.length < 5) a = players.filter(function(p){return p.ab>=1}).sort(function(x,y){return keyFn(y)-keyFn(x)})
-    return { cat:cat, rows: topN(a,5).map(function(p){return {p:p, val:fmt(p)}}) }
+    if(a.length < 6) a = players.filter(function(p){return p.ab>=1}).sort(function(x,y){return keyFn(y)-keyFn(x)})
+    return { cat:cat, rows: topN(a,6).map(function(p){return {p:p, val:fmt(p)}}) }
   }
   // Counting stat: only include players with a positive value (no 5 kids tied at 0).
   function countBoard(cat, key, unit){
     var a = players.filter(function(p){return (p[key]||0)>0}).sort(function(x,y){return (y[key]||0)-(x[key]||0)})
-    return { cat:cat, rows: topN(a,5).map(function(p){return {p:p, val:p[key]+(unit?' '+unit:'')}}) }
+    return { cat:cat, rows: topN(a,6).map(function(p){return {p:p, val:p[key]+(unit?' '+unit:'')}}) }
   }
   var eraArr = players.filter(function(p){return p.ip>=10&&p.era<99}).sort(function(x,y){return x.era-y.era})
 
   var boards = [
     rateBoard('Batting AVG', function(p){return p.ab>=20}, function(p){return p.avg}, function(p){return f3(p.avg)}),
+    rateBoard('OPS', function(p){return p.ab>=20}, function(p){return p.ops}, function(p){return (p.ops||0).toFixed(3)}),
     countBoard('Home Runs','hr','HR'),
     countBoard('RBI','rbi','RBI'),
+    countBoard('Runs','r','R'),
     countBoard('Stolen Bases','sb','SB'),
-    eraArr.length ? { cat:'ERA (min 10 IP)', rows: topN(eraArr,5).map(function(p){return {p:p, val:p.era.toFixed(2)}}) } : null,
+    eraArr.length ? { cat:'ERA (min 10 IP)', rows: topN(eraArr,6).map(function(p){return {p:p, val:p.era.toFixed(2)}}) } : null,
     countBoard('Strikeouts','so_p','K')
   ].filter(function(b){ return b && b.rows && b.rows.length })
 
