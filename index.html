@@ -116,7 +116,7 @@
   .section-sub{font-family:var(--mono);font-size:11px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;}
 
   /* leaders */
-  .leaders-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;}
+  .leaders-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(248px,1fr));gap:12px;}
   .leader-card{background:var(--dark2);border:1px solid var(--bdr);border-radius:10px;padding:16px 18px;}
   .leader-cat{font-family:var(--mono);font-size:9px;color:var(--orange);letter-spacing:2px;text-transform:uppercase;margin-bottom:10px;}
   .leader-name{font-size:13px;font-weight:500;color:var(--text);margin-bottom:4px;}
@@ -129,6 +129,15 @@
   .leader-head .leader-name{margin-bottom:0;}
   .award-av{position:relative;flex-shrink:0;line-height:0;}
   .award-badge{position:absolute;right:-4px;bottom:-4px;font-size:15px;line-height:1;filter:drop-shadow(0 1px 2px rgba(0,0,0,.6));}
+  /* top-5 mini leaderboards */
+  .lb-list{display:flex;flex-direction:column;gap:1px;margin-top:2px;}
+  .lb-row{display:flex;align-items:center;gap:9px;padding:5px 4px;border-radius:8px;text-decoration:none;transition:background .12s;}
+  .lb-row:hover{background:rgba(255,255,255,.05);}
+  .lb-rank{font-family:var(--mono);font-size:11px;color:var(--muted);width:13px;text-align:center;flex-shrink:0;}
+  .lb-row .hs{width:28px;height:28px;}
+  .lb-name{font-size:13px;color:var(--text);flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .lb-val{font-family:var(--display);font-size:15px;font-weight:600;color:var(--muted);flex-shrink:0;}
+  .lb-val.lb-top{color:var(--orange);}
 
   /* awards */
   .awards-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:12px;}
@@ -970,40 +979,42 @@ function renderLeaders() {
       '<div style="color:var(--muted);font-family:var(--mono);font-size:12px;padding:20px 0;">Season leaders will appear here once games are scored.</div>'
     return
   }
-  var sorted_avg = players.filter(function(p){return p.ab>=30}).sort(function(a,b){return b.avg-a.avg})
-  if (sorted_avg.length < 3) sorted_avg = players.filter(function(p){return p.ab>=1}).sort(function(a,b){return b.avg-a.avg})
-  var sorted_hr  = players.slice().sort(function(a,b){return b.hr-a.hr})
-  var sorted_rbi = players.slice().sort(function(a,b){return b.rbi-a.rbi})
-  var sorted_sb  = players.slice().sort(function(a,b){return b.sb-a.sb})
-  var pitchers   = players.filter(function(p){return p.ip>=10&&p.era<99})
-    .sort(function(a,b){return a.era-b.era})
-  var sorted_k   = players.filter(function(p){return p.so_p>0}).sort(function(a,b){return b.so_p-a.so_p})
-
-  function pName(p,stat) {
-    if(!p) return ''
-    return p.first[0]+'. '+p.last+' '+stat
+  function topN(arr,n){ return arr.filter(Boolean).slice(0,n||5) }
+  // Rate stat: apply a min-sample gate, but fall back to all hitters if too few qualify.
+  function rateBoard(cat, gateFn, keyFn, fmt){
+    var a = players.filter(gateFn).sort(function(x,y){return keyFn(y)-keyFn(x)})
+    if(a.length < 5) a = players.filter(function(p){return p.ab>=1}).sort(function(x,y){return keyFn(y)-keyFn(x)})
+    return { cat:cat, rows: topN(a,5).map(function(p){return {p:p, val:fmt(p)}}) }
   }
-  function rest3(arr, fn) {
-    return arr.slice(1,3).filter(Boolean).map(fn).join(' · ')
+  // Counting stat: only include players with a positive value (no 5 kids tied at 0).
+  function countBoard(cat, key, unit){
+    var a = players.filter(function(p){return (p[key]||0)>0}).sort(function(x,y){return (y[key]||0)-(x[key]||0)})
+    return { cat:cat, rows: topN(a,5).map(function(p){return {p:p, val:p[key]+(unit?' '+unit:'')}}) }
   }
+  var eraArr = players.filter(function(p){return p.ip>=10&&p.era<99}).sort(function(x,y){return x.era-y.era})
 
-  var cards = []
-  if(sorted_avg[0]) cards.push({cat:'Batting AVG', p:sorted_avg[0], val:f3(sorted_avg[0].avg), rest:rest3(sorted_avg,function(p){return pName(p,f3(p.avg))})})
-  if(sorted_hr[0])  cards.push({cat:'Home Runs',   p:sorted_hr[0],  val:sorted_hr[0].hr,  unit:'HR',  rest:rest3(sorted_hr, function(p){return pName(p,p.hr)})})
-  if(sorted_rbi[0]) cards.push({cat:'RBI',         p:sorted_rbi[0], val:sorted_rbi[0].rbi, unit:'RBI', rest:rest3(sorted_rbi,function(p){return pName(p,p.rbi)})})
-  if(sorted_sb[0])  cards.push({cat:'Stolen Bases',p:sorted_sb[0],  val:sorted_sb[0].sb,  unit:'SB',  rest:rest3(sorted_sb, function(p){return pName(p,p.sb)})})
-  if(pitchers[0])   cards.push({cat:'ERA (min 10 IP)',p:pitchers[0], val:pitchers[0].era.toFixed(2), rest:rest3(pitchers,function(p){return pName(p,p.era.toFixed(2))})})
-  if(sorted_k[0])   cards.push({cat:'Strikeouts',  p:sorted_k[0],   val:sorted_k[0].so_p, unit:'K',   rest:rest3(sorted_k, function(p){return pName(p,p.so_p)})})
+  var boards = [
+    rateBoard('Batting AVG', function(p){return p.ab>=20}, function(p){return p.avg}, function(p){return f3(p.avg)}),
+    countBoard('Home Runs','hr','HR'),
+    countBoard('RBI','rbi','RBI'),
+    countBoard('Stolen Bases','sb','SB'),
+    eraArr.length ? { cat:'ERA (min 10 IP)', rows: topN(eraArr,5).map(function(p){return {p:p, val:p.era.toFixed(2)}}) } : null,
+    countBoard('Strikeouts','so_p','K')
+  ].filter(function(b){ return b && b.rows && b.rows.length })
 
-  document.getElementById('leaders-grid').innerHTML = cards.map(function(c) {
-    return '<div class="leader-card">'+
-      '<div class="leader-cat">'+c.cat+'</div>'+
-      '<div class="leader-head">'+avatarHtml(c.p.num,38)+
-        '<div class="leader-name">#'+c.p.num+' '+c.p.first+' '+c.p.last+'</div>'+
-      '</div>'+
-      '<div class="leader-val">'+c.val+(c.unit?'<span style="font-size:14px;color:var(--muted);margin-left:4px;">'+c.unit+'</span>':'')+'</div>'+
-      '<div class="leader-rest">'+c.rest+'</div>'+
-    '</div>'
+  document.getElementById('leaders-grid').innerHTML = boards.map(function(b){
+    return '<div class="leader-card">'
+      + '<div class="leader-cat">'+b.cat+'</div>'
+      + '<div class="lb-list">'
+      + b.rows.map(function(r,i){
+          return '<a class="lb-row" href="/player/'+r.p.num+'">'
+            + '<span class="lb-rank">'+(i+1)+'</span>'
+            + avatarHtml(r.p.num,28)
+            + '<span class="lb-name">'+r.p.first+' '+r.p.last+'</span>'
+            + '<span class="lb-val'+(i===0?' lb-top':'')+'">'+r.val+'</span>'
+          + '</a>'
+        }).join('')
+      + '</div></div>'
   }).join('')
 }
 
