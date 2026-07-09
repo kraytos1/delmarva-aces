@@ -122,6 +122,13 @@
   .leader-name{font-size:13px;font-weight:500;color:var(--text);margin-bottom:4px;}
   .leader-val{font-family:var(--display);font-size:28px;font-weight:700;color:var(--orange);}
   .leader-rest{font-size:11px;color:var(--muted);margin-top:6px;line-height:1.6;}
+  /* player headshots (Season Leaders + Team Awards) */
+  .hs{border-radius:50%;background:var(--dark3) center/cover no-repeat;flex-shrink:0;border:1.5px solid var(--bdr);display:inline-block;vertical-align:middle;}
+  .hs-ph{display:inline-flex;align-items:center;justify-content:center;font-family:var(--display);font-weight:700;color:var(--orange);}
+  .leader-head{display:flex;align-items:center;gap:10px;margin-bottom:8px;}
+  .leader-head .leader-name{margin-bottom:0;}
+  .award-av{position:relative;flex-shrink:0;line-height:0;}
+  .award-badge{position:absolute;right:-4px;bottom:-4px;font-size:15px;line-height:1;filter:drop-shadow(0 1px 2px rgba(0,0,0,.6));}
 
   /* awards */
   .awards-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:12px;}
@@ -766,7 +773,13 @@ async function loadRosterPhotos(){
   if(!db) return
   try{
     var {data} = await db.from('players').select('jersey_num,photo_url,positions')
-    if(data){ data.forEach(function(r){ window._photoMap[r.jersey_num] = {photo_url:r.photo_url, positions:r.positions||[]} }); renderRosterGrid() }
+    if(data){
+      data.forEach(function(r){ window._photoMap[r.jersey_num] = {photo_url:r.photo_url, positions:r.positions||[]} })
+      // photos arrived — refresh the surfaces that show them
+      try{ renderRosterGrid() }catch(e){}
+      try{ renderLeaders() }catch(e){}
+      try{ renderAwards() }catch(e){}
+    }
   }catch(e){}
 }
 var db = null
@@ -985,11 +998,21 @@ function renderLeaders() {
   document.getElementById('leaders-grid').innerHTML = cards.map(function(c) {
     return '<div class="leader-card">'+
       '<div class="leader-cat">'+c.cat+'</div>'+
-      '<div class="leader-name">#'+c.p.num+' '+c.p.first+' '+c.p.last+'</div>'+
+      '<div class="leader-head">'+avatarHtml(c.p.num,38)+
+        '<div class="leader-name">#'+c.p.num+' '+c.p.first+' '+c.p.last+'</div>'+
+      '</div>'+
       '<div class="leader-val">'+c.val+(c.unit?'<span style="font-size:14px;color:var(--muted);margin-left:4px;">'+c.unit+'</span>':'')+'</div>'+
       '<div class="leader-rest">'+c.rest+'</div>'+
     '</div>'
   }).join('')
+}
+
+// Round player headshot from the shared photo map; jersey-number placeholder if none.
+function avatarHtml(num, size){
+  var meta = (window._photoMap||{})[num] || {}
+  var st = 'width:'+size+'px;height:'+size+'px;'
+  if(meta.photo_url) return '<span class="hs" style="'+st+"background-image:url('"+meta.photo_url+"');"+'"></span>'
+  return '<span class="hs hs-ph" style="'+st+'font-size:'+Math.round(size*0.42)+'px;">'+(num!=null?num:'')+'</span>'
 }
 
 // Team Awards — celebratory superlatives from the season stats (season-aware via `players`).
@@ -1022,7 +1045,7 @@ function renderAwards() {
   ]
   grid.innerHTML = A.filter(function(a){ return a.p }).map(function(a){
     return '<div class="award-card">'
-      + '<div class="award-ico">'+a.ico+'</div>'
+      + '<div class="award-av">'+avatarHtml(a.p.num,48)+'<span class="award-badge">'+a.ico+'</span></div>'
       + '<div class="award-body">'
       +   '<div class="award-name">'+a.name+'</div>'
       +   '<div class="award-winner">#'+a.p.num+' '+a.p.first+' '+a.p.last+'</div>'
