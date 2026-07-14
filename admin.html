@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Aces · Games Admin</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="config.js"></script>
+<script src="/pin.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Oswald:wght@400;600;700&family=Inter:wght@400;500;600&family=Roboto+Mono:wght@400;500&display=swap');
+:root{
+  --orange:#E8530A;--black:#0A0C0E;--dark:#111418;--dark2:#181C22;--dark3:#1F242C;
+  --bdr:rgba(255,255,255,.08);--text:#F0EDE8;--muted:#7A8290;--green:#3DDC6A;--red:#e74c3c;--blue:#4da8e8;
+  --mono:'Roboto Mono',monospace;--display:'Oswald',sans-serif;--body:'Inter',sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+body{background:var(--black);color:var(--text);font-family:var(--body);min-height:100vh;padding:16px;}
+.wrap{max-width:640px;margin:0 auto;}
+.head{display:flex;align-items:center;gap:12px;margin-bottom:6px;}
+.head img{width:40px;height:40px;object-fit:contain;filter:drop-shadow(0 0 12px rgba(232,83,10,.4));}
+h1{font-family:var(--display);font-size:22px;font-weight:700;}
+.sub{font-family:var(--mono);font-size:11px;color:var(--muted);letter-spacing:1px;margin-bottom:20px;}
+.warn{background:rgba(231,76,60,.08);border:1px solid rgba(231,76,60,.3);border-radius:10px;padding:10px 12px;font-size:12px;color:#f0a89f;line-height:1.5;margin-bottom:18px;}
+.warn b{color:var(--red);}
+
+.card{background:var(--dark2);border:1px solid var(--bdr);border-radius:12px;padding:14px;margin-bottom:10px;}
+.card-top{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:10px;}
+.g-name{font-family:var(--display);font-size:16px;font-weight:600;}
+.g-meta{font-family:var(--mono);font-size:10px;color:var(--muted);margin-top:3px;letter-spacing:.5px;}
+.badge{font-family:var(--mono);font-size:9px;font-weight:600;letter-spacing:1px;text-transform:uppercase;padding:3px 8px;border-radius:20px;flex-shrink:0;}
+.b-scheduled{background:rgba(122,130,144,.15);color:var(--muted);border:1px solid var(--bdr);}
+.b-live{background:rgba(231,76,60,.15);color:var(--red);border:1px solid rgba(231,76,60,.4);}
+.b-final{background:rgba(61,220,106,.12);color:var(--green);border:1px solid rgba(61,220,106,.3);}
+.plays{font-family:var(--mono);font-size:11px;color:var(--muted);margin-bottom:12px;}
+.plays b{color:var(--orange);}
+.plays.clean{color:#4a7a5a;}
+.row{display:flex;gap:8px;}
+.btn{flex:1;padding:11px 4px;font-size:13px;font-weight:500;border:1px solid var(--bdr);border-radius:9px;background:var(--dark3);color:var(--text);cursor:pointer;text-align:center;font-family:var(--body);}
+.btn:active{opacity:.8;}
+.btn.reset{border-color:var(--blue);color:var(--blue);}
+.btn.del{border-color:var(--red);color:var(--red);}
+.btn:disabled{opacity:.4;cursor:default;}
+.empty,.loading{color:var(--muted);font-size:14px;text-align:center;padding:40px 0;font-style:italic;}
+.foot{font-family:var(--mono);font-size:10px;color:var(--muted);text-align:center;margin-top:20px;line-height:1.6;}
+.foot a{color:var(--blue);text-decoration:none;}
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#1a2332;border:1px solid var(--orange);color:var(--orange);padding:10px 22px;border-radius:22px;font-family:var(--mono);font-size:12px;opacity:0;transition:opacity .3s;pointer-events:none;z-index:100;}
+.toast.show{opacity:1;}
+.toast.err{border-color:var(--red);color:var(--red);}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="head">
+    <img src="/logo.png" alt="Aces"/>
+    <h1>Games Admin</h1>
+  </div>
+  <div class="sub">DELMARVA ACES · CLEANUP</div>
+
+  <div class="warn">
+    <b>Reset</b> wipes every scored play (at-bats + pitches) and returns the game to a clean <i>scheduled</i> 0–0 state — use after a test on a real game.<br>
+    <b>Delete</b> removes the game entirely, plays and all — use for throwaway test games. Both are permanent.
+  </div>
+
+  <div id="list"><div class="loading">Loading games…</div></div>
+
+  <div class="foot">
+    Coach-only. Not linked in the nav.<br>
+    <a href="/index.html">← Back to site</a>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+var db = supabase.createClient(ACES_CONFIG.supabaseUrl, ACES_CONFIG.supabaseKey);
+var GAMES = [];
+
+function toast(msg, isErr){
+  var t=document.getElementById('toast');
+  t.textContent=msg; t.className='toast show'+(isErr?' err':'');
+  setTimeout(function(){t.className='toast';},2600);
+}
+
+async function load(){
+  var list=document.getElementById('list');
+  list.innerHTML='<div class="loading">Loading games…</div>';
+  var {data:games,error}=await db.from('games').select('*,opponents(name)').order('game_date',{ascending:false}).limit(200);
+  if(error){ list.innerHTML='<div class="empty">Could not load games: '+(error.message||error)+'</div>'; return; }
+  GAMES=games||[];
+  // One query for all at-bat counts, tallied client-side
+  var tally={};
+  try{
+    var {data:abs}=await db.from('at_bats').select('game_id');
+    (abs||[]).forEach(function(r){ tally[r.game_id]=(tally[r.game_id]||0)+1; });
+  }catch(e){}
+  if(!GAMES.length){ list.innerHTML='<div class="empty">No games found.</div>'; return; }
+  list.innerHTML = GAMES.map(function(g){
+    var opp=(g.opponents&&g.opponents.name)||'Opponent';
+    var d=new Date(g.game_date);
+    var ds=d.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric',year:'numeric',timeZone:'UTC'});
+    var st=(g.status||'scheduled');
+    var n=tally[g.id]||0;
+    var playsCls=n>0?'plays':'plays clean';
+    var playsTxt=n>0?('<b>'+n+'</b> play'+(n===1?'':'s')+' logged · score '+(g.our_score||0)+'–'+(g.opp_score||0)):'no plays logged — clean';
+    return ''+
+    '<div class="card" id="card-'+g.id+'">'+
+      '<div class="card-top">'+
+        '<div><div class="g-name">Aces vs '+esc(opp)+'</div>'+
+        '<div class="g-meta">'+ds+'</div></div>'+
+        '<span class="badge b-'+st+'">'+st+'</span>'+
+      '</div>'+
+      '<div class="'+playsCls+'">'+playsTxt+'</div>'+
+      '<div class="row">'+
+        '<button class="btn reset" onclick="resetGame(\''+g.id+'\',\''+esc(opp).replace(/\x27/g,"")+'\')">🧹 Reset plays</button>'+
+        '<button class="btn del" onclick="deleteGame(\''+g.id+'\',\''+esc(opp).replace(/\x27/g,"")+'\')">🗑 Delete game</button>'+
+      '</div>'+
+    '</div>';
+  }).join('');
+}
+
+function esc(s){return String(s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
+
+async function counts(gid){
+  var ab=0, p=0;
+  try{ var r1=await db.from('at_bats').select('id',{count:'exact',head:true}).eq('game_id',gid); ab=r1.count||0; }catch(e){}
+  try{ var r2=await db.from('pitches').select('id',{count:'exact',head:true}).eq('game_id',gid); p=r2.count||0; }catch(e){}
+  return {ab:ab,p:p};
+}
+
+async function wipePlays(gid){
+  // Children are deletable with the anon key (the scorer's Undo does the same)
+  var e1=(await db.from('at_bats').delete().eq('game_id',gid)).error;
+  var e2=(await db.from('pitches').delete().eq('game_id',gid)).error;
+  try{ localStorage.removeItem('aces_game_state_'+gid); }catch(e){}
+  return e1||e2;
+}
+
+async function resetGame(gid, opp){
+  var c=await counts(gid);
+  if(!confirm('Reset "Aces vs '+opp+'"?\n\nThis erases '+c.ab+' at-bat'+(c.ab===1?'':'s')+' and '+c.p+' pitch'+(c.p===1?'':'es')+', and sets the game back to a clean scheduled 0–0.\n\nThe game stays on your schedule. This cannot be undone.')) return;
+  setBusy(gid,true);
+  var err=await wipePlays(gid);
+  if(!err){
+    var u=await db.from('games').update({
+      status:'scheduled', our_score:0, opp_score:0, inning:1, half:'top',
+      outs:0, balls:0, strikes:0, base_1b:false, base_2b:false, base_3b:false
+    }).eq('id',gid);
+    err=u.error;
+  }
+  if(err){ toast('Reset failed: '+(err.message||err), true); setBusy(gid,false); }
+  else { toast('Game reset — plays cleared ✓'); load(); }
+}
+
+async function deleteGame(gid, opp){
+  var c=await counts(gid);
+  if(!confirm('DELETE "Aces vs '+opp+'" entirely?\n\nRemoves the game plus '+c.ab+' at-bat'+(c.ab===1?'':'s')+' and '+c.p+' pitch'+(c.p===1?'':'es')+'. It will disappear from the schedule.\n\nThis is permanent.')) return;
+  var typed=prompt('Type DELETE to confirm removing this game:');
+  if(typed!=='DELETE'){ if(typed!==null) toast('Not deleted — type DELETE to confirm'); return; }
+  setBusy(gid,true);
+  var err=await wipePlays(gid);
+  if(!err){ err=(await db.from('games').delete().eq('id',gid)).error; }
+  if(err){
+    toast('Delete blocked: '+(err.message||err), true);
+    alert('The plays were cleared, but Supabase blocked deleting the game row (likely a row-level-security policy).\n\nThe game is now empty and clean, so it will not affect stats. To remove the row itself, either add a DELETE policy on the "games" table in Supabase, or delete that row from the Supabase Table Editor.');
+    setBusy(gid,false); load();
+  } else {
+    toast('Game deleted ✓'); load();
+  }
+}
+
+function setBusy(gid,on){
+  var card=document.getElementById('card-'+gid);
+  if(!card) return;
+  card.querySelectorAll('button').forEach(function(b){ b.disabled=on; });
+  card.style.opacity=on?'.6':'1';
+}
+
+window.addEventListener('DOMContentLoaded', load);
+</script>
+</body>
+</html>
