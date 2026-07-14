@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Aces · Scorebug</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="config.js"></script>
+<style>
+  /* Transparent overlay — only the box paints, so it drops cleanly onto video
+     via a YoloBox "Web URL Overlay" or an OBS browser source. */
+  :root{
+    --line:rgba(255,255,255,.10); --orange:#E8530A; --orange2:#ff7a33;
+    --cream:#F2EEE6; --muted:#8a94a3; --blue:#54a6ef; --red:#ef5350;
+  }
+  *{ box-sizing:border-box; margin:0; padding:0; }
+  html,body{ background:transparent; }
+  body{ font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+    overflow:hidden; -webkit-font-smoothing:antialiased; }
+
+  .bug{ position:fixed; z-index:10; display:none; flex-direction:column; min-width:322px;
+    background:linear-gradient(180deg,#12161c,#0c0f14); border:1px solid var(--line); border-radius:12px;
+    overflow:hidden; box-shadow:0 12px 34px rgba(0,0,0,.6); font-variant-numeric:tabular-nums; }
+  .bug.show{ display:flex; }
+  .bug.pos-bl{ left:26px; bottom:26px; }
+  .bug.pos-br{ right:26px; bottom:26px; }
+  .bug.pos-tl{ left:26px; top:26px; }
+  .bug.pos-tr{ right:26px; top:26px; }
+
+  .bug-top{ display:flex; align-items:stretch; }
+  .mod{ display:flex; flex-direction:column; justify-content:center; padding:8px 12px; }
+  .bug-top .mod + .mod{ border-left:1px solid var(--line); }
+  .teams{ padding:0; }
+  .trow{ display:flex; align-items:center; gap:9px; padding:6px 13px 6px 11px; min-width:132px; }
+  .trow.aces{ border-left:4px solid var(--orange); }
+  .trow.opp{ border-left:4px solid #47505c; border-top:1px solid var(--line); }
+  .tlogo{ width:22px; height:22px; border-radius:5px; object-fit:contain; background:rgba(255,255,255,.06); }
+  .tlogo.ph{ display:flex; align-items:center; justify-content:center; background:#5a636f; color:#0e1114; font-size:10px; font-weight:800; }
+  .tabbr{ font-size:15px; font-weight:800; letter-spacing:.06em; color:var(--cream); width:44px;
+    font-family:"Arial Narrow","Roboto Condensed",system-ui,sans-serif; }
+  .tscore{ font-size:21px; font-weight:800; color:#fff; margin-left:auto; min-width:20px; text-align:right;
+    font-family:ui-monospace,"SF Mono",monospace; transition:color .2s; }
+  .trow.bat .tscore{ color:var(--orange2); }
+  .inn{ align-items:center; }
+  .inn-tri{ font-size:12px; color:var(--orange); line-height:.7; }
+  .inn-num{ font-size:18px; font-weight:800; color:var(--cream); font-family:ui-monospace,monospace; }
+  .inn-lbl{ font-size:8px; letter-spacing:.14em; color:var(--muted); text-transform:uppercase; margin-top:2px; }
+  .count{ gap:4px; }
+  .crow{ display:flex; align-items:center; gap:5px; }
+  .clbl{ font-size:10.5px; font-weight:800; color:var(--muted); width:10px; font-family:ui-monospace,monospace; }
+  .pip{ width:10px; height:10px; border-radius:50%; border:1.5px solid rgba(255,255,255,.22);
+    background:transparent; transition:background .12s,border-color .12s; }
+  .pip.b{ background:var(--blue); border-color:var(--blue); }
+  .pip.s{ background:var(--red); border-color:var(--red); }
+  .pip.o{ background:#7f8894; border-color:#7f8894; }
+  .bases{ align-items:center; justify-content:center; padding:8px 14px; }
+  .diamond{ position:relative; width:38px; height:38px; }
+  .base{ position:absolute; width:14px; height:14px; background:rgba(255,255,255,.16);
+    border:1px solid rgba(255,255,255,.32); transform:rotate(45deg); transition:background .18s,box-shadow .18s; }
+  .base.on{ background:var(--orange); border-color:var(--orange2); box-shadow:0 0 9px rgba(232,83,10,.7); }
+  .b1{ right:0; top:50%; margin-top:-7px; }
+  .b2{ left:50%; top:0; margin-left:-7px; }
+  .b3{ left:0; top:50%; margin-top:-7px; }
+
+  .bug-bot{ display:flex; flex-direction:column; border-top:1px solid var(--line); background:rgba(255,255,255,.02); }
+  .minfo{ display:flex; align-items:center; gap:10px; padding:7px 14px; }
+  .minfo + .minfo{ border-top:1px solid var(--line); }
+  .minfo .tag{ font-size:9px; letter-spacing:.12em; text-transform:uppercase; font-weight:700; color:var(--orange);
+    flex-shrink:0; width:56px; }
+  .minfo .nm{ font-size:15px; font-weight:700; color:var(--cream); letter-spacing:.01em; white-space:nowrap; }
+  .minfo .stat{ margin-left:auto; font-size:12px; color:#c7ccd4; font-family:ui-monospace,"SF Mono",monospace;
+    font-variant-numeric:tabular-nums; white-space:nowrap; padding-left:14px; flex-shrink:0; }
+  .minfo .stat b{ color:var(--orange2); font-weight:700; }
+  .minfo.hide{ display:none; }
+  .bug-bot.hide{ display:none; }
+</style>
+</head>
+<body>
+
+<div class="bug pos-bl" id="bug">
+  <div class="bug-top">
+    <div class="mod teams">
+      <div class="trow aces" id="rowAces">
+        <img class="tlogo" id="acesLogo" src="/icon-192.png" alt="Aces"/><div class="tabbr" id="acesAbbr">DEL</div><div class="tscore" id="scUs">0</div>
+      </div>
+      <div class="trow opp" id="rowOpp">
+        <div class="tlogo ph" id="oppLogo">OP</div><div class="tabbr" id="oppAbbr">OPP</div><div class="tscore" id="scThem">0</div>
+      </div>
+    </div>
+    <div class="mod inn">
+      <div class="inn-tri" id="innTri">▲</div>
+      <div class="inn-num" id="innNum">1</div>
+      <div class="inn-lbl">inning</div>
+    </div>
+    <div class="mod count">
+      <div class="crow"><span class="clbl">B</span><span class="pip" id="b0"></span><span class="pip" id="b1"></span><span class="pip" id="b2"></span></div>
+      <div class="crow"><span class="clbl">S</span><span class="pip" id="s0"></span><span class="pip" id="s1"></span></div>
+      <div class="crow"><span class="clbl">O</span><span class="pip" id="o0"></span><span class="pip" id="o1"></span></div>
+    </div>
+    <div class="mod bases">
+      <div class="diamond"><div class="base b3" id="base3"></div><div class="base b2" id="base2"></div><div class="base b1" id="base1"></div></div>
+    </div>
+  </div>
+  <div class="bug-bot" id="bugBot">
+    <div class="minfo" id="rowPit">
+      <span class="tag">Pitching</span><span class="nm" id="pitName">—</span>
+      <span class="stat"><b id="pitPC">0</b> P</span>
+    </div>
+    <div class="minfo" id="rowAB">
+      <span class="tag">At bat</span><span class="nm" id="batName">—</span>
+      <span class="stat" id="batLine"></span>
+    </div>
+  </div>
+</div>
+
+<script>
+var db = supabase.createClient(ACES_CONFIG.supabaseUrl, ACES_CONFIG.supabaseKey);
+
+// ── URL switches ────────────────────────────────────────────────────────────
+// ?game=<id>     force a specific game (else auto-detect the live one)
+// ?pitching=off  hide the pitching line     ?atbat=off  hide the at-bat line
+// ?matchup=off   hide both (scoreline only)  ?bases=off  hide the base diamond
+// ?pos=bl|br|tl|tr   corner (default bl)     ?debug=1    show even with no live game
+var Q = new URLSearchParams(location.search);
+var showPit = Q.get('pitching')!=='off' && Q.get('matchup')!=='off';
+var showAB  = Q.get('atbat')!=='off'    && Q.get('matchup')!=='off';
+var DEBUG   = Q.get('debug')==='1';
+
+(function initToggles(){
+  var pos = (Q.get('pos')||'bl').toLowerCase();
+  var bug = document.getElementById('bug');
+  bug.className = 'bug pos-' + (['bl','br','tl','tr'].indexOf(pos)>=0?pos:'bl');
+  document.getElementById('rowPit').classList.toggle('hide', !showPit);
+  document.getElementById('rowAB').classList.toggle('hide', !showAB);
+  document.getElementById('bugBot').classList.toggle('hide', !showPit && !showAB);
+  if (Q.get('bases')==='off') document.querySelector('.bases').style.display='none';
+})();
+
+var BASERUNNER = /(stolen_base|wp_advance|pb_advance|balk|caught_stealing|pickoff|out_advancing)/i;
+var HIT        = /^(single|double|triple|home_run)$/i;
+var NOT_AB     = /^(walk|intentional_walk|hbp|sac_fly|sac_bunt)$/i;
+
+function teamAbbr(name){
+  var w = (name||'').replace(/[^a-zA-Z ]/g,' ').split(/\s+/).filter(Boolean).sort(function(a,b){return b.length-a.length;})[0];
+  return (w||'OPP').slice(0,3).toUpperCase();
+}
+function teamInitials(name){
+  var ws = (name||'').replace(/[^a-zA-Z ]/g,' ').split(/\s+/).filter(Boolean);
+  var big = ws.slice().sort(function(a,b){return b.length-a.length;})[0]||'OP';
+  return big.slice(0,2).toUpperCase();
+}
+function lastName(full){ return (full||'').trim().split(/\s+/).pop() || full || ''; }
+
+var GAMEID = Q.get('game') || null;
+var notesCache = { raw:null, lineup:[], acesPitcherId:null, oppPitcher:'', oppLineup:[] };
+
+function parseNotes(raw){
+  if (raw === notesCache.raw) return notesCache;
+  notesCache = { raw:raw, lineup:[], acesPitcherId:null, oppPitcher:'', oppLineup:[] };
+  try{
+    var s = JSON.parse(raw||'{}');
+    notesCache.lineup       = s.aces_lineup   || [];
+    notesCache.acesPitcherId= s.aces_pitcher_id || null;
+    notesCache.oppPitcher   = s.opp_pitcher   || '';
+    notesCache.oppLineup    = s.opp_lineup    || [];
+  }catch(e){}
+  return notesCache;
+}
+
+var busy = false;
+async function poll(){
+  if (busy) return; busy = true;
+  try{
+    // 1) the game row (live state lives here: score, count, bases, inning, half)
+    var gq = db.from('games').select('*,opponents(name)');
+    var res = GAMEID ? await gq.eq('id',GAMEID).single()
+                     : await gq.eq('status','live').order('game_date',{ascending:false}).limit(1).maybeSingle();
+    var g = res.data;
+    if (!g || (!GAMEID && g.status!=='live' && !DEBUG)){ hideBug(); return; }
+    if (GAMEID && g.status!=='live' && !DEBUG){ /* forced game: still render for testing */ }
+
+    var n = parseNotes(g.notes);
+    var isAcesBatting = (g.half !== 'bottom');
+
+    // 2) at-bats → who's up + today's line + plate-appearance counts
+    var ab = (await db.from('at_bats').select('batter_id,result').eq('game_id',g.id)).data || [];
+    var acesAbs = ab.filter(function(a){ return a.batter_id!=null && !BASERUNNER.test(a.result||''); });
+    var oppAbs  = ab.filter(function(a){ return a.batter_id==null && !BASERUNNER.test(a.result||''); });
+
+    // 3) pitches → current pitcher's count
+    var pt = (await db.from('pitches').select('pitcher_id').eq('game_id',g.id)).data || [];
+    var oppPC=0, acesPC=0;
+    pt.forEach(function(p){ if (p.pitcher_id==null) oppPC++; else if (p.pitcher_id===n.acesPitcherId) acesPC++; });
+
+    render(g, n, isAcesBatting, acesAbs, oppAbs, oppPC, acesPC);
+    showBug();
+  }catch(e){ /* keep last frame on a hiccup */ }
+  finally{ busy = false; }
+}
+
+function acesPitcherName(n){
+  var e = (n.lineup||[]).filter(function(x){return x.playerName;}).find(function(x){return x.playerId===n.acesPitcherId;});
+  return e ? e.playerName : '';
+}
+function currentAcesBatter(n, acesAbs){
+  var valid = (n.lineup||[]).filter(function(x){return x.playerName;});
+  if (!valid.length) return null;
+  return valid[acesAbs.length % valid.length];
+}
+function batterTodayLine(batterId, acesAbs){
+  var mine = acesAbs.filter(function(a){return a.batter_id===batterId;});
+  var abCount = mine.filter(function(a){return !NOT_AB.test(a.result||'');}).length;
+  var hits = mine.filter(function(a){return HIT.test(a.result||'');}).length;
+  return abCount>0 ? (hits+'-'+abCount) : '';
+}
+
+function render(g, n, isAcesBatting, acesAbs, oppAbs, oppPC, acesPC){
+  document.getElementById('scUs').textContent   = g.our_score||0;
+  document.getElementById('scThem').textContent = g.opp_score||0;
+  document.getElementById('innNum').textContent = g.inning||1;
+  document.getElementById('innTri').textContent = isAcesBatting ? '▲' : '▼';
+
+  var oppName = (g.opponents && g.opponents.name) || 'Opponent';
+  document.getElementById('oppAbbr').textContent = teamAbbr(oppName);
+  document.getElementById('oppLogo').textContent = teamInitials(oppName);
+
+  setPips('b', g.balls||0, 'b', 3);
+  setPips('s', g.strikes||0, 's', 2);
+  setPips('o', g.outs||0, 'o', 2);
+  document.getElementById('base1').className = 'base b1'+(g.base_1b?' on':'');
+  document.getElementById('base2').className = 'base b2'+(g.base_2b?' on':'');
+  document.getElementById('base3').className = 'base b3'+(g.base_3b?' on':'');
+  document.getElementById('rowAces').className = 'trow aces'+(isAcesBatting?' bat':'');
+  document.getElementById('rowOpp').className  = 'trow opp'+(isAcesBatting?'':' bat');
+
+  // Pitching: whoever is NOT batting is on the mound
+  var pitName = isAcesBatting ? (n.oppPitcher || 'Opp. pitcher') : (acesPitcherName(n) || 'Aces pitcher');
+  document.getElementById('pitName').textContent = pitName;
+  document.getElementById('pitPC').textContent   = isAcesBatting ? oppPC : acesPC;
+
+  // At bat: the batting team's current hitter
+  var batName = '', batLine = '';
+  if (isAcesBatting){
+    var b = currentAcesBatter(n, acesAbs);
+    if (b){ batName = lastName(b.playerName) + (b.jerseyNum ? ' #'+b.jerseyNum : ''); batLine = batterTodayLine(b.playerId, acesAbs); }
+    else { batName = 'Aces batter'; }
+  } else {
+    var ol = n.oppLineup || [];
+    var ob = ol.length ? ol[oppAbs.length % ol.length] : null;
+    batName = ob ? (ob.name + (ob.position?' · '+ob.position:'')) : (teamAbbr((g.opponents&&g.opponents.name)||'')+' batter');
+  }
+  document.getElementById('batName').textContent = batName;
+  document.getElementById('batLine').textContent = batLine;
+}
+
+function setPips(prefix, n, cls, max){
+  for (var k=0;k<max;k++){ document.getElementById(prefix+k).className = 'pip'+(k<n?' '+cls:''); }
+}
+function showBug(){ document.getElementById('bug').classList.add('show'); }
+function hideBug(){ document.getElementById('bug').classList.remove('show'); }
+
+poll();
+setInterval(poll, 2500);
+</script>
+</body>
+</html>
