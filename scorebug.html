@@ -182,10 +182,13 @@ async function poll(){
     var n = parseNotes(g.notes);
     var isAcesBatting = (g.half !== 'bottom');
 
-    // 2) at-bats → who's up + today's line + plate-appearance counts
-    var ab = (await db.from('at_bats').select('batter_id,result').eq('game_id',g.id)).data || [];
-    var acesAbs = ab.filter(function(a){ return a.batter_id!=null && !BASERUNNER.test(a.result||''); });
-    var oppAbs  = ab.filter(function(a){ return a.batter_id==null && !BASERUNNER.test(a.result||''); });
+    // 2) at-bats → who's up + today's line + plate-appearance counts.
+    // Classify by HALF (top = Aces batting, bottom = opponent). batter_id can be
+    // null on an Aces at-bat when that lineup slot has no name, so it's not a
+    // reliable side signal — half always is.
+    var ab = (await db.from('at_bats').select('batter_id,result,half').eq('game_id',g.id)).data || [];
+    var acesAbs = ab.filter(function(a){ return a.half!=='bottom' && !BASERUNNER.test(a.result||''); });
+    var oppAbs  = ab.filter(function(a){ return a.half==='bottom' && !BASERUNNER.test(a.result||''); });
 
     // 3) pitches → current pitcher's count + last recorded velocity
     var pt = (await db.from('pitches').select('pitcher_id,velocity_mph,pitch_type,created_at').eq('game_id',g.id)).data || [];
@@ -207,9 +210,13 @@ function acesPitcherName(n){
   return e ? e.playerName : '';
 }
 function currentAcesBatter(n, acesAbs){
-  var valid = (n.lineup||[]).filter(function(x){return x.playerName;});
+  var full = n.lineup || [];
+  var valid = full.filter(function(x){return x.playerName;});
   if (!valid.length) return null;
-  return valid[acesAbs.length % valid.length];
+  // Mirror the scorer: the order pointer advances over the FULL lineup (one step
+  // per completed Aces at-bat), and the display maps that onto the named players.
+  var idx = full.length ? (acesAbs.length % full.length) : 0;
+  return valid[idx % valid.length];
 }
 function batterTodayLine(batterId, acesAbs){
   var mine = acesAbs.filter(function(a){return a.batter_id===batterId;});
