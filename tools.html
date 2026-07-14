@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<link rel="manifest" href="/manifest.json"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-title" content="Aces Tools"/>
+<link rel="apple-touch-icon" href="/icon-192.png"/>
+<meta name="theme-color" content="#E8530A"/>
+<title>Aces · Coach HQ</title>
+<script src="config.js"></script>
+<script src="/pin.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Oswald:wght@400;600;700&family=Inter:wght@400;500;600&family=Roboto+Mono:wght@400;500&display=swap');
+:root{
+  --orange:#E8530A;--black:#0A0C0E;--dark:#111418;--dark2:#181C22;--dark3:#1F242C;
+  --bdr:rgba(255,255,255,.08);--text:#F0EDE8;--muted:#7A8290;--green:#3DDC6A;--blue:#54a6ef;
+  --mono:'Roboto Mono',monospace;--display:'Oswald',sans-serif;--body:'Inter',sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+body{background:var(--black);color:var(--text);font-family:var(--body);min-height:100vh;padding:22px 16px 48px;}
+.wrap{max-width:920px;margin:0 auto;}
+.head{display:flex;align-items:center;gap:13px;margin-bottom:4px;}
+.head img{width:44px;height:44px;object-fit:contain;filter:drop-shadow(0 0 12px rgba(232,83,10,.4));}
+h1{font-family:var(--display);font-size:24px;font-weight:700;letter-spacing:.5px;}
+h1 span{color:var(--orange);}
+.sub{font-family:var(--mono);font-size:11px;color:var(--muted);letter-spacing:1px;margin-bottom:26px;}
+
+.sec{margin-bottom:26px;}
+.sec-lbl{font-family:var(--mono);font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--orange);
+  margin-bottom:12px;padding-bottom:6px;border-bottom:1px solid var(--bdr);display:flex;align-items:center;gap:8px;}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px;}
+.card{display:flex;flex-direction:column;gap:5px;background:var(--dark2);border:1px solid var(--bdr);border-radius:12px;
+  padding:15px 16px;text-decoration:none;color:var(--text);transition:border-color .15s,transform .08s,background .15s;}
+.card:hover{border-color:rgba(232,83,10,.5);background:#1c222b;}
+.card:active{transform:scale(.99);}
+.card-top{display:flex;align-items:center;gap:10px;}
+.card-ic{font-size:20px;line-height:1;width:26px;text-align:center;}
+.card-name{font-family:var(--display);font-size:16px;font-weight:600;}
+.card-desc{font-size:12.5px;color:var(--muted);line-height:1.45;}
+.card-path{font-family:var(--mono);font-size:10px;color:#586274;margin-top:2px;}
+.pill{font-family:var(--mono);font-size:8.5px;letter-spacing:.5px;text-transform:uppercase;padding:2px 7px;border-radius:20px;
+  border:1px solid var(--bdr);color:var(--muted);margin-left:auto;}
+.pill.pin{border-color:rgba(232,83,10,.4);color:var(--orange);}
+.pill.live{border-color:rgba(61,220,106,.4);color:var(--green);}
+
+.copyrow{display:flex;gap:8px;margin-top:8px;}
+.copyrow input{flex:1;min-width:0;background:#0e1626;border:1px solid var(--bdr);border-radius:7px;color:var(--muted);
+  font-family:var(--mono);font-size:11px;padding:7px 9px;}
+.copyrow button{background:var(--dark3);border:1px solid var(--bdr);color:var(--text);border-radius:7px;padding:7px 12px;
+  font-family:var(--body);font-size:12px;font-weight:500;cursor:pointer;white-space:nowrap;}
+.copyrow button:active{background:var(--orange);color:#1a0d04;border-color:var(--orange);}
+
+.pub{display:flex;flex-wrap:wrap;gap:8px;}
+.pub a{font-size:12.5px;color:var(--muted);text-decoration:none;background:var(--dark);border:1px solid var(--bdr);
+  border-radius:20px;padding:7px 14px;transition:color .15s,border-color .15s;}
+.pub a:hover{color:var(--text);border-color:rgba(232,83,10,.5);}
+.foot{font-family:var(--mono);font-size:10px;color:var(--muted);text-align:center;margin-top:28px;line-height:1.6;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="head">
+    <img src="/logo.png" alt="Aces"/>
+    <h1>Coach <span>HQ</span></h1>
+  </div>
+  <div class="sub">DELMARVA ACES · ALL TOOLS IN ONE PLACE</div>
+
+  <!-- LIVE & BROADCAST -->
+  <div class="sec">
+    <div class="sec-lbl">🎬 Live &amp; Broadcast</div>
+    <div class="grid">
+      <a class="card" href="/score.html">
+        <div class="card-top"><span class="card-ic">📋</span><span class="card-name">Live Scorer</span><span class="pill pin">PIN</span></div>
+        <div class="card-desc">Tap pitches and at-bats in real time. Drives everything else on this row.</div>
+        <div class="card-path">/score.html</div>
+      </a>
+      <a class="card" href="/booth.html">
+        <div class="card-top"><span class="card-ic">🎙️</span><span class="card-name">AI Booth</span><span class="pill pin">PIN</span></div>
+        <div class="card-desc">AI voice play-by-play — calls each scored play live. Route its audio into the stream.</div>
+        <div class="card-path">/booth.html</div>
+      </a>
+      <a class="card" href="/scorebug.html?debug=1">
+        <div class="card-top"><span class="card-ic">📊</span><span class="card-name">Scorebug Overlay</span><span class="pill live">Overlay</span></div>
+        <div class="card-desc">Transparent live scoreboard for OBS / YoloBox. Opens in test mode; paste the URL below into the YoloBox.</div>
+        <div class="card-path">/scorebug.html</div>
+      </a>
+      <a class="card" href="/game.html">
+        <div class="card-top"><span class="card-ic">📺</span><span class="card-name">Live Gamecast</span><span class="pill live">Public</span></div>
+        <div class="card-desc">The page parents watch — scoreboard, stream, pitcher/batter, live field.</div>
+        <div class="card-path">/game.html</div>
+      </a>
+    </div>
+    <div class="copyrow">
+      <input id="bugUrl" readonly value="/scorebug.html"/>
+      <button onclick="copyBug()">Copy scorebug URL</button>
+    </div>
+  </div>
+
+  <!-- SETUP & ADMIN -->
+  <div class="sec">
+    <div class="sec-lbl">🧰 Setup &amp; Admin</div>
+    <div class="grid">
+      <a class="card" href="/lineup.html">
+        <div class="card-top"><span class="card-ic">📝</span><span class="card-name">Set Lineup</span><span class="pill pin">PIN</span></div>
+        <div class="card-desc">Batting order + starting pitcher. Do this before you start scoring a game.</div>
+        <div class="card-path">/lineup.html</div>
+      </a>
+      <a class="card" href="/admin.html">
+        <div class="card-top"><span class="card-ic">🧹</span><span class="card-name">Games Admin</span><span class="pill pin">PIN</span></div>
+        <div class="card-desc">Reset a game's plays or delete a test game so it never touches your stats.</div>
+        <div class="card-path">/admin.html</div>
+      </a>
+    </div>
+  </div>
+
+  <!-- SCOUTING -->
+  <div class="sec">
+    <div class="sec-lbl">🔍 Scouting</div>
+    <div class="grid">
+      <a class="card" href="/report.html">
+        <div class="card-top"><span class="card-ic">📄</span><span class="card-name">Scouting Report</span></div>
+        <div class="card-desc">Pre-game AI game plan for the next opponent.</div>
+        <div class="card-path">/report.html</div>
+      </a>
+      <a class="card" href="/threat-board.html">
+        <div class="card-top"><span class="card-ic">⚠️</span><span class="card-name">Threat Board</span></div>
+        <div class="card-desc">Tournament opponents ranked by ThreatScore.</div>
+        <div class="card-path">/threat-board.html</div>
+      </a>
+      <a class="card" href="/scout.html">
+        <div class="card-top"><span class="card-ic">🧢</span><span class="card-name">Player Scout</span></div>
+        <div class="card-desc">The other team's hitters, broken down.</div>
+        <div class="card-path">/scout.html</div>
+      </a>
+      <a class="card" href="/pitching-scout.html">
+        <div class="card-top"><span class="card-ic">⚾</span><span class="card-name">Pitching Scout</span></div>
+        <div class="card-desc">The other team's arms.</div>
+        <div class="card-path">/pitching-scout.html</div>
+      </a>
+      <a class="card" href="/bullpen.html">
+        <div class="card-top"><span class="card-ic">💪</span><span class="card-name">Bullpen</span></div>
+        <div class="card-desc">Arm-care tracking and pitch velocity.</div>
+        <div class="card-path">/bullpen.html</div>
+      </a>
+    </div>
+  </div>
+
+  <!-- VOICE LAB -->
+  <div class="sec">
+    <div class="sec-lbl">🔊 Voice Lab</div>
+    <div class="grid">
+      <a class="card" href="/tts-demo.html">
+        <div class="card-top"><span class="card-ic">🎧</span><span class="card-name">Voice Audition</span></div>
+        <div class="card-desc">Try OpenAI (and later ElevenLabs) voices for the booth.</div>
+        <div class="card-path">/tts-demo.html</div>
+      </a>
+    </div>
+  </div>
+
+  <!-- PUBLIC -->
+  <div class="sec">
+    <div class="sec-lbl">👪 Parent-facing pages</div>
+    <div class="pub">
+      <a href="/">Home</a>
+      <a href="/#schedule">Schedule</a>
+      <a href="/#roster">Roster</a>
+      <a href="/highlights.html">Highlights</a>
+      <a href="/game.html">Live Game</a>
+    </div>
+  </div>
+
+  <div class="foot">
+    Coach-only · not linked in the parent nav. Bookmark <b>/tools.html</b> to reach everything.
+  </div>
+</div>
+
+<script>
+function copyBug(){
+  var url = location.origin + '/scorebug.html';
+  var inp = document.getElementById('bugUrl');
+  inp.value = url;
+  inp.select();
+  var done = function(){ var b=document.querySelector('.copyrow button'); var t=b.textContent; b.textContent='Copied ✓'; setTimeout(function(){b.textContent=t;},1500); };
+  if(navigator.clipboard){ navigator.clipboard.writeText(url).then(done, done); } else { try{document.execCommand('copy');}catch(e){} done(); }
+}
+document.getElementById('bugUrl').value = location.origin + '/scorebug.html';
+</script>
+</body>
+</html>
