@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Aces · Voice PBP demo</title>
+<style>
+  :root{
+    --bg:#0b1220; --panel:#141d31; --line:#26324d; --ink:#eaf0ff; --muted:#9fb0d0;
+    --accent:#f6b41e; --accent2:#3b82f6; --ok:#22c55e; --err:#ef4444;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 system-ui,Segoe UI,Roboto,sans-serif;padding:24px}
+  .wrap{max-width:720px;margin:0 auto}
+  h1{font-size:22px;margin:0 0 4px}
+  .sub{color:var(--muted);margin:0 0 20px;font-size:14px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px;margin-bottom:16px}
+  label{display:block;font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin:0 0 6px}
+  textarea,select,input{width:100%;background:#0e1626;color:var(--ink);border:1px solid var(--line);border-radius:10px;padding:10px 12px;font:inherit}
+  textarea{min-height:120px;resize:vertical}
+  .row{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:14px}
+  .row>div{flex:1;min-width:180px}
+  .voices{display:flex;flex-wrap:wrap;gap:8px}
+  .voices button{background:#0e1626;border:1px solid var(--line);color:var(--muted);border-radius:999px;padding:6px 14px;cursor:pointer;font:inherit;font-size:14px}
+  .voices button.sel{background:var(--accent);color:#1a1200;border-color:var(--accent);font-weight:600}
+  .seg{display:inline-flex;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+  .seg button{background:#0e1626;color:var(--muted);border:0;padding:8px 16px;cursor:pointer;font:inherit}
+  .seg button.sel{background:var(--accent2);color:#fff;font-weight:600}
+  .go{width:100%;background:var(--accent);color:#1a1200;border:0;border-radius:12px;padding:14px;font-size:17px;font-weight:700;cursor:pointer;margin-top:4px}
+  .go:disabled{opacity:.6;cursor:wait}
+  .status{margin-top:12px;font-size:14px;min-height:20px}
+  .status.err{color:var(--err)} .status.ok{color:var(--ok)}
+  audio{width:100%;margin-top:12px}
+  .hint{font-size:12px;color:var(--muted);margin-top:6px}
+  code{background:#0e1626;padding:1px 6px;border-radius:6px;border:1px solid var(--line)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>⚾ Aces · Voice Play-by-Play demo</h1>
+  <p class="sub">Type a call, pick a voice, hit Speak. Same endpoint the live booth will use.</p>
+
+  <div class="card">
+    <label>Provider</label>
+    <div class="seg" id="provider" style="margin-bottom:14px">
+      <button data-p="openai" class="sel">OpenAI</button>
+      <button data-p="elevenlabs">ElevenLabs</button>
+    </div>
+
+    <div id="voicesWrap">
+      <label>Voice</label>
+      <div class="voices" id="voices"></div>
+    </div>
+
+    <div style="margin-top:14px">
+      <label>Vibe / instructions <span id="vibeNote" class="hint" style="text-transform:none;letter-spacing:0">(OpenAI only — steers the delivery)</span></label>
+      <input id="instructions" value="Fast-paced, energetic live radio sports announcer calling a youth baseball game. Build excitement on big plays.">
+    </div>
+
+    <div style="margin-top:14px">
+      <label>Call text</label>
+      <textarea id="text">Aces looking to add on here in the fourth. The pitch — swing and a miss, strike three! He's down and the Aces are out of the jam. Now here's the two-hitter. Ball put in play, a liner into the right-center gap — that's gonna roll to the wall! Jackson's around second, he's being waved home… the throw is late — the Aces take the lead!</textarea>
+    </div>
+
+    <button class="go" id="go">🔊 Speak</button>
+    <div class="status" id="status"></div>
+    <audio id="player" controls style="display:none"></audio>
+  </div>
+
+  <p class="hint">Needs <code>OPENAI_API_KEY</code> in Vercel env. Until then you'll see a "not set up yet" note. This is a throwaway demo page — not linked in the nav.</p>
+</div>
+
+<script>
+var OPENAI_VOICES = ['alloy','ash','ballad','coral','echo','fable','nova','onyx','sage','shimmer','verse'];
+// ElevenLabs uses voice IDs, not names. A couple of energetic male defaults:
+var EL_VOICES = [{id:'pNInz6obpgDQGcFmaJgB',name:'Adam'},{id:'ErXwobaYiN019PkySvjV',name:'Antoni'},{id:'TxGEqnHWrfWFTfGW9XjX',name:'Josh'}];
+
+var state = { provider:'openai', voice:'ash' };
+
+function renderVoices(){
+  var box = document.getElementById('voices');
+  box.innerHTML = '';
+  var list = state.provider === 'openai'
+    ? OPENAI_VOICES.map(function(v){return {id:v,name:v};})
+    : EL_VOICES;
+  // default selection for the active provider
+  state.voice = list[0].id;
+  if (state.provider === 'openai') state.voice = 'ash';
+  list.forEach(function(v){
+    var b = document.createElement('button');
+    b.textContent = v.name;
+    if (v.id === state.voice) b.className = 'sel';
+    b.onclick = function(){
+      state.voice = v.id;
+      [].forEach.call(box.children, function(c){c.className='';});
+      b.className = 'sel';
+    };
+    box.appendChild(b);
+  });
+}
+
+document.getElementById('provider').addEventListener('click', function(e){
+  var btn = e.target.closest('button'); if(!btn) return;
+  state.provider = btn.getAttribute('data-p');
+  [].forEach.call(this.children, function(c){c.className='';});
+  btn.className = 'sel';
+  document.getElementById('vibeNote').style.display = state.provider === 'openai' ? '' : 'none';
+  renderVoices();
+});
+
+renderVoices();
+
+document.getElementById('go').addEventListener('click', async function(){
+  var btn = this, status = document.getElementById('status'), player = document.getElementById('player');
+  var text = document.getElementById('text').value.trim();
+  if(!text){ status.className='status err'; status.textContent='Type something to say.'; return; }
+
+  btn.disabled = true; status.className='status'; status.textContent='🎙️ Generating…';
+  player.style.display='none';
+  try{
+    var r = await fetch('/api/tts', {
+      method:'POST', headers:{'content-type':'application/json'},
+      body: JSON.stringify({
+        text: text,
+        provider: state.provider,
+        voice: state.voice,
+        instructions: document.getElementById('instructions').value
+      })
+    });
+    if(!r.ok){
+      var err = await r.json().catch(function(){return {message:'HTTP '+r.status};});
+      status.className='status err';
+      status.textContent = err.message || ('Error '+r.status);
+      return;
+    }
+    var blob = await r.blob();
+    var url = URL.createObjectURL(blob);
+    player.src = url; player.style.display=''; player.play();
+    status.className='status ok'; status.textContent='✅ Playing ('+state.provider+' · '+state.voice+')';
+  }catch(e){
+    status.className='status err'; status.textContent='Network error: '+(e.message||e);
+  }finally{
+    btn.disabled = false;
+  }
+});
+</script>
+</body>
+</html>
