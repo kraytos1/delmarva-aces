@@ -153,19 +153,33 @@ async function resetGame(gid, opp){
 
 async function deleteGame(gid, opp){
   var c=await counts(gid);
-  if(!confirm('DELETE "Aces vs '+opp+'" entirely?\n\nRemoves the game plus '+c.ab+' at-bat'+(c.ab===1?'':'s')+' and '+c.p+' pitch'+(c.p===1?'':'es')+'. It will disappear from the schedule.\n\nThis is permanent.')) return;
-  var typed=prompt('Type DELETE to confirm removing this game:');
-  if(typed!=='DELETE'){ if(typed!==null) toast('Not deleted — type DELETE to confirm'); return; }
+  if(!confirm('DELETE "Aces vs '+opp+'" entirely?\n\nRemoves the game plus '+c.ab+' at-bat'+(c.ab===1?'':'s')+' and '+c.p+' pitch'+(c.p===1?'':'es')+'. It will disappear from the schedule.\n\nThis is permanent — click OK to delete.')) return;
   setBusy(gid,true);
-  var err=await wipePlays(gid);
-  if(!err){ err=(await db.from('games').delete().eq('id',gid)).error; }
-  if(err){
-    toast('Delete blocked: '+(err.message||err), true);
-    alert('The plays were cleared, but Supabase blocked deleting the game row (likely a row-level-security policy).\n\nThe game is now empty and clean, so it will not affect stats. To remove the row itself, either add a DELETE policy on the "games" table in Supabase, or delete that row from the Supabase Table Editor.');
-    setBusy(gid,false); load();
-  } else {
-    toast('Game deleted ✓'); load();
+  // Delete the game row first, and read back what was ACTUALLY removed. If the
+  // database silently removes 0 rows (no delete permission), .select() returns []
+  // even though there's no error — so we can catch that instead of faking success.
+  var d=await db.from('games').delete().eq('id',gid).select();
+  if(d.error){
+    // Possibly a foreign-key restriction — clear the child rows, then retry once.
+    var werr=await wipePlays(gid);
+    if(werr) return failDelete(gid, werr);
+    d=await db.from('games').delete().eq('id',gid).select();
   }
+  if(d.error) return failDelete(gid, d.error);
+  if((d.data||[]).length===0){
+    setBusy(gid,false);
+    toast('Delete blocked by database rules', true);
+    alert('The game row was not deleted — the "games" table has no delete permission set in the database, so the delete quietly did nothing.\n\nFix it once in Supabase (SQL editor):\n\n  create policy "app can delete games"\n  on public.games for delete to anon using (true);\n\nUntil then, use Reset — it clears the game so it never affects your stats.');
+    load();
+    return;
+  }
+  await wipePlays(gid);   // remove any leftover child rows
+  toast('Game deleted ✓'); load();
+}
+function failDelete(gid, err){
+  setBusy(gid,false);
+  toast('Delete failed: '+(err.message||err), true);
+  load();
 }
 
 function setBusy(gid,on){
