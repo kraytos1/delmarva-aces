@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Aces · AI Booth</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="config.js"></script>
+<script src="/pin.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Oswald:wght@400;600;700&family=Inter:wght@400;500;600&family=Roboto+Mono:wght@400;500&display=swap');
+:root{
+  --orange:#E8530A;--black:#0A0C0E;--dark:#111418;--dark2:#181C22;--dark3:#1F242C;
+  --bdr:rgba(255,255,255,.08);--text:#F0EDE8;--muted:#7A8290;--green:#3DDC6A;--red:#e74c3c;
+  --mono:'Roboto Mono',monospace;--display:'Oswald',sans-serif;--body:'Inter',sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+body{background:var(--black);color:var(--text);font-family:var(--body);min-height:100vh;}
+
+/* setup */
+.setup{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;padding:24px;}
+.setup img{width:64px;height:64px;object-fit:contain;filter:drop-shadow(0 0 16px rgba(232,83,10,.4));margin-bottom:6px;}
+.setup-sub{font-family:var(--mono);font-size:11px;color:var(--muted);letter-spacing:2px;margin-bottom:24px;}
+.setup-card{background:var(--dark2);border:1px solid var(--bdr);border-radius:14px;padding:20px;width:100%;max-width:380px;display:flex;flex-direction:column;gap:14px;}
+.field-lbl{font-family:var(--mono);font-size:10px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:5px;}
+.field-sel{width:100%;background:var(--dark3);border:1px solid var(--bdr);border-radius:8px;padding:11px 12px;color:var(--text);font-size:14px;font-family:var(--body);outline:none;}
+.field-sel:focus{border-color:var(--orange);}
+.setup-btn{width:100%;background:var(--orange);color:#fff;border:none;border-radius:10px;padding:15px;font-family:var(--display);font-size:18px;font-weight:600;letter-spacing:.5px;text-transform:uppercase;cursor:pointer;}
+.setup-btn:active{opacity:.85;}
+
+/* booth */
+.booth{display:none;flex-direction:column;min-height:100vh;max-width:640px;margin:0 auto;}
+.b-top{background:#0d1420;padding:12px 16px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:10;border-bottom:1px solid var(--bdr);}
+.b-game{font-family:var(--display);font-size:16px;font-weight:600;}
+.b-meta{font-family:var(--mono);font-size:10px;color:var(--muted);margin-top:2px;}
+.conn{display:flex;align-items:center;gap:6px;font-family:var(--mono);font-size:10px;color:var(--muted);}
+.conn .dot{width:9px;height:9px;border-radius:50%;background:var(--green);animation:blink 1.6s infinite;}
+.conn .dot.off{background:var(--red);animation:none;}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+
+/* master switch */
+.master{padding:20px 16px;display:flex;align-items:center;justify-content:space-between;gap:14px;border-bottom:1px solid var(--bdr);}
+.master-lbl{font-family:var(--display);font-size:20px;font-weight:600;}
+.master-hint{font-family:var(--mono);font-size:10px;color:var(--muted);margin-top:2px;}
+.toggle{position:relative;width:76px;height:40px;border-radius:22px;background:var(--dark3);border:1px solid var(--bdr);cursor:pointer;flex-shrink:0;transition:background .2s;}
+.toggle .knob{position:absolute;top:3px;left:3px;width:32px;height:32px;border-radius:50%;background:var(--muted);transition:left .2s,background .2s;}
+.toggle.on{background:rgba(61,220,106,.2);border-color:var(--green);}
+.toggle.on .knob{left:39px;background:var(--green);}
+
+/* now speaking */
+.now{padding:24px 16px;min-height:160px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;border-bottom:1px solid var(--bdr);}
+.now-state{font-family:var(--mono);font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--orange);margin-bottom:12px;height:14px;}
+.now-text{font-size:18px;line-height:1.5;color:var(--text);max-width:520px;}
+.now-text.idle{color:var(--muted);font-style:italic;font-size:15px;}
+.eq{display:flex;gap:4px;height:20px;align-items:flex-end;margin-bottom:14px;opacity:0;transition:opacity .2s;}
+.eq.live{opacity:1;}
+.eq span{width:4px;background:var(--orange);border-radius:2px;animation:eq 0.8s infinite ease-in-out;}
+.eq span:nth-child(2){animation-delay:.1s}.eq span:nth-child(3){animation-delay:.2s}
+.eq span:nth-child(4){animation-delay:.3s}.eq span:nth-child(5){animation-delay:.15s}
+@keyframes eq{0%,100%{height:5px}50%{height:20px}}
+
+/* controls */
+.controls{padding:16px;display:flex;flex-direction:column;gap:14px;}
+.ctrl-row{display:flex;gap:10px;}
+.ctrl-btn{flex:1;padding:13px 4px;font-size:13px;font-weight:500;border:1px solid var(--bdr);border-radius:10px;background:var(--dark3);color:var(--text);cursor:pointer;text-align:center;font-family:var(--body);}
+.ctrl-btn:active{opacity:.8;}
+.ctrl-btn.muted{border-color:var(--red);color:var(--red);}
+.vol-row{display:flex;align-items:center;gap:12px;background:var(--dark2);border:1px solid var(--bdr);border-radius:10px;padding:12px 14px;}
+.vol-row .vlbl{font-family:var(--mono);font-size:10px;color:var(--muted);letter-spacing:1px;width:52px;}
+input[type=range]{flex:1;accent-color:var(--orange);height:4px;}
+
+/* log */
+.log{padding:0 16px 24px;}
+.log-lbl{font-family:var(--mono);font-size:10px;color:var(--muted);letter-spacing:2px;text-transform:uppercase;margin:8px 0 10px;}
+.log-item{background:var(--dark2);border:1px solid var(--bdr);border-left:3px solid var(--orange);border-radius:8px;padding:10px 12px;margin-bottom:8px;font-size:13px;line-height:1.4;color:var(--text);}
+.log-item .lt{font-family:var(--mono);font-size:9px;color:var(--muted);letter-spacing:1px;display:block;margin-bottom:3px;}
+.log-empty{color:var(--muted);font-size:13px;font-style:italic;padding:8px 0;}
+</style>
+</head>
+<body>
+
+<!-- SETUP -->
+<div class="setup" id="setup">
+  <img src="/logo.png" alt="Aces"/>
+  <div class="setup-sub">Delmarva Aces · AI Booth</div>
+  <div class="setup-card">
+    <div>
+      <div class="field-lbl">Live / upcoming game</div>
+      <select class="field-sel" id="game-sel"><option value="">Loading…</option></select>
+    </div>
+    <button class="setup-btn" onclick="startBooth()">🎙️ Open Booth</button>
+    <div style="font-family:var(--mono);font-size:10px;color:var(--muted);line-height:1.6;text-align:center;">
+      Calls each play as it's scored.<br>Route this device's audio into OBS / YoloBox.
+    </div>
+  </div>
+</div>
+
+<!-- BOOTH -->
+<div class="booth" id="booth">
+  <div class="b-top">
+    <div>
+      <div class="b-game" id="b-game">Aces</div>
+      <div class="b-meta" id="b-meta">—</div>
+    </div>
+    <div class="conn"><span class="dot" id="conn-dot"></span><span id="conn-txt">live</span></div>
+  </div>
+
+  <div class="master">
+    <div>
+      <div class="master-lbl">Voice</div>
+      <div class="master-hint" id="master-hint">OFF — no calls</div>
+    </div>
+    <div class="toggle" id="toggle" onclick="toggleMaster()"><div class="knob"></div></div>
+  </div>
+
+  <div class="now">
+    <div class="now-state" id="now-state"></div>
+    <div class="eq" id="eq"><span></span><span></span><span></span><span></span><span></span></div>
+    <div class="now-text idle" id="now-text">Booth is ready. Flip Voice ON when you're set.</div>
+  </div>
+
+  <div class="controls">
+    <div class="ctrl-row">
+      <button class="ctrl-btn" onclick="testVoice()">🔊 Test voice</button>
+      <button class="ctrl-btn" onclick="skipCurrent()">⏭ Skip call</button>
+      <button class="ctrl-btn" id="mute-btn" onclick="toggleMute()">🔇 Mute</button>
+    </div>
+    <div class="vol-row">
+      <span class="vlbl">VOLUME</span>
+      <input type="range" id="vol" min="0" max="100" value="100" oninput="setVol(this.value)"/>
+    </div>
+  </div>
+
+  <div class="log">
+    <div class="log-lbl">Recent calls</div>
+    <div id="log-list"><div class="log-empty">No plays called yet.</div></div>
+  </div>
+</div>
+
+<script>
+// ── Voice defaults (edit these two lines anytime) ───────────────────────────
+var VOICE = 'verse';
+var VIBE  = "Fast-paced, energetic live radio sports announcer calling a youth baseball game. Build excitement on big plays; stay crisp and clear on routine ones. Never harsh on the kids.";
+
+var db = supabase.createClient(ACES_CONFIG.supabaseUrl, ACES_CONFIG.supabaseKey);
+
+var B = {
+  gameId:null, game:null, oppName:'the visitors',
+  names:{},              // batter_id -> last name (Aces only)
+  seen:{},               // at_bat id -> true (so we never re-announce)
+  master:false, muted:false, volume:1,
+  queue:[], playing:false,
+  audio:new Audio(),
+  poll:null
+};
+B.audio.addEventListener('ended', onAudioDone);
+B.audio.addEventListener('error', onAudioDone);
+
+/* ── SETUP ── */
+async function init(){
+  var today=new Date(); today.setDate(today.getDate()-1);
+  var {data}=await db.from('games').select('*,opponents(name)')
+    .in('status',['live','scheduled'])
+    .gte('game_date',today.toISOString().split('T')[0])
+    .order('status',{ascending:true}).order('game_date').limit(10);
+  var sel=document.getElementById('game-sel');
+  if(!data||!data.length){sel.innerHTML='<option value="">No live/upcoming games</option>';return;}
+  sel.innerHTML=data.map(function(g){
+    var opp=(g.opponents&&g.opponents.name)||'Opponent';
+    var d=new Date(g.game_date);
+    var ds=d.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric',timeZone:'UTC'});
+    var live=g.status==='live'?'🔴 LIVE · ':'';
+    return '<option value="'+g.id+'">'+live+ds+' vs '+opp+'</option>';
+  }).join('');
+  // Auto-pick a live game if one exists
+  var liveG=data.find(function(g){return g.status==='live';});
+  if(liveG) sel.value=liveG.id;
+}
+
+async function startBooth(){
+  var gid=document.getElementById('game-sel').value;
+  if(!gid){alert('Select a game');return;}
+  var {data:g}=await db.from('games').select('*,opponents(name)').eq('id',gid).single();
+  B.gameId=gid; B.game=g;
+  B.oppName=(g.opponents&&g.opponents.name)||'the visitors';
+
+  // Build Aces name map from the saved lineup (same source score.html uses)
+  if(g.notes){
+    try{
+      var saved=JSON.parse(g.notes);
+      (saved.aces_lineup||[]).forEach(function(e){
+        if(e.playerId&&e.playerName) B.names[e.playerId]=e.playerName.split(' ').pop();
+      });
+    }catch(e){}
+  }
+
+  // Seed "seen" with everything already logged, so opening mid-game doesn't
+  // replay the whole game — we only call plays that happen from here on.
+  try{
+    var {data:existing}=await db.from('at_bats').select('id').eq('game_id',gid);
+    (existing||[]).forEach(function(r){B.seen[r.id]=true;});
+  }catch(e){}
+
+  document.getElementById('setup').style.display='none';
+  document.getElementById('booth').style.display='flex';
+  document.getElementById('b-game').textContent='Aces vs '+B.oppName;
+  document.getElementById('b-meta').textContent='Booth open · scoring drives the call';
+
+  B.poll=setInterval(pollPlays,2500);
+  pollPlays();
+}
+
+/* ── POLL for new plays ── */
+async function pollPlays(){
+  if(!B.gameId) return;
+  try{
+    var {data,error}=await db.from('at_bats').select('*')
+      .eq('game_id',B.gameId).order('ab_num',{ascending:false}).limit(25);
+    setConn(!error);
+    if(error||!data) return;
+    // Oldest-first so multiple new plays queue in the right order
+    data.slice().reverse().forEach(function(ab){
+      if(B.seen[ab.id]) return;
+      B.seen[ab.id]=true;
+      var call=buildCall(ab);
+      if(call) announce(call, ab);
+    });
+  }catch(e){ setConn(false); }
+}
+
+/* ── CALL BUILDER ── */
+function pick(a){return a[Math.floor(Math.random()*a.length)];}
+
+function buildCall(ab){
+  var r=(ab.result||'').toLowerCase();
+  var isAces=(ab.half==='top');                 // top = Aces batting in this scorer
+  var runs=ab.runs_scored||0;
+  var name=(isAces && ab.batter_id && B.names[ab.batter_id]) ? B.names[ab.batter_id] : null;
+  var who=name || (isAces ? 'the batter' : 'the hitter');
+
+  // Skip granular baserunner minutiae (outcomes-only booth)
+  if(/(wp_advance|pb_advance|balk|pickoff|out_advancing)/.test(r)) return null;
+
+  // ── Steals (no reliable name — keep generic, team-aware) ──
+  if(r==='stolen_base') return isAces?pick(['Stolen base, Aces! Aggressive on the base paths.','And they’re off — stolen base for the Aces!']):'The runner swipes a bag for '+B.oppName+'.';
+  if(r==='caught_stealing') return isAces?'Caught stealing — the Aces runner is gunned down.':pick(['Caught stealing! The Aces throw him out!','Runner going — and he’s out! Nice throw by the Aces!']);
+
+  // ── Home run (special: fold in the run count) ──
+  if(r==='home_run'){
+    if(isAces){
+      var tag = runs>1 ? 'a '+runs+'-run blast' : 'a solo shot';
+      return pick([
+        who+' CRUSHES it — that ball is GONE! Home run, Aces, '+tag+'!',
+        'Swing and a drive by '+who+'… see ya! Gone! Home run for the Aces, '+tag+'!'
+      ]);
+    }
+    return 'Long ball for '+B.oppName+' — a home run'+(runs>1?', '+runs+' runs score':'')+'.';
+  }
+
+  var t;
+  if(isAces){
+    // Aces at the plate — celebrate the good, stay light on outs
+    switch(r){
+      case 'single': t=pick([who+' rips one into the outfield — base hit for the Aces!','Base knock for '+who+'! He’s aboard.','Line drive, '+who+' — there’s a base hit!']); break;
+      case 'double': t=pick([who+' drives one into the gap — stand-up double!','Extra bases for '+who+' — a double for the Aces!']); break;
+      case 'triple': t=pick([who+' rips it into the corner — flying into third with a triple!','Way back in the gap — '+who+' legs out a triple!']); break;
+      case 'walk': case 'intentional_walk': t=pick(['Ball four — '+who+' draws the walk.',who+' works a free pass to first.']); break;
+      case 'hbp': t=who+' wears one — hit by pitch, takes his base.'; break;
+      case 'error': t=who+' puts it in play — and the defense can’t handle it! He’s aboard.'; break;
+      case 'fielders_choice': t=who+' in play — they take the out elsewhere, '+who+' reaches on the fielder’s choice.'; break;
+      case 'strikeout_swinging': t=pick([who+' goes down swinging. One away.','Strike three swinging on '+who+'.']); break;
+      case 'strikeout_looking': t=pick([who+' caught looking — called out on strikes.','Strike three, '+who+' takes it. One down.']); break;
+      case 'dropped_third_k': t=who+' strikes out, but it’s a dropped third strike — play at first!'; break;
+      case 'dropped_third': t=who+' reaches on a dropped third strike!'; break;
+      case 'double_play': t='Ground ball — turned two. '+who+' into a double play.'; break;
+      case 'sac_fly': t='Fly ball deep enough — '+who+' brings a run home on the sacrifice.'; break;
+      case 'sac_bunt': t=who+' lays down the sacrifice, moves the runner up.'; break;
+      case 'groundout': t=pick([who+' grounds out. One away.','Ground ball, '+who+' — they get the out.']); break;
+      case 'flyout': t=who+' flies out. One down.'; break;
+      case 'lineout': t=who+' lines out — right at ’em.'; break;
+      case 'popout': t=who+' pops it up — the out is made.'; break;
+      default: t=null;
+    }
+  } else {
+    // Aces in the field — celebrate defense/strikeouts, subdued on their hits
+    switch(r){
+      case 'single': t='Base hit for '+B.oppName+'.'; break;
+      case 'double': t='A drive into the gap — double for '+B.oppName+'.'; break;
+      case 'triple': t='A triple for '+B.oppName+'.'; break;
+      case 'walk': case 'intentional_walk': t='The Aces pitcher issues a walk.'; break;
+      case 'hbp': t='Hit by the pitch — '+B.oppName+' takes first.'; break;
+      case 'error': t='Ball in play — and it’s misplayed. The runner reaches.'; break;
+      case 'fielders_choice': t='The Aces take the out on the fielder’s choice.'; break;
+      case 'strikeout_swinging': t=pick(['Swing and a miss — strike three! The Aces pitcher deals!','Strikeout! The Aces slam the door!']); break;
+      case 'strikeout_looking': t=pick(['Caught looking — strike three! Big pitch for the Aces!','Called out on strikes — that’s a K for the Aces!']); break;
+      case 'dropped_third_k': t='Strike three — dropped ball, play at first!'; break;
+      case 'double_play': t='Turned two! A double play for the Aces defense!'; break;
+      case 'groundout': t=pick(['Ground ball — Aces glove it up for the out!','Grounder, and the Aces make the play. One away.']); break;
+      case 'flyout': t=pick(['Fly ball — Aces track it down! One out.','Pop fly, squeezed by the Aces defense.']); break;
+      case 'lineout': t='Line drive — caught by the Aces! Nice grab.'; break;
+      case 'popout': t='Pop up — Aces settle under it for the out.'; break;
+      case 'sac_fly': t='Deep enough for the sac fly — a run scores against the Aces.'; break;
+      case 'sac_bunt': t='A bunt moves the runner up for '+B.oppName+'.'; break;
+      default: t=null;
+    }
+  }
+  if(!t) return null;
+
+  // Fold in runs — but not for plays whose wording already conveys the run
+  if(runs>0 && r!=='sac_fly'){
+    if(isAces) t+=' '+(runs===1?'A run comes across for the Aces!':runs+' runs score for the Aces!');
+    else       t+=' '+(runs===1?'A run scores for '+B.oppName+'.':runs+' runs score for '+B.oppName+'.');
+  }
+  return t;
+}
+
+/* ── AUDIO QUEUE ── */
+function announce(text, ab){
+  text = text.charAt(0).toUpperCase() + text.slice(1);  // never start lowercase
+  addLog(text, ab);
+  if(!B.master) return;               // logged but not spoken when OFF
+  B.queue.push(text);
+  if(B.queue.length>4) B.queue=B.queue.slice(-4);  // don't let it back up
+  drain();
+}
+
+async function drain(){
+  if(B.playing || !B.master || !B.queue.length) return;
+  var text=B.queue.shift();
+  B.playing=true;
+  setNow('speaking', text, true);
+  try{
+    var r=await fetch('/api/tts',{method:'POST',headers:{'content-type':'application/json'},
+      body:JSON.stringify({text:text, voice:VOICE, instructions:VIBE})});
+    if(!r.ok){
+      var err=await r.json().catch(function(){return{};});
+      setNow('', (err.message||'Voice error — skipped'), false);
+      onAudioDone(); return;
+    }
+    var url=URL.createObjectURL(await r.blob());
+    B.audio.src=url;
+    B.audio.volume=B.muted?0:B.volume;
+    await B.audio.play();
+  }catch(e){
+    setNow('', 'Audio blocked — tap Test voice once to enable.', false);
+    onAudioDone();
+  }
+}
+
+function onAudioDone(){
+  B.playing=false;
+  document.getElementById('eq').classList.remove('live');
+  document.getElementById('now-state').textContent='';
+  if(B.queue.length) drain();
+}
+
+/* ── CONTROLS ── */
+function toggleMaster(){
+  B.master=!B.master;
+  document.getElementById('toggle').classList.toggle('on',B.master);
+  document.getElementById('master-hint').textContent=B.master?'ON — calling live':'OFF — no calls';
+  if(B.master){ drain(); }
+  else { B.queue=[]; try{B.audio.pause();}catch(e){} onAudioDone(); setNow('','Voice off.',false); }
+}
+function toggleMute(){
+  B.muted=!B.muted;
+  B.audio.volume=B.muted?0:B.volume;
+  document.getElementById('mute-btn').classList.toggle('muted',B.muted);
+  document.getElementById('mute-btn').textContent=B.muted?'🔈 Unmute':'🔇 Mute';
+}
+function setVol(v){ B.volume=v/100; if(!B.muted) B.audio.volume=B.volume; }
+function skipCurrent(){ try{B.audio.pause();}catch(e){} onAudioDone(); }
+function testVoice(){
+  // Also satisfies the browser autoplay gate (first play must follow a tap)
+  var line=pick([
+    'Booth check — the Aces are live and the voice is rolling!',
+    'Testing the booth — Aces baseball coming your way!'
+  ]);
+  if(!B.master) toggleMaster();
+  B.queue.push(line); drain();
+}
+
+/* ── UI HELPERS ── */
+function setNow(state,text,live){
+  document.getElementById('now-state').textContent=state||'';
+  var el=document.getElementById('now-text');
+  el.textContent=text; el.classList.toggle('idle',!live&&!state);
+  document.getElementById('eq').classList.toggle('live',!!live);
+}
+function setConn(ok){
+  document.getElementById('conn-dot').classList.toggle('off',!ok);
+  document.getElementById('conn-txt').textContent=ok?'live':'reconnecting';
+}
+function addLog(text, ab){
+  var list=document.getElementById('log-list');
+  var empty=list.querySelector('.log-empty'); if(empty) empty.remove();
+  var half=(ab&&ab.half==='top')?'Top':'Bot';
+  var inn=(ab&&ab.inning)?half+' '+ab.inning:'';
+  var item=document.createElement('div');
+  item.className='log-item';
+  item.innerHTML='<span class="lt">'+inn+'</span>'+text.replace(/</g,'&lt;');
+  list.insertBefore(item, list.firstChild);
+  while(list.children.length>15) list.removeChild(list.lastChild);
+}
+
+window.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>
