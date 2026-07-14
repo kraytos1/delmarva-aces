@@ -104,7 +104,7 @@
   <div class="bug-bot" id="bugBot">
     <div class="minfo" id="rowPit">
       <span class="tag">Pitching</span><span class="nm" id="pitName">—</span>
-      <span class="stat"><b id="pitPC">0</b> P</span>
+      <span class="stat"><b id="pitPC">0</b> P<span id="pitVelo"></span></span>
     </div>
     <div class="minfo" id="rowAB">
       <span class="tag">At bat</span><span class="nm" id="batName">—</span>
@@ -187,12 +187,16 @@ async function poll(){
     var acesAbs = ab.filter(function(a){ return a.batter_id!=null && !BASERUNNER.test(a.result||''); });
     var oppAbs  = ab.filter(function(a){ return a.batter_id==null && !BASERUNNER.test(a.result||''); });
 
-    // 3) pitches → current pitcher's count
-    var pt = (await db.from('pitches').select('pitcher_id').eq('game_id',g.id)).data || [];
+    // 3) pitches → current pitcher's count + last recorded velocity
+    var pt = (await db.from('pitches').select('pitcher_id,velocity_mph,pitch_type,created_at').eq('game_id',g.id)).data || [];
     var oppPC=0, acesPC=0;
     pt.forEach(function(p){ if (p.pitcher_id==null) oppPC++; else if (p.pitcher_id===n.acesPitcherId) acesPC++; });
+    // Most-recent pitch (that has a velo) thrown by whoever is currently on the mound
+    var lastPitch = pt
+      .filter(function(p){ return (isAcesBatting ? (p.pitcher_id==null) : (p.pitcher_id===n.acesPitcherId)) && p.velocity_mph!=null; })
+      .sort(function(a,b){ return a.created_at<b.created_at?1:(a.created_at>b.created_at?-1:0); })[0] || null;
 
-    render(g, n, isAcesBatting, acesAbs, oppAbs, oppPC, acesPC);
+    render(g, n, isAcesBatting, acesAbs, oppAbs, oppPC, acesPC, lastPitch);
     showBug();
   }catch(e){ /* keep last frame on a hiccup */ }
   finally{ busy = false; }
@@ -214,7 +218,7 @@ function batterTodayLine(batterId, acesAbs){
   return abCount>0 ? (hits+'-'+abCount) : '';
 }
 
-function render(g, n, isAcesBatting, acesAbs, oppAbs, oppPC, acesPC){
+function render(g, n, isAcesBatting, acesAbs, oppAbs, oppPC, acesPC, lastPitch){
   document.getElementById('scUs').textContent   = g.our_score||0;
   document.getElementById('scThem').textContent = g.opp_score||0;
   document.getElementById('innNum').textContent = g.inning||1;
@@ -237,6 +241,9 @@ function render(g, n, isAcesBatting, acesAbs, oppAbs, oppPC, acesPC){
   var pitName = isAcesBatting ? (n.oppPitcher || 'Opp. pitcher') : (acesPitcherName(n) || 'Aces pitcher');
   document.getElementById('pitName').textContent = pitName;
   document.getElementById('pitPC').textContent   = isAcesBatting ? oppPC : acesPC;
+  document.getElementById('pitVelo').textContent = lastPitch
+    ? (' · ' + lastPitch.velocity_mph + (lastPitch.pitch_type ? ' '+lastPitch.pitch_type : ''))
+    : '';
 
   // At bat: the batting team's current hitter
   var batName = '', batLine = '';
