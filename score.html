@@ -112,9 +112,24 @@ body{background:var(--black);color:var(--text);font-family:var(--body);min-heigh
 .bot-btn.end{border-color:var(--orange);color:var(--orange);}
 .bot-btn.next{background:var(--orange);color:white;border-color:var(--orange);font-weight:600;}
 
+/* recent plays — desktop mistake-catcher (hidden on phones) */
+.recent-feed{display:none;}
+.rf-head{display:flex;align-items:center;justify-content:space-between;padding:8px 14px;border-top:1px solid var(--bdr);font-family:var(--mono);font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);flex-shrink:0;}
+.rf-hint{font-size:9px;letter-spacing:.3px;color:#4a515c;text-transform:none;}
+.rf-list{overflow-y:auto;}
+.rf-empty{padding:16px 14px;text-align:center;font-family:var(--mono);font-size:11px;color:var(--muted);}
+.rf-item{display:flex;align-items:center;gap:10px;padding:8px 14px;border-top:1px solid rgba(255,255,255,.04);font-size:13px;}
+.rf-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0;}
+.rf-dot.ball{background:#1a7ac4;}.rf-dot.strike{background:#e74c3c;}.rf-dot.foul{background:#BA7517;}
+.rf-dot.hit{background:var(--green);}.rf-dot.out{background:#7f8894;}.rf-dot.walk{background:#7F77DD;}.rf-dot.inplay{background:#27ae60;}
+.rf-main{color:var(--text);}.rf-meta{margin-left:auto;font-family:var(--mono);font-size:11px;color:var(--muted);}
+
 /* iPad Pro landscape — two column layout */
 @media(min-width:1024px){
-  .scorer-body{display:grid;grid-template-columns:220px 1fr;align-items:start;}
+  .scorer-body{display:grid;grid-template-columns:220px 1fr;align-items:stretch;flex:1;min-height:0;}
+  .action-col{display:flex;flex-direction:column;min-height:0;}
+  .recent-feed{display:flex;flex-direction:column;flex:1;min-height:0;}
+  .recent-feed .rf-list{flex:1;}
   .mid-row{flex-direction:column;border-bottom:none;border-right:1px solid var(--bdr);}
   .field-wrap{padding:12px;}
   .ab-panel{padding:12px;}
@@ -334,6 +349,7 @@ body{background:var(--black);color:var(--text);font-family:var(--body);min-heigh
     </div>
   </div>
 
+  <div class="action-col">
   <!-- Result buttons -->
   <div class="result-area">
     <div class="result-row-top">
@@ -373,6 +389,13 @@ body{background:var(--black);color:var(--text);font-family:var(--body);min-heigh
       </button>
     </div>
   </div>
+
+    <!-- Recent plays (desktop mistake-catcher) -->
+    <div class="recent-feed" id="recent-feed">
+      <div class="rf-head"><span>Recent</span><span class="rf-hint">newest first · Undo to fix</span></div>
+      <div class="rf-list" id="rf-list"><div class="rf-empty">Plays appear here as you score</div></div>
+    </div>
+  </div><!-- /action-col -->
 
   </div><!-- /scorer-body -->
 
@@ -463,6 +486,30 @@ function saveSnapshot(pitchId, atBatId) {
   })
   // Keep last 10 actions
   if (HISTORY.length > 10) HISTORY.shift()
+}
+
+// ── Recent-plays feed (desktop mistake-catcher) ──
+var RECENT = []
+function pushRecent(dotCls, main, meta) {
+  RECENT.push({ d: dotCls, m: main, t: meta || '' })
+  if (RECENT.length > 14) RECENT.shift()
+  renderRecent()
+}
+function popRecent() { RECENT.pop(); renderRecent() }
+function renderRecent() {
+  var list = document.getElementById('rf-list'); if (!list) return
+  if (!RECENT.length) { list.innerHTML = '<div class="rf-empty">Plays appear here as you score</div>'; return }
+  var esc = function(s){ return String(s).replace(/[&<>]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;'}[c]}) }
+  list.innerHTML = RECENT.slice().reverse().map(function(e){
+    return '<div class="rf-item"><span class="rf-dot '+e.d+'"></span><span class="rf-main">'+esc(e.m)+'</span>'+(e.t?'<span class="rf-meta">'+esc(e.t)+'</span>':'')+'</div>'
+  }).join('')
+}
+function currentBatterLast() {
+  if (!S.isTop) return ''
+  var valid = (S.acesLineup||[]).filter(function(e){return e.playerName})
+  if (!valid.length) return ''
+  var b = valid[S.currentBatterIdx % valid.length]
+  return (b && b.playerName) ? b.playerName.split(' ').pop() : ''
 }
 
 var CLIP = ['single','double','triple','home_run','strikeout_looking','strikeout_swinging','walk','hbp','double_play']
@@ -790,6 +837,13 @@ async function quickLog(result) {
     // ball in play — count resets handled by logAB
   }
 
+  // feed the recent-plays panel for raw pitch taps (outcomes push separately)
+  if(result==='ball'||result==='strike_called'||result==='strike_swinging'||result==='foul'){
+    var _plbl = result==='ball'?'Ball':result==='foul'?'Foul':result==='strike_called'?'Strike (looking)':'Strike (swinging)'
+    var _pdot = result==='ball'?'ball':result==='foul'?'foul':'strike'
+    pushRecent(_pdot, _plbl, S.balls+'-'+S.strikes)
+  }
+
   var offset=currentClipOffset()
   var pd={game_id:S.gameId,
     pitcher_id: !S.isTop ? S.currentPitcherId : null,  // our pitcher only when bottom half
@@ -886,6 +940,13 @@ async function logAB(result, label, skipPitchLog) {
     showToast(runs===1?'Run scores! 🏃':''+runs+' runs score! 🏃')
   }
   if(CLIP.includes(result)) setTimeout(function(){showToast('📹 Clip queued!')},800)
+  // feed the recent-plays panel with the outcome (batter hasn't advanced yet)
+  var _od = /(single|double|triple|home_run)/i.test(result)?'hit'
+          : /(walk|hbp)/i.test(result)?'walk'
+          : /(strikeout|groundout|flyout|lineout|popout|double_play|sac_)/i.test(result)?'out'
+          : 'inplay'
+  var _owho = currentBatterLast()
+  pushRecent(_od, (label||result.replace(/_/g,' '))+(_owho?(' — '+_owho):''), runs>0?(runs+' run'+(runs>1?'s':'')):'')
   // Auto-advance the batter only when this at-bat actually ended
   if(!isBaserunnerEvent){
     if(S.isTop && S.acesLineup.length) advanceBatter()
@@ -1117,6 +1178,7 @@ async function undoLast(){
   await pushState()
   renderAll()
   updateBatterDisplay()
+  popRecent()
   showToast('Undone ↩')
 }
 async function endGame(){
