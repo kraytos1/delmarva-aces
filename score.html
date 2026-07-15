@@ -170,6 +170,29 @@ body{background:var(--black);color:var(--text);font-family:var(--body);min-heigh
 
 .toast{position:fixed;bottom:90px;left:50%;transform:translateX(-50%);background:#1a2332;border:1px solid var(--orange);color:var(--orange);padding:8px 20px;border-radius:20px;font-family:var(--mono);font-size:12px;opacity:0;transition:opacity .3s;pointer-events:none;z-index:300;white-space:nowrap;}
 .toast.show{opacity:1;}
+
+/* subs button + sheet */
+.subs-btn{background:var(--dark3);border:1px solid var(--bdr-a);color:var(--orange);border-radius:8px;padding:7px 11px;font-family:var(--mono);font-size:11px;font-weight:500;cursor:pointer;white-space:nowrap;}
+.subs-btn:active{opacity:.8;}
+.subs-sheet{background:var(--dark2);border-radius:20px 20px 0 0;padding:14px 14px 34px;width:100%;max-width:460px;margin:0 auto;max-height:84vh;overflow-y:auto;}
+.subs-head{display:flex;align-items:center;gap:8px;margin-bottom:6px;}
+.subs-title{font-family:var(--display);font-size:17px;font-weight:600;flex:1;text-align:center;}
+.subs-back{background:none;border:none;color:var(--orange);font-size:13px;cursor:pointer;font-family:var(--body);padding:4px 6px;}
+.subs-x{background:none;border:none;color:var(--muted);font-size:22px;cursor:pointer;line-height:1;padding:2px 6px;}
+.subs-grp{font-family:var(--mono);font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin:12px 4px 8px;}
+.sub-opt{display:flex;align-items:center;gap:12px;padding:12px;border:1px solid var(--bdr);border-radius:10px;margin-bottom:8px;cursor:pointer;background:var(--dark3);}
+.sub-opt:active{background:var(--dark);}
+.sub-num{font-family:var(--display);font-size:18px;font-weight:700;color:var(--orange);min-width:34px;text-align:center;}
+.sub-txt{flex:1;}
+.sub-name{font-size:14px;font-weight:500;}
+.sub-pos{font-family:var(--mono);font-size:11px;color:var(--muted);margin-top:1px;}
+.sub-empty{color:var(--muted);font-family:var(--mono);font-size:12px;text-align:center;padding:24px 0;}
+.sub-input{width:100%;background:var(--dark3);border:1px solid var(--bdr);border-radius:8px;padding:11px 12px;color:var(--text);font-size:14px;font-family:var(--body);outline:none;margin-bottom:10px;}
+.sub-input:focus{border-color:var(--orange);}
+.sub-possel{width:66px;background:var(--dark3);border:1px solid var(--bdr);border-radius:8px;padding:10px 4px;color:var(--text);font-family:var(--mono);font-size:12px;text-align:center;}
+.opp-edit{display:flex;align-items:center;gap:8px;margin-bottom:8px;}
+.sub-add{width:100%;padding:11px;border:1.5px dashed var(--bdr-a);border-radius:10px;background:transparent;color:var(--orange);font-family:var(--mono);font-size:12px;cursor:pointer;margin-bottom:8px;}
+.sub-save{width:100%;padding:13px;border:none;border-radius:10px;background:var(--orange);color:#fff;font-family:var(--display);font-size:15px;font-weight:600;cursor:pointer;}
 </style>
 </head>
 <body>
@@ -202,6 +225,7 @@ body{background:var(--black);color:var(--text);font-family:var(--body);min-heigh
       <div class="top-meta" id="top-meta">Top 1 · 0 outs</div>
     </div>
     <div class="top-right">
+      <button class="subs-btn" onclick="openSubs()">⇄ Subs</button>
       <div class="score-pill">
         <div style="display:flex;flex-direction:column;align-items:center;gap:0px;">
           <button onclick="adjScore('us',1)"  style="background:none;border:none;color:var(--orange);font-size:11px;cursor:pointer;line-height:1;padding:1px 4px;">▲</button>
@@ -442,6 +466,18 @@ body{background:var(--black);color:var(--text);font-family:var(--body);min-heigh
   </div>
 </div>
 
+<!-- Substitutions sheet -->
+<div class="sheet-overlay" id="subs-sheet" style="display:none;" onclick="closeSubs(event)">
+  <div class="subs-sheet" onclick="event.stopPropagation()">
+    <div class="subs-head">
+      <button class="subs-back" id="subs-back" onclick="subsBack()" style="display:none;">‹ Back</button>
+      <span class="subs-title" id="subs-title">Substitutions</span>
+      <button class="subs-x" onclick="closeSubs()">×</button>
+    </div>
+    <div class="subs-body" id="subs-body"></div>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script>
@@ -534,6 +570,146 @@ function batterLine(id) {
   if (t.hr) parts.push(t.hr>1 ? t.hr+' HR' : 'HR')
   if (t.bb) parts.push(t.bb>1 ? t.bb+' BB' : 'BB')
   return parts.join(', ')
+}
+
+// ── IN-GAME SUBSTITUTIONS ──
+var POS_LIST = ['P','C','1B','2B','3B','SS','LF','CF','RF','DH','EH','PH','PR']
+var subView = 'menu', subCtx = {}
+function subEsc(s){ return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]}) }
+function benchPlayers(){
+  var inL = S.acesLineup.map(function(e){return e.playerId}).filter(Boolean)
+  return (S.roster||[]).filter(function(p){ return inL.indexOf(p.id)<0 })
+}
+function openSubs(){ if(!S.gameId){showToast('Start a game first');return} subView='menu'; subCtx={}; renderSubs(); document.getElementById('subs-sheet').style.display='flex' }
+function closeSubs(e){ if(!e||e.target.id==='subs-sheet') document.getElementById('subs-sheet').style.display='none' }
+function subsBack(){ subView='menu'; subCtx={}; renderSubs() }
+function subGo(view, idx){ subView=view; if(idx!=null) subCtx.idx=idx; renderSubs() }
+
+function _optPlayer(p, onclick){
+  return '<div class="sub-opt" onclick="'+onclick+'"><span class="sub-num">#'+p.jersey_num+'</span>'+
+    '<div class="sub-txt"><div class="sub-name">'+subEsc(p.first_name+' '+p.last_name)+'</div>'+
+    '<div class="sub-pos">'+subEsc((p.positions||[]).join(', '))+'</div></div></div>'
+}
+function _optSlot(num, name, pos, onclick){
+  return '<div class="sub-opt" onclick="'+onclick+'"><span class="sub-num">'+num+'</span>'+
+    '<div class="sub-txt"><div class="sub-name">'+subEsc(name)+'</div><div class="sub-pos">'+subEsc(pos||'')+'</div></div></div>'
+}
+function _optBtn(label, onclick){ return '<div class="sub-opt" onclick="'+onclick+'"><span class="sub-name" style="font-size:15px;">'+label+'</span></div>' }
+function _subEmpty(m){ return '<div class="sub-empty">'+m+'</div>' }
+
+function renderSubs(){
+  var title=document.getElementById('subs-title'), body=document.getElementById('subs-body'), back=document.getElementById('subs-back')
+  back.style.display = subView==='menu' ? 'none' : 'block'
+  if(subView==='menu'){
+    title.textContent='Substitutions'
+    body.innerHTML =
+      '<div class="subs-grp">Aces</div>'+
+      _optBtn('⚾ Pitching change',"subGo('ace-pitch')")+
+      _optBtn('🔁 Batting sub (PH / PR)',"subGo('ace-bat-out')")+
+      _optBtn('🧤 Position change',"subGo('ace-pos-pick')")+
+      '<div class="subs-grp">Opponent</div>'+
+      _optBtn('⚾ Opponent pitcher',"subGo('opp-pitch')")+
+      _optBtn('🔁 Opponent batters',"subGo('opp-bat')")
+  } else if(subView==='ace-pitch'){
+    title.textContent='New pitcher'
+    var list=(S.roster||[]).filter(function(p){return p.id!==S.currentPitcherId})
+    body.innerHTML = list.length? list.map(function(p){return _optPlayer(p,"applyAcePitch('"+p.id+"')")}).join('') : _subEmpty('No players loaded')
+  } else if(subView==='ace-bat-out'){
+    title.textContent="Who's coming out?"
+    var rows=S.acesLineup.map(function(e,idx){ return e.playerName? _optSlot(idx+1,e.playerName,e.position,"subGo('ace-bat-in',"+idx+")") : '' }).join('')
+    body.innerHTML = rows || _subEmpty('No lineup set')
+  } else if(subView==='ace-bat-in'){
+    var out=S.acesLineup[subCtx.idx]||{}
+    title.textContent='In for '+(out.jerseyNum?'#'+out.jerseyNum+' ':'')+(out.playerName||'')
+    var bench=benchPlayers()
+    body.innerHTML = bench.length? bench.map(function(p){return _optPlayer(p,"applyAceBat('"+p.id+"')")}).join('') : _subEmpty('No bench players')
+  } else if(subView==='ace-pos-pick'){
+    title.textContent='Change position — who?'
+    var rows2=S.acesLineup.map(function(e,idx){ return e.playerName? _optSlot(idx+1,e.playerName,e.position,"subGo('ace-pos-set',"+idx+")") : '' }).join('')
+    body.innerHTML = rows2 || _subEmpty('No lineup set')
+  } else if(subView==='ace-pos-set'){
+    var pl=S.acesLineup[subCtx.idx]||{}
+    title.textContent=(pl.playerName||'')+' → position'
+    body.innerHTML = POS_LIST.map(function(pos){
+      return '<div class="sub-opt" onclick="applyAcePos('+subCtx.idx+',\''+pos+'\')"><span class="sub-num">'+pos+'</span>'+
+        '<div class="sub-txt"><div class="sub-pos">'+(pos===pl.position?'current':'')+'</div></div></div>'
+    }).join('')
+  } else if(subView==='opp-pitch'){
+    title.textContent='Opponent pitcher'
+    body.innerHTML = '<input class="sub-input" id="opp-pitch-inp" placeholder="e.g. #12 Smith" value="'+subEsc(S.oppPitcher||'')+'"/>'+
+      '<button class="sub-save" onclick="applyOppPitch()">Set pitcher</button>'
+  } else if(subView==='opp-bat'){
+    title.textContent='Opponent batters'
+    S.oppLineup = S.oppLineup||[]
+    var rows3=S.oppLineup.map(function(e,idx){
+      return '<div class="opp-edit"><span class="sub-num">'+(idx+1)+'</span>'+
+        '<input class="sub-input" style="margin:0;flex:1;" value="'+subEsc(e.name||'')+'" oninput="S.oppLineup['+idx+'].name=this.value"/>'+
+        '<select class="sub-possel" onchange="S.oppLineup['+idx+'].position=this.value">'+
+          POS_LIST.map(function(p){return '<option'+(e.position===p?' selected':'')+'>'+p+'</option>'}).join('')+
+        '</select></div>'
+    }).join('')
+    body.innerHTML = rows3 + '<button class="sub-add" onclick="oppAddRow()">+ Add batter</button>'+
+      '<button class="sub-save" onclick="applyOppBat()">Save opponent</button>'
+  }
+}
+
+function logSub(type, info){
+  S.subsLog = S.subsLog || []
+  var base={type:type, time:new Date().toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'}), inning:S.inning, half:S.isTop?'top':'bottom'}
+  for(var k in info) base[k]=info[k]
+  S.subsLog.push(base)
+}
+
+async function saveNotes(){
+  var payload={ aces_lineup:S.acesLineup, aces_pitcher_id:S.currentPitcherId||null, opp_pitcher:S.oppPitcher||'', opp_lineup:S.oppLineup||[], subs_log:S.subsLog||[] }
+  try{
+    if(S.game) S.game.notes = JSON.stringify(payload)
+    await db.from('games').update({notes: JSON.stringify(payload)}).eq('id',S.gameId)
+  }catch(e){ showToast('Sub not saved — check connection') }
+}
+
+async function applyAcePitch(playerId){
+  var p=(S.roster||[]).find(function(r){return r.id===playerId}); if(!p) return
+  S.currentPitcherId=p.id; S.currentPitcherName=p.first_name+' '+p.last_name
+  var li=S.acesLineup.find(function(e){return e.playerId===p.id}); if(li) li.position='P'
+  try{ var {count}=await db.from('pitches').select('id',{count:'exact',head:true}).eq('game_id',S.gameId).eq('pitcher_id',p.id); S.acesPitchCount=count||0 }catch(e){}
+  logSub('pitching-change',{jerseyNum:p.jersey_num, playerName:S.currentPitcherName})
+  updateBatterDisplay()
+  closeSubs(); await saveNotes()
+  showToast('⚾ #'+p.jersey_num+' '+p.first_name+' '+p.last_name+' pitching')
+}
+async function applyAceBat(playerId){
+  var idx=subCtx.idx, p=(S.roster||[]).find(function(r){return r.id===playerId})
+  if(idx==null||!p||!S.acesLineup[idx]) return
+  var out=S.acesLineup[idx]
+  S.acesLineup[idx]={playerId:p.id, playerName:p.first_name+' '+p.last_name, jerseyNum:p.jersey_num, position:out.position||((p.positions||[])[0])||'', battingOrder:out.battingOrder||(idx+1)}
+  logSub('batting-sub',{jerseyNum:p.jersey_num, playerName:p.first_name+' '+p.last_name, outPlayerName:out.playerName, outJerseyNum:out.jerseyNum, battingSlot:idx+1})
+  updateBatterDisplay()
+  closeSubs(); await saveNotes()
+  showToast('🔁 #'+p.jersey_num+' '+p.first_name+' '+p.last_name+' in for '+(out.playerName||'—'))
+}
+async function applyAcePos(idx, pos){
+  if(!S.acesLineup[idx]) return
+  S.acesLineup[idx].position=pos
+  logSub('position-change',{playerName:S.acesLineup[idx].playerName, jerseyNum:S.acesLineup[idx].jerseyNum, position:pos})
+  updateBatterDisplay()
+  closeSubs(); await saveNotes()
+  showToast('🧤 '+(S.acesLineup[idx].playerName||'')+' → '+pos)
+}
+async function applyOppPitch(){
+  var v=(document.getElementById('opp-pitch-inp').value||'').trim()
+  S.oppPitcher=v
+  logSub('opp-pitching-change',{playerName:v})
+  updateBatterDisplay()
+  closeSubs(); await saveNotes()
+  showToast('⚾ Opp pitcher set')
+}
+function oppAddRow(){ S.oppLineup=S.oppLineup||[]; S.oppLineup.push({name:'',position:'',battingOrder:S.oppLineup.length+1}); renderSubs() }
+async function applyOppBat(){
+  logSub('opp-batting-sub',{playerName:'opponent lineup edited'})
+  updateBatterDisplay()
+  closeSubs(); await saveNotes()
+  showToast('Opponent updated ✓')
 }
 
 var CLIP = ['single','double','triple','home_run','strikeout_looking','strikeout_swinging','walk','hbp','double_play']
@@ -658,6 +834,7 @@ async function startScoring() {
       S.currentPitcherId = saved.aces_pitcher_id || null
       S.oppPitcher = saved.opp_pitcher || ''
       S.oppLineup  = saved.opp_lineup  || []
+      S.subsLog    = saved.subs_log    || []
 
       // Find pitcher name
       if(S.currentPitcherId && S.acesLineup.length) {
@@ -686,6 +863,12 @@ async function startScoring() {
       S.acesPitchCount = apc||0
     } else { S.acesPitchCount = 0 }
   } catch(e){ S.acesPitchCount = 0 }
+
+  // Load the roster so mid-game substitutions can pick from the bench
+  try {
+    var {data:rr}=await db.from('players').select('id,jersey_num,first_name,last_name,positions').order('jersey_num')
+    S.roster = rr || []
+  } catch(e){ S.roster = [] }
 
   // Preload each Aces batter's game line so a mid-game reload keeps it
   try {
