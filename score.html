@@ -512,6 +512,30 @@ function currentBatterLast() {
   return (b && b.playerName) ? b.playerName.split(' ').pop() : ''
 }
 
+// ── Per-batter game line (shown in the AB panel) ──
+var BATLINE = {}   // playerId -> {ab,h,bb,hr}
+var BR_RE = /(stolen_base|wp_advance|pb_advance|balk|caught_stealing|pickoff|out_advancing)/i
+var NOTAB_RE = /(^walk$|intentional_walk|^hbp$|sac_fly|sac_bunt)/i
+var HIT_RE = /(single|double|triple|home_run)/i
+function tallyAtBat(id, result, dir) {
+  if (!id || BR_RE.test(result||'')) return
+  var t = BATLINE[id] || (BATLINE[id] = {ab:0,h:0,bb:0,hr:0})
+  var step = (dir===-1) ? -1 : 1
+  if (!NOTAB_RE.test(result)) t.ab += step
+  if (HIT_RE.test(result)) t.h += step
+  if (/(^walk$|intentional_walk)/i.test(result)) t.bb += step
+  if (/home_run/i.test(result)) t.hr += step
+  t.ab=Math.max(0,t.ab); t.h=Math.max(0,t.h); t.bb=Math.max(0,t.bb); t.hr=Math.max(0,t.hr)
+}
+function batterLine(id) {
+  var t = id && BATLINE[id]; if (!t) return ''
+  var parts = []
+  if (t.ab>0 || t.h>0) parts.push(t.h+'-'+t.ab)
+  if (t.hr) parts.push(t.hr>1 ? t.hr+' HR' : 'HR')
+  if (t.bb) parts.push(t.bb>1 ? t.bb+' BB' : 'BB')
+  return parts.join(', ')
+}
+
 var CLIP = ['single','double','triple','home_run','strikeout_looking','strikeout_swinging','walk','hbp','double_play']
 
 var MODALS = {
@@ -663,6 +687,13 @@ async function startScoring() {
     } else { S.acesPitchCount = 0 }
   } catch(e){ S.acesPitchCount = 0 }
 
+  // Preload each Aces batter's game line so a mid-game reload keeps it
+  try {
+    BATLINE = {}
+    var {data:blRows}=await db.from('at_bats').select('batter_id,result').eq('game_id',gid).not('batter_id','is',null)
+    ;(blRows||[]).forEach(function(a){ tallyAtBat(a.batter_id, a.result, 1) })
+  } catch(e){}
+
   document.getElementById('setup').style.display='none'
   document.getElementById('scorer').style.display='flex'
   var opp=g.opponents?.name||'Opponent'
@@ -684,7 +715,8 @@ function updateBatterDisplay() {
       var idx = S.currentBatterIdx % validLineup.length
       var batter = validLineup[idx]
       setText('ab-batter', batter.playerName || '—')
-      setText('ab-stats', (batter.jerseyNum?'#'+batter.jerseyNum:'')+(batter.position?' · '+batter.position:''))
+      var _bl = batterLine(batter.playerId)
+      setText('ab-stats', (batter.jerseyNum?'#'+batter.jerseyNum:'')+(batter.position?' · '+batter.position:'')+(_bl?'  ·  '+_bl:''))
       var fldBatter = document.getElementById('fld-batter')
       if(fldBatter) fldBatter.textContent = batter.playerName ? batter.playerName.split(' ').pop() : ''
     }
@@ -947,6 +979,12 @@ async function logAB(result, label, skipPitchLog) {
           : 'inplay'
   var _owho = currentBatterLast()
   pushRecent(_od, (label||result.replace(/_/g,' '))+(_owho?(' — '+_owho):''), runs>0?(runs+' run'+(runs>1?'s':'')):'')
+  // Tally the batter's game line (Aces only); record it so Undo can reverse it
+  if(S.isTop && !isBaserunnerEvent){
+    var _bid = getCurrentBatterId()
+    tallyAtBat(_bid, result, 1)
+    if(HISTORY.length) HISTORY[HISTORY.length-1].tally = {bid:_bid, result:result}
+  }
   // Auto-advance the batter only when this at-bat actually ended
   if(!isBaserunnerEvent){
     if(S.isTop && S.acesLineup.length) advanceBatter()
@@ -1151,6 +1189,7 @@ function newHalf(){
 async function undoLast(){
   if(!HISTORY.length){showToast('Nothing to undo');return}
   var last = HISTORY.pop()
+  if(last.tally) tallyAtBat(last.tally.bid, last.tally.result, -1)
 
   // Delete from DB
   try{
