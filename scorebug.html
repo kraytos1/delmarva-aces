@@ -27,6 +27,14 @@
   .bug.pos-tl{ left:26px; top:26px; }
   .bug.pos-tr{ right:26px; top:26px; }
 
+  /* preview-only standby chip (never shows on the live overlay) */
+  .standby{ position:fixed; left:26px; bottom:26px; z-index:9; display:none; align-items:center; gap:9px;
+    background:rgba(12,15,20,.92); border:1px solid var(--line); border-radius:10px; padding:11px 15px;
+    color:var(--muted); font-size:13px; box-shadow:0 8px 24px rgba(0,0,0,.5); }
+  .standby.show{ display:flex; }
+  .standby .d{ width:9px; height:9px; border-radius:50%; background:var(--orange); animation:sb 1.6s infinite; }
+  @keyframes sb{ 0%,100%{opacity:1} 50%{opacity:.3} }
+
   .bug-top{ display:flex; align-items:stretch; }
   .mod{ display:flex; flex-direction:column; justify-content:center; padding:8px 12px; }
   .bug-top .mod + .mod{ border-left:1px solid var(--line); }
@@ -113,6 +121,8 @@
   </div>
 </div>
 
+<div class="standby" id="standby"><span class="d"></span>Scorebug ready — waiting for a live game</div>
+
 <script>
 var db = supabase.createClient(ACES_CONFIG.supabaseUrl, ACES_CONFIG.supabaseKey);
 
@@ -185,7 +195,7 @@ async function poll(){
     var res = GAMEID ? await gq.eq('id',GAMEID).single()
                      : await gq.eq('status','live').order('game_date',{ascending:false}).limit(1).maybeSingle();
     var g = res.data;
-    if (!g || (!GAMEID && g.status!=='live' && !DEBUG)){ hideBug(); return; }
+    if (!g || (!GAMEID && g.status!=='live' && !DEBUG)){ hideBug(); document.getElementById('standby').classList.toggle('show', DEBUG); return; }
     if (GAMEID && g.status!=='live' && !DEBUG){ /* forced game: still render for testing */ }
 
     var n = parseNotes(g.notes);
@@ -281,7 +291,7 @@ function render(g, n, isAcesBatting, acesAbs, oppAbs, oppPC, acesPC, lastPitch){
 function setPips(prefix, n, cls, max){
   for (var k=0;k<max;k++){ document.getElementById(prefix+k).className = 'pip'+(k<n?' '+cls:''); }
 }
-function showBug(){ document.getElementById('bug').classList.add('show'); }
+function showBug(){ document.getElementById('bug').classList.add('show'); document.getElementById('standby').classList.remove('show'); }
 function hideBug(){ document.getElementById('bug').classList.remove('show'); }
 
 poll();
