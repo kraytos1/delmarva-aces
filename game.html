@@ -513,6 +513,7 @@ async function loadLiveGame() {
       if (baseRow) { game.base_1b = baseRow.base_1b; game.base_2b = baseRow.base_2b; game.base_3b = baseRow.base_3b }
     } catch(e) {}
     liveGame = game
+    window._lastGameNotes = game.notes
     updateScoreboard(game)
     // Bases already loaded via updateScoreboard above
     document.getElementById('pregame-screen').style.display = 'none'
@@ -609,6 +610,32 @@ function updateBatterCard(ab) {
   } catch(e) { console.log('updateBatterCard error:', e) }
 }
 
+// Recompute the current Aces batter from the (possibly just-subbed) lineup.
+// Called when the game's notes change so a pinch-hitter appears live. Mirrors
+// the scorebug's math: advance over the full order, map onto named players.
+async function refreshCurrentBatter() {
+  if (!liveGame || !liveGame.notes) return
+  var isTop = !liveGame.half || liveGame.half === 'top'
+  if (!isTop) return  // opponent batting — that card is handled elsewhere
+  try {
+    var lineup = JSON.parse(liveGame.notes)
+    var full = lineup.aces_lineup || []
+    var valid = full.filter(function(e){return e.playerName})
+    if (!valid.length) return
+    var BR = /(stolen_base|wp_advance|pb_advance|balk|caught_stealing|pickoff|out_advancing)/i
+    var {data:abs} = await db.from('at_bats').select('half,result').eq('game_id', liveGame.id)
+    var acesAbs = (abs||[]).filter(function(a){ return a.half!=='bottom' && !BR.test(a.result||''); })
+    var idx = full.length ? (acesAbs.length % full.length) : 0
+    var b = valid[idx % valid.length]
+    if (b) {
+      setText('b-name', b.playerName)
+      setText('b-avatar', b.jerseyNum ? '#'+b.jerseyNum : 'B')
+      var fld = document.getElementById('ov-batter')
+      if (fld) fld.textContent = b.playerName.split(' ').pop()
+    }
+  } catch(e) {}
+}
+
 async function loadNextGame() {
   try {
     var today = new Date().toISOString().split('T')[0]
@@ -642,13 +669,17 @@ function subscribeToGame(gameId) {
         try {
           var {data} = await db.from('live_game_summary').select('*').eq('id', gameId).single()
           var merged = data || p.new
-          // live_game_summary doesn't expose base_1b/2b/3b — always trust the
-          // raw updated row for these regardless of whether the view fetch worked
+          // live_game_summary doesn't expose base_1b/2b/3b or notes — trust the
+          // raw updated row for those so bases and (crucially) substitutions stay live.
           merged.base_1b = p.new.base_1b
           merged.base_2b = p.new.base_2b
           merged.base_3b = p.new.base_3b
+          merged.notes = p.new.notes
+          var notesChanged = (p.new.notes !== window._lastGameNotes)
+          window._lastGameNotes = p.new.notes
           liveGame = merged
           updateScoreboard(merged)
+          if (notesChanged) refreshCurrentBatter()
         } catch(e) {
           updateScoreboard(p.new)
         }
