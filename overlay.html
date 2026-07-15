@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<link rel="manifest" href="/manifest.json"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-title" content="Aces Overlay"/>
+<link rel="apple-touch-icon" href="/icon-192.png"/>
+<meta name="theme-color" content="#E8530A"/>
+<title>Aces · Overlay Control</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="config.js"></script>
+<script src="/pin.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Oswald:wght@400;600;700&family=Inter:wght@400;500;600&family=Roboto+Mono:wght@400;500&display=swap');
+:root{
+  --orange:#E8530A;--black:#0A0C0E;--dark:#111418;--dark2:#181C22;--dark3:#1F242C;
+  --bdr:rgba(255,255,255,.08);--text:#F0EDE8;--muted:#7A8290;--green:#3DDC6A;--red:#e74c3c;
+  --mono:'Roboto Mono',monospace;--display:'Oswald',sans-serif;--body:'Inter',sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+body{background:var(--black);color:var(--text);font-family:var(--body);min-height:100vh;padding:22px 16px 40px;}
+.wrap{max-width:460px;margin:0 auto;}
+.head{display:flex;align-items:center;gap:12px;margin-bottom:4px;}
+.head img{width:40px;height:40px;object-fit:contain;filter:drop-shadow(0 0 12px rgba(232,83,10,.4));}
+h1{font-family:var(--display);font-size:22px;font-weight:700;letter-spacing:.5px;}
+h1 span{color:var(--orange);}
+.sub{font-family:var(--mono);font-size:11px;color:var(--muted);letter-spacing:1px;margin-bottom:22px;}
+
+.game{background:var(--dark2);border:1px solid var(--bdr);border-radius:12px;padding:13px 15px;margin-bottom:16px;
+  display:flex;align-items:center;gap:10px;}
+.game .dot{width:9px;height:9px;border-radius:50%;background:var(--green);animation:blink 1.6s infinite;flex-shrink:0;}
+.game .dot.off{background:var(--muted);animation:none;}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+.game .g-name{font-family:var(--display);font-size:16px;font-weight:600;}
+.game .g-meta{font-family:var(--mono);font-size:10px;color:var(--muted);margin-top:2px;}
+
+.ctl{background:var(--dark2);border:1px solid var(--bdr);border-radius:14px;padding:18px 18px 20px;margin-bottom:14px;}
+.ctl-top{display:flex;align-items:center;justify-content:space-between;gap:14px;}
+.ctl-lbl{font-family:var(--display);font-size:18px;font-weight:600;}
+.ctl-hint{font-family:var(--mono);font-size:11px;color:var(--muted);margin-top:5px;line-height:1.5;}
+.toggle{position:relative;width:82px;height:44px;border-radius:24px;background:var(--dark3);border:1px solid var(--bdr);
+  cursor:pointer;flex-shrink:0;transition:background .2s,border-color .2s;}
+.toggle .knob{position:absolute;top:3px;left:3px;width:36px;height:36px;border-radius:50%;background:var(--muted);transition:left .2s,background .2s;}
+.toggle.on{background:rgba(61,220,106,.2);border-color:var(--green);}
+.toggle.on .knob{left:43px;background:var(--green);}
+.toggle.busy{opacity:.6;pointer-events:none;}
+
+.preview{display:flex;flex-direction:column;gap:0;background:linear-gradient(180deg,#12161c,#0c0f14);border:1px solid var(--bdr);
+  border-radius:10px;overflow:hidden;margin-top:16px;max-width:300px;}
+.pv-top{display:flex;align-items:center;gap:8px;padding:8px 12px;}
+.pv-logo{width:20px;height:20px;border-radius:4px;background:var(--orange);}
+.pv-abbr{font-family:var(--display);font-weight:700;font-size:14px;letter-spacing:.06em;}
+.pv-sc{margin-left:auto;font-family:var(--mono);font-weight:700;font-size:16px;}
+.pv-bot{border-top:1px solid var(--bdr);padding:7px 12px;font-size:12px;color:#c7ccd4;background:rgba(255,255,255,.02);
+  transition:opacity .2s,max-height .2s,padding .2s;overflow:hidden;}
+.pv-bot .t{font-family:var(--mono);font-size:8px;letter-spacing:.1em;text-transform:uppercase;color:var(--orange);}
+.pv-bot.gone{max-height:0;padding-top:0;padding-bottom:0;opacity:0;border-top-color:transparent;}
+
+.note{font-family:var(--mono);font-size:10px;color:var(--muted);text-align:center;margin-top:18px;line-height:1.6;}
+.sql{background:#0e1626;border:1px solid var(--bdr);border-radius:8px;padding:12px;margin-top:12px;display:none;}
+.sql.show{display:block;}
+.sql code{font-family:var(--mono);font-size:11px;color:var(--green);white-space:pre-wrap;word-break:break-word;line-height:1.5;}
+.sql .h{font-family:var(--body);font-size:12px;color:var(--red);margin-bottom:8px;font-weight:500;}
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#1a2332;border:1px solid var(--orange);
+  color:var(--orange);padding:10px 22px;border-radius:22px;font-family:var(--mono);font-size:12px;opacity:0;transition:opacity .3s;pointer-events:none;z-index:50;}
+.toast.show{opacity:1;}
+.toast.err{border-color:var(--red);color:var(--red);}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="head"><img src="/logo.png" alt="Aces"/><h1>Overlay <span>Control</span></h1></div>
+  <div class="sub">DELMARVA ACES · SCOREBUG · LIVE</div>
+
+  <div class="game">
+    <span class="dot off" id="gDot"></span>
+    <div><div class="g-name" id="gName">Looking for a live game…</div><div class="g-meta" id="gMeta">—</div></div>
+  </div>
+
+  <div class="ctl" id="ctl" style="display:none;">
+    <div class="ctl-top">
+      <div>
+        <div class="ctl-lbl">Pitching + At-bat tier</div>
+        <div class="ctl-hint" id="ctlHint">—</div>
+      </div>
+      <div class="toggle" id="toggle" onclick="flip()"><div class="knob"></div></div>
+    </div>
+
+    <div class="preview">
+      <div class="pv-top"><span class="pv-logo"></span><span class="pv-abbr">DEL</span><span class="pv-sc">4</span></div>
+      <div class="pv-bot" id="pvBot"><span class="t">Pitching</span> · Delgado · 42 P</div>
+    </div>
+  </div>
+
+  <div class="sql" id="sqlBox">
+    <div class="h">One-time setup needed</div>
+    <code>alter table public.games
+  add column if not exists bug_show_matchup boolean not null default true;</code>
+    <div style="font-family:var(--body);font-size:11px;color:var(--muted);margin-top:8px;">Run this once in Supabase → SQL editor, then reload this page.</div>
+  </div>
+
+  <div class="note">Controls the live scorebug. Changes appear on the broadcast within a couple of seconds.</div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+var db = supabase.createClient(ACES_CONFIG.supabaseUrl, ACES_CONFIG.supabaseKey);
+var Q = new URLSearchParams(location.search);
+var GID = Q.get('game') || null;
+var state = { on:true, busy:false, found:false };
+
+function toast(m, err){ var t=document.getElementById('toast'); t.textContent=m; t.className='toast show'+(err?' err':''); setTimeout(function(){t.className='toast';},2400); }
+
+function paint(){
+  document.getElementById('toggle').className = 'toggle'+(state.on?' on':'')+(state.busy?' busy':'');
+  document.getElementById('ctlHint').textContent = state.on ? 'Showing on the broadcast' : 'Hidden — scoreline only';
+  document.getElementById('pvBot').className = 'pv-bot'+(state.on?'':' gone');
+}
+
+async function findGame(){
+  // Select * so a missing bug_show_matchup column can't break the lookup before
+  // the one-time migration is run (g.bug_show_matchup is simply undefined then).
+  var q = db.from('games').select('*,opponents(name)');
+  var res = GID ? await q.eq('id',GID).maybeSingle()
+                : await q.eq('status','live').order('game_date',{ascending:false}).limit(1).maybeSingle();
+  var g = res.data;
+  if (!g){
+    state.found=false;
+    document.getElementById('gDot').className='dot off';
+    document.getElementById('gName').textContent = GID ? 'Game not found' : 'No live game right now';
+    document.getElementById('gMeta').textContent = GID ? '' : 'Start scoring and it will appear here.';
+    document.getElementById('ctl').style.display='none';
+    return;
+  }
+  GID = g.id; state.found=true;
+  state.on = (g.bug_show_matchup !== false);
+  document.getElementById('gDot').className = 'dot'+(g.status==='live'?'':' off');
+  document.getElementById('gName').textContent = 'Aces vs '+((g.opponents&&g.opponents.name)||'Opponent');
+  document.getElementById('gMeta').textContent = (g.status==='live'?'● LIVE · ':'')+((g.half==='bottom'?'Bot ':'Top ')+(g.inning||1))+' · '+(g.our_score||0)+'–'+(g.opp_score||0);
+  document.getElementById('ctl').style.display='block';
+  paint();
+}
+
+async function flip(){
+  if (!state.found || state.busy) return;
+  var next = !state.on;
+  state.busy=true; paint();
+  var { error } = await db.from('games').update({ bug_show_matchup: next }).eq('id', GID);
+  state.busy=false;
+  if (error){
+    if (/bug_show_matchup|column/.test(error.message||'')){ document.getElementById('sqlBox').classList.add('show'); toast('Add the column first (below)', true); }
+    else toast('Failed: '+error.message, true);
+    paint(); return;
+  }
+  state.on = next; paint();
+  toast(next ? 'Tier shown ✓' : 'Tier hidden ✓');
+}
+
+findGame();
+setInterval(function(){ if(!state.busy) findGame(); }, 4000);
+</script>
+</body>
+</html>
