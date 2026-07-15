@@ -121,17 +121,17 @@ var db = supabase.createClient(ACES_CONFIG.supabaseUrl, ACES_CONFIG.supabaseKey)
 // ?pitching=off  hide the pitching line     ?atbat=off  hide the at-bat line
 // ?matchup=off   hide both (scoreline only)  ?bases=off  hide the base diamond
 // ?pos=bl|br|tl|tr   corner (default bl)     ?debug=1    show even with no live game
-// The matchup tier can also be flipped live from overlay.html via the game's
-// bug_show_matchup flag. A URL "off" is a hard override (always hidden); when
-// the URL doesn't force it off, the live flag decides.
+// The pitching and at-bat lines can each be flipped live from overlay.html via
+// the game's bug_show_pitching / bug_show_atbat flags. A URL "off" is a hard
+// override (always hidden); otherwise the live flag decides.
 var Q = new URLSearchParams(location.search);
 var urlPitchingOff = Q.get('pitching')==='off' || Q.get('matchup')==='off';
 var urlAtbatOff    = Q.get('atbat')==='off'    || Q.get('matchup')==='off';
 var DEBUG = Q.get('debug')==='1';
 
-function applyTiers(flagOn){
-  var showPit = flagOn && !urlPitchingOff;
-  var showAB  = flagOn && !urlAtbatOff;
+function applyTiers(pitOn, abOn){
+  var showPit = pitOn && !urlPitchingOff;
+  var showAB  = abOn  && !urlAtbatOff;
   document.getElementById('rowPit').classList.toggle('hide', !showPit);
   document.getElementById('rowAB').classList.toggle('hide', !showAB);
   document.getElementById('bugBot').classList.toggle('hide', !showPit && !showAB);
@@ -142,7 +142,7 @@ function applyTiers(flagOn){
   var bug = document.getElementById('bug');
   bug.className = 'bug pos-' + (['bl','br','tl','tr'].indexOf(pos)>=0?pos:'bl');
   if (Q.get('bases')==='off') document.querySelector('.bases').style.display='none';
-  applyTiers(true); // default until the first poll reads the live flag
+  applyTiers(true, true); // default until the first poll reads the live flags
 })();
 
 var BASERUNNER = /(stolen_base|wp_advance|pb_advance|balk|caught_stealing|pickoff|out_advancing)/i;
@@ -235,8 +235,8 @@ function batterTodayLine(batterId, acesAbs){
 }
 
 function render(g, n, isAcesBatting, acesAbs, oppAbs, oppPC, acesPC, lastPitch){
-  // Live matchup-tier toggle (set from overlay.html). Missing/true => shown.
-  applyTiers(g.bug_show_matchup !== false);
+  // Live per-line toggles (set from overlay.html). Missing/true => shown.
+  applyTiers(g.bug_show_pitching !== false, g.bug_show_atbat !== false);
   document.getElementById('scUs').textContent   = g.our_score||0;
   document.getElementById('scThem').textContent = g.opp_score||0;
   document.getElementById('innNum').textContent = g.inning||1;
