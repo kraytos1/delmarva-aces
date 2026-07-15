@@ -57,7 +57,7 @@ nav{background:rgba(10,12,14,.95);border-bottom:1px solid var(--bdr);display:fle
 .pip.o{background:#666;border-color:#555;}
 
 /* MAIN LAYOUT */
-.main{display:grid;grid-template-columns:1fr 320px;min-height:calc(100vh - 52px - 82px);}
+.main{display:grid;grid-template-columns:1fr 320px;min-height:calc(100vh - 52px - 82px);max-width:1280px;margin:0 auto;width:100%;}
 
 /* LEFT COL */
 .left-col{display:flex;flex-direction:column;}
@@ -92,7 +92,7 @@ nav{background:rgba(10,12,14,.95);border-bottom:1px solid var(--bdr);display:fle
 .col-count{font-family:var(--display);font-size:15px;font-weight:700;color:var(--orange);}
 
 /* PITCH LOG */
-.pitch-log{overflow-y:auto;max-height:380px;}
+.pitch-log{overflow-y:auto;flex:1 1 42%;min-height:140px;}
 .pitch-item{padding:7px 14px;border-bottom:1px solid rgba(255,255,255,.04);display:grid;grid-template-columns:20px 44px 1fr auto;gap:8px;align-items:center;}
 .pitch-item.new-pitch{animation:flashin .5s ease-out;}
 @keyframes flashin{0%{background:rgba(232,83,10,.2)}100%{background:transparent}}
@@ -111,8 +111,8 @@ nav{background:rgba(10,12,14,.95);border-bottom:1px solid var(--bdr);display:fle
 .pr-inplay{color:var(--green);}
 
 /* PLAY FEED */
-.play-feed{border-top:1px solid var(--bdr);flex:1;}
-.play-items{overflow-y:auto;max-height:200px;}
+.play-feed{border-top:1px solid var(--bdr);flex:1 1 58%;display:flex;flex-direction:column;min-height:160px;}
+.play-items{overflow-y:auto;flex:1;}
 .play-item{padding:7px 14px;border-bottom:1px solid rgba(255,255,255,.04);}
 .play-item.new-play{animation:flashin .5s ease-out;}
 .play-inn{font-family:var(--mono);font-size:9px;color:var(--muted);margin-bottom:2px;}
@@ -140,7 +140,9 @@ nav{background:rgba(10,12,14,.95);border-bottom:1px solid var(--bdr);display:fle
 @media(max-width:768px){
   .main{grid-template-columns:1fr;}
   .right-col{border-left:none;border-top:1px solid var(--bdr);}
-  .pitch-log{max-height:200px;}
+  .pitch-log{flex:none;max-height:200px;min-height:0;}
+  .play-feed{flex:none;min-height:0;}
+  .play-items{flex:none;max-height:220px;}
 }
 </style>
 </head>
@@ -186,13 +188,13 @@ nav{background:rgba(10,12,14,.95);border-bottom:1px solid var(--bdr);display:fle
 
 <!-- WIN PROBABILITY -->
 <style>
-  .wp-panel{max-width:900px;margin:6px auto 0;padding:12px 16px 6px;}
-  .wp-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;gap:12px;}
+  .wp-panel{max-width:1280px;margin:2px auto 0;padding:8px 20px 2px;}
+  .wp-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:2px;gap:12px;}
   .wp-label{font-family:'Roboto Mono',monospace;font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:#7A8290;}
   .wp-est{opacity:.6;}
-  .wp-now{font-family:'Oswald',sans-serif;font-weight:700;font-size:26px;line-height:1;display:flex;align-items:baseline;gap:6px;}
+  .wp-now{font-family:'Oswald',sans-serif;font-weight:700;font-size:22px;line-height:1;display:flex;align-items:baseline;gap:6px;}
   .wp-now-lbl{font-size:11px;font-family:'Roboto Mono',monospace;color:#7A8290;font-weight:400;letter-spacing:1px;}
-  .wp-chart-wrap{position:relative;height:120px;}
+  .wp-chart-wrap{position:relative;height:52px;}
 </style>
 <div class="wp-panel" id="wp-panel" style="display:none;">
   <div class="wp-top">
@@ -961,10 +963,9 @@ init()
     if(chart){ chart.data.labels=labels; chart.data.datasets[0].data=data; chart.update('none'); return; }
     chart = new Chart(ctx,{type:'line',
       data:{labels:labels,datasets:[{data:data,borderColor:'#E8530A',backgroundColor:'rgba(232,83,10,.12)',fill:true,tension:.25,pointRadius:0,borderWidth:2}]},
-      options:{responsive:true,maintainAspectRatio:false,animation:false,
+      options:{responsive:true,maintainAspectRatio:false,animation:false,layout:{padding:{top:2,bottom:2}},
         plugins:{legend:{display:false},tooltip:{callbacks:{label:function(c){return 'Aces '+c.parsed.y+'%';}}}},
-        scales:{y:{min:0,max:100,ticks:{color:'#7A8290',stepSize:25,callback:function(v){return v+'%';}},grid:{color:'rgba(255,255,255,.06)'}},
-          x:{ticks:{color:'#7A8290',maxRotation:0,autoSkip:true,maxTicksLimit:8},grid:{display:false}}}}});
+        scales:{y:{min:0,max:100,display:false},x:{display:false}}}});
   };
 })();
 </script>
