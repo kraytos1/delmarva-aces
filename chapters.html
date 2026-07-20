@@ -1,0 +1,237 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<link rel="icon" href="/icon-192.png"/>
+<meta name="theme-color" content="#E8530A"/>
+<title>Replay Chapters · Delmarva Aces</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="config.js"></script>
+<script src="/pin.js"></script>
+<script src="/nav.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Oswald:wght@400;600;700&family=Inter:wght@400;500;600&family=Roboto+Mono:wght@400;500&display=swap');
+:root{--orange:#E8530A;--black:#0A0C0E;--dark:#111418;--dark2:#181C22;--dark3:#1F242C;
+  --bdr:rgba(255,255,255,.08);--bdr-a:rgba(232,83,10,.35);--text:#F0EDE8;--muted:#7A8290;
+  --green:#3DDC6A;--amber:#F59E0B;--red:#ef4444;
+  --mono:'Roboto Mono',monospace;--display:'Oswald',sans-serif;--body:'Inter',sans-serif;}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--black);color:var(--text);font-family:var(--body);line-height:1.6;}
+.wrap{max-width:860px;margin:0 auto;padding:26px 18px 70px;}
+h1{font-family:var(--display);font-size:30px;font-weight:700;letter-spacing:.5px;}
+.sub{color:var(--muted);font-size:14px;margin-bottom:22px;}
+.card{background:var(--dark2);border:1px solid var(--bdr);border-radius:12px;padding:16px;margin-bottom:16px;}
+.lbl{font-family:var(--mono);font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin-bottom:7px;}
+select{width:100%;background:var(--dark3);border:1px solid var(--bdr);border-radius:8px;padding:11px 12px;
+  color:var(--text);font-size:14px;font-family:var(--body);outline:none;}
+select:focus{border-color:var(--orange);}
+.btn{background:var(--orange);color:#fff;border:none;border-radius:9px;padding:12px 18px;
+  font-family:var(--display);font-size:15px;font-weight:600;letter-spacing:.4px;cursor:pointer;}
+.btn:active{opacity:.85;}
+.btn.ghost{background:transparent;border:1px solid var(--bdr-a);color:var(--orange);}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:12px;}
+textarea{width:100%;min-height:290px;background:#0d1014;border:1px solid var(--bdr);border-radius:8px;
+  padding:13px;color:var(--text);font-family:var(--mono);font-size:12.5px;line-height:1.75;outline:none;resize:vertical;}
+textarea:focus{border-color:var(--orange);}
+.note{font-size:13px;color:var(--muted);}
+.warn{border-left:3px solid var(--amber);background:rgba(245,158,11,.07);padding:10px 13px;border-radius:0 8px 8px 0;
+  font-size:13px;color:#f5d9a0;margin-top:12px;}
+.err{border-left:3px solid var(--red);background:rgba(239,68,68,.07);padding:10px 13px;border-radius:0 8px 8px 0;
+  font-size:13px;color:#f8b4b4;margin-top:12px;}
+.ok{border-left:3px solid var(--green);background:rgba(61,220,106,.07);padding:10px 13px;border-radius:0 8px 8px 0;
+  font-size:13px;color:#b7f0c8;margin-top:12px;}
+.steps{counter-reset:s;list-style:none;margin-top:6px;}
+.steps li{counter-increment:s;position:relative;padding-left:30px;margin-bottom:7px;font-size:13.5px;color:var(--muted);}
+.steps li::before{content:counter(s);position:absolute;left:0;top:1px;width:20px;height:20px;border-radius:50%;
+  background:var(--dark3);border:1px solid var(--bdr-a);color:var(--orange);font-family:var(--mono);font-size:11px;
+  display:flex;align-items:center;justify-content:center;}
+.steps b{color:var(--text);font-weight:600;}
+.stat{font-family:var(--mono);font-size:12px;color:var(--muted);}
+.stat b{color:var(--orange);}
+a.link{color:var(--orange);text-decoration:none;}
+a.link:hover{text-decoration:underline;}
+</style>
+</head>
+<body>
+<div id="site-nav"></div>
+<div class="wrap">
+  <h1>Replay Chapters</h1>
+  <div class="sub">Turn a scored game into YouTube chapters, so anyone watching the replay can jump straight to the plays.</div>
+
+  <div class="card">
+    <div class="lbl">Streamed game</div>
+    <select id="gameSel"><option value="">Loading…</option></select>
+    <div class="row">
+      <button class="btn" onclick="generate()">Generate chapters</button>
+      <span class="stat" id="stat"></span>
+    </div>
+    <div id="msg"></div>
+  </div>
+
+  <div class="card" id="outCard" style="display:none;">
+    <div class="lbl">Paste this into the video description</div>
+    <textarea id="out" spellcheck="false"></textarea>
+    <div class="row">
+      <button class="btn" onclick="copyOut(this)">📋 Copy</button>
+      <a class="btn ghost" id="ytLink" href="#" target="_blank" rel="noopener">Open in YouTube Studio ↗</a>
+    </div>
+    <ol class="steps">
+      <li>Open the video in <b>YouTube Studio</b> → <b>Details</b>.</li>
+      <li>Paste this at the <b>end of the Description</b> (keep any text already there).</li>
+      <li><b>Save.</b> Chapters appear on the player within a minute or two.</li>
+    </ol>
+  </div>
+</div>
+
+<script>
+var db = supabase.createClient(ACES_CONFIG.supabaseUrl, ACES_CONFIG.supabaseKey);
+
+// Chapter starts land slightly BEFORE the tap, same as clips: yt_offset_sec is
+// stamped when the scorer taps the result, a few seconds after the play.
+var CHAPTER_PRE = 20;
+// YouTube's rules — break any of these and it silently renders no chapters.
+var MIN_GAP = 10, MIN_CHAPTERS = 3;
+
+var LABEL = {
+  home_run:'Home Run', triple:'Triple', double:'Double', single:'Single',
+  walk:'Walk', intentional_walk:'Walk', hbp:'HBP',
+  strikeout_looking:'Strikeout', strikeout_swinging:'Strikeout'
+};
+// Same set the highlights gallery shows, so chapters and clips agree.
+var HIT_RE = /^(single|double|triple|home_run|walk|intentional_walk|hbp)$/;
+var K_RE   = /^(strikeout_looking|strikeout_swinging)$/;
+
+function ts(sec){
+  sec = Math.max(0, Math.floor(sec));
+  var h = Math.floor(sec/3600), m = Math.floor((sec%3600)/60), s = sec%60;
+  return h > 0
+    ? h+':'+String(m).padStart(2,'0')+':'+String(s).padStart(2,'0')
+    : m+':'+String(s).padStart(2,'0');
+}
+function nm(p){
+  if(!p) return '';
+  return ((p.first_name||'')+' '+(p.last_name||'')).trim();
+}
+function halfLabel(inn, half){ return (half==='bottom'?'Bot ':'Top ')+inn; }
+function msg(cls, html){ document.getElementById('msg').innerHTML = '<div class="'+cls+'">'+html+'</div>'; }
+
+async function loadGames(){
+  var sel = document.getElementById('gameSel');
+  try{
+    var {data, error} = await db.from('games')
+      .select('id,game_date,status,youtube_stream_id,our_score,opp_score,opponents(name)')
+      .not('youtube_stream_id','is',null)
+      .order('game_date',{ascending:false}).limit(40);
+    if(error) throw error;
+    if(!data || !data.length){
+      sel.innerHTML = '<option value="">No streamed games yet</option>';
+      msg('warn','No games have a YouTube video attached yet. Chapters can be generated once you\'ve scored a game with the stream linked in the scorer.');
+      return;
+    }
+    sel.innerHTML = data.map(function(g){
+      var opp = (g.opponents && g.opponents.name) || 'Opponent';
+      var d = new Date(g.game_date).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric',timeZone:'UTC'});
+      var sc = (g.status==='final') ? '  ·  '+(g.our_score||0)+'–'+(g.opp_score||0) : '  ·  '+g.status;
+      return '<option value="'+g.id+'" data-yt="'+g.youtube_stream_id+'">'+d+'  ·  vs '+opp+sc+'</option>';
+    }).join('');
+  }catch(e){
+    sel.innerHTML = '<option value="">Couldn\'t load games</option>';
+    msg('err','Couldn\'t load games: '+(e.message||e));
+  }
+}
+
+async function generate(){
+  var sel = document.getElementById('gameSel');
+  var gid = sel.value;
+  document.getElementById('outCard').style.display = 'none';
+  document.getElementById('stat').textContent = '';
+  if(!gid){ msg('err','Pick a game first.'); return; }
+  msg('note','Building…');
+
+  try{
+    var {data:abs, error} = await db.from('at_bats')
+      .select('id,result,rbi,inning,half,yt_offset_sec,batter_id,aces_pitcher_id,'+
+              'players!batter_id(first_name,last_name),pitcher:players!aces_pitcher_id(first_name,last_name)')
+      .eq('game_id', gid).not('yt_offset_sec','is',null)
+      .order('yt_offset_sec',{ascending:true});
+    if(error) throw error;
+    if(!abs || !abs.length){
+      msg('warn','This game has no play timestamps. That happens when it was scored without the stream attached — the scorer stamps each play against the video, so there\'s nothing to build chapters from.');
+      return;
+    }
+
+    // 1. One marker per half-inning, at its first recorded play.
+    var seenHalf = {}, events = [];
+    abs.forEach(function(ab){
+      var key = ab.inning+'|'+ab.half;
+      if(!seenHalf[key]){
+        seenHalf[key] = true;
+        events.push({t:(ab.yt_offset_sec||0)-CHAPTER_PRE, kind:'inn', title:halfLabel(ab.inning, ab.half)});
+      }
+    });
+
+    // 2. A named chapter for each play the highlights gallery would show.
+    var plays = 0;
+    abs.forEach(function(ab){
+      var isHit = ab.batter_id && HIT_RE.test(ab.result||'');
+      var isK   = !ab.batter_id && ab.aces_pitcher_id && K_RE.test(ab.result||'');
+      if(!isHit && !isK) return;
+      var who = isK ? nm(ab.pitcher) : nm(ab.players);
+      if(!who) return;
+      var label = LABEL[ab.result] || (ab.result||'').replace(/_/g,' ');
+      var title = who+' — '+label + (isK ? ' (P)' : (ab.rbi>0 ? ' ('+ab.rbi+' RBI)' : ''));
+      events.push({t:(ab.yt_offset_sec||0)-CHAPTER_PRE, kind:'play', title:title});
+      plays++;
+    });
+
+    events.sort(function(a,b){ return a.t - b.t || (a.kind==='inn' ? -1 : 1); });
+
+    // 3. Enforce the 10s minimum by MERGING neighbours rather than dropping
+    //    them — a home run that opens an inning keeps both bits of context.
+    var merged = [];
+    events.forEach(function(e){
+      var last = merged[merged.length-1];
+      if(last && (e.t - last.t) < MIN_GAP){
+        if(last.title.indexOf(e.title) < 0) last.title += ' · ' + e.title;
+      } else {
+        merged.push({t:Math.max(0, e.t), title:e.title});
+      }
+    });
+
+    // 4. YouTube requires the list to start at 0:00.
+    if(!merged.length || merged[0].t > 0) merged.unshift({t:0, title:'Pregame'});
+
+    var lines = merged.map(function(e){ return ts(e.t)+' '+e.title; });
+    document.getElementById('out').value = lines.join('\n');
+    document.getElementById('outCard').style.display = 'block';
+
+    var yt = sel.options[sel.selectedIndex].getAttribute('data-yt');
+    document.getElementById('ytLink').href = 'https://studio.youtube.com/video/'+yt+'/edit';
+    document.getElementById('stat').innerHTML = '<b>'+merged.length+'</b> chapters · <b>'+plays+'</b> plays';
+
+    if(merged.length < MIN_CHAPTERS){
+      msg('warn','Only '+merged.length+' chapter'+(merged.length===1?'':'s')+'. YouTube needs at least '+MIN_CHAPTERS+' to show a chapter list — it will ignore this until the game has more scored plays.');
+    } else {
+      msg('ok','Ready — '+merged.length+' chapters covering '+plays+' plays.');
+    }
+  }catch(e){
+    msg('err','Couldn\'t build chapters: '+(e.message||e));
+  }
+}
+
+async function copyOut(btn){
+  var ta = document.getElementById('out');
+  try{
+    await navigator.clipboard.writeText(ta.value);
+  }catch(e){
+    ta.select(); document.execCommand('copy');
+  }
+  var old = btn.textContent; btn.textContent = '✓ Copied';
+  setTimeout(function(){ btn.textContent = old; }, 1600);
+}
+
+loadGames();
+</script>
+</body>
+</html>
