@@ -338,6 +338,11 @@ async function init() {
     var {data} = await db.from('players')
       .select('*').eq('jersey_num', num).single()
     if (data) {
+      // Roster turnover can recycle a number: if the DB kid's name doesn't
+      // match the archived FALLBACK entry for this jersey, drop the FALLBACK
+      // so the new player doesn't inherit the old player's spring stats.
+      if (p && data.first_name && data.last_name &&
+          (p.first !== data.first_name || p.last !== data.last_name)) p = null
       if (!p) p = {}
       p.id        = data.id
       p.jerseyNum = data.jersey_num
@@ -350,6 +355,14 @@ async function init() {
   } catch(e) {}
 
   if (!p || !p.first) { showNotFound(); return }
+
+  // New players (no archived stats) start with a zeroed line so the page
+  // renders instead of crashing on p.ops.toFixed() etc.
+  ;['gp','ab','h','d','t','hr','rbi','r','bb','so','sb','tb','hbp','gp_p','np','so_p','bb_p',
+    'avg','obp','slg','ops','ip','era','whip'].forEach(function(k){
+    if (typeof p[k] !== 'number') p[k] = 0
+  })
+  if (p.jerseyNum == null) p.jerseyNum = num
 
   window._player = p
   refreshMyPlayerBtn()
