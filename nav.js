@@ -62,10 +62,14 @@
         'border-bottom:1px solid rgba(255,255,255,.08);padding:6px 0;display:none;max-height:80vh;overflow-y:auto;}',
       '.dva-links.dva-open{display:flex;}',
       '.dva-link{padding:14px 20px;font-size:15px;border-radius:0;}',
+      // Coach tools collapse behind one tap on mobile — parents see 5 clean
+      // links; the coach section expands only when asked for.
       '.dva-coach{position:static;width:100%;border-top:1px solid rgba(255,255,255,.07);margin-top:4px;padding-top:4px;}',
-      '.dva-coach-btn{width:100%;text-align:left;padding:12px 20px 4px;font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:#7A8290;pointer-events:none;}',
-      '.dva-caret{display:none;}',
-      '.dva-coach-menu{display:flex;position:static;margin:0;min-width:0;background:none;border:none;box-shadow:none;padding:0;border-radius:0;backdrop-filter:none;}',
+      '.dva-coach-btn{width:100%;text-align:left;padding:12px 20px;font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:#7A8290;display:flex;align-items:center;gap:6px;}',
+      '.dva-coach.dva-open .dva-coach-btn{color:#E8530A;}',
+      '.dva-coach.dva-open .dva-caret{transform:rotate(180deg);}',
+      '.dva-caret{transition:transform .15s;}',
+      '.dva-coach-menu{display:none;position:static;margin:0;min-width:0;background:none;border:none;box-shadow:none;padding:0;border-radius:0;backdrop-filter:none;}',
       '.dva-coach-menu .dva-link{padding:12px 20px 12px 34px;}',
     '}'
   ].join('');
@@ -92,6 +96,10 @@
   // Load the shared PWA setup (manifest + service worker + install chip) on every page.
   if (!document.querySelector('script[src="/pwa.js"]')) {
     var pw = document.createElement('script'); pw.src = '/pwa.js'; document.head.appendChild(pw);
+  }
+  // Load the shared game strip (LIVE score / next-game line under the nav).
+  if (!document.querySelector('script[src="/gamestrip.js"]')) {
+    var gs = document.createElement('script'); gs.src = '/gamestrip.js'; document.head.appendChild(gs);
   }
 
   function mount() {

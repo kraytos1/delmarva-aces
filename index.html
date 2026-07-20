@@ -310,6 +310,10 @@
   <button class="nav-toggle" id="nav-toggle" onclick="toggleNav()" aria-label="Menu">☰</button>
 </nav>
 
+<!-- Game strip: LIVE score / next-game one-liner (rendered by gamestrip.js) -->
+<div id="game-strip"></div>
+<script src="/gamestrip.js"></script>
+
 <!-- ══ HOME ══ -->
 <div class="page active" id="page-home">
   <section class="hero">
@@ -324,6 +328,15 @@
         <div class="hero-stat"><div class="hero-stat-num" id="hs-rbi">685</div><div class="hero-stat-label">Team RBI</div></div>
         <div class="hero-stat"><div class="hero-stat-num" id="hs-sb">316</div><div class="hero-stat-label">Stolen Bases</div></div>
         <div class="hero-stat"><div class="hero-stat-num" id="hs-hr">177</div><div class="hero-stat-label">Home Runs</div></div>
+      </div>
+      <!-- Pre-season: shown instead of the zeroed stat tiles until the active
+           season has real at-bats (renderHome toggles the two) -->
+      <div class="hero-stats" id="hero-preseason" style="display:none;padding:14px 22px;align-items:center;gap:10px;">
+        <span style="font-size:20px;">⚾</span>
+        <div>
+          <div style="font-family:var(--display);font-size:16px;font-weight:600;letter-spacing:.5px;">Season starts soon</div>
+          <div style="font-size:12px;color:var(--muted);" id="hero-preseason-sub">Spring 2026: 62–2 Champions 🏆</div>
+        </div>
       </div>
       <div class="hero-cta">
         <button class="btn-primary" onclick="showPage('roster')">▶ Roster &amp; Stats</button>
@@ -993,6 +1006,15 @@ function renderHome() {
   }, {rbi:0, r:0, sb:0, hr:0, h:0, ab:0})
   var teamAvg = totals.ab > 0 ? (totals.h/totals.ab) : 0
 
+  // Pre-season: zeroed tiles (".000 AVG / 0 HR") read as broken, not "not
+  // started" — show a friendly banner instead until the season has real ABs.
+  // The archived Spring toggle always has FALLBACK stats, so this only ever
+  // fires for a live season with no games scored yet.
+  var preseason = totals.ab === 0
+  var heroTiles = document.getElementById('hero-stats')
+  var heroPre = document.getElementById('hero-preseason')
+  if (heroTiles) heroTiles.style.display = preseason ? 'none' : ''
+  if (heroPre) heroPre.style.display = preseason ? 'flex' : 'none'
   setText('hs-avg', f3(teamAvg))
   setText('hs-rbi', totals.rbi)
   setText('hs-sb', totals.sb)
@@ -1152,8 +1174,10 @@ function renderNextGame(g) {
     (g.game_time ? ' · '+g.game_time : '')+
     (g.tournament ? ' · '+g.tournament : '')+
     (g.location ? ' · '+g.location : '')
-  // update countdown target
+  // update countdown target (and unhide the strip right away — updateCountdown
+  // otherwise only re-runs on its 30s interval)
   window._nextGameDate = g.game_date+(g.game_time?'T'+g.game_time:'T09:00:00')
+  updateCountdown()
 }
 
 function showLivePill(game) {
@@ -1449,9 +1473,13 @@ function showPage(id){
   }
 }
 function updateCountdown(){
-  var target = window._nextGameDate ? new Date(window._nextGameDate) : new Date('2026-06-28T09:00:00')
-  var diff = target - new Date()
-  if(diff<=0) return
+  // No upcoming game (or it already started): hide the whole Next-game strip
+  // instead of showing "vs TBD" over a blank Days/Hrs/Min row.
+  var strip = document.querySelector('.next-game-strip')
+  var target = window._nextGameDate ? new Date(window._nextGameDate) : null
+  var diff = target ? target - new Date() : 0
+  if(!target || diff<=0){ if(strip) strip.style.display='none'; return }
+  if(strip) strip.style.display=''
   var d=Math.floor(diff/86400000),h=Math.floor((diff%86400000)/3600000),m=Math.floor((diff%3600000)/60000)
   setText('cd-d',String(d).padStart(2,'0'))
   setText('cd-h',String(h).padStart(2,'0'))
