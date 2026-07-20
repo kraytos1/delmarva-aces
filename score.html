@@ -76,6 +76,14 @@ body{background:var(--black);color:var(--text);font-family:var(--body);min-heigh
 .ab-micro{font-family:var(--mono);font-size:9px;color:var(--orange);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:2px;}
 .ab-name{font-size:14px;font-weight:500;color:var(--text);}
 .ab-sub{font-size:11px;color:var(--muted);}
+/* arm care (Pitch Smart 13U) — colors the live pitch count as our pitcher
+   climbs toward each rest threshold; 95 = daily max, pulses so it's unmissable */
+.ab-sub.arm-ok{color:#3DDC6A;}
+.ab-sub.arm-amber{color:#F59E0B;font-weight:600;}
+.ab-sub.arm-orange{color:#f97316;font-weight:600;}
+.ab-sub.arm-red{color:#ef4444;font-weight:700;}
+.ab-sub.arm-max{color:#fff;font-weight:700;background:#dc2626;border-radius:4px;padding:1px 6px;animation:armPulse 1.1s infinite;}
+@keyframes armPulse{0%,100%{opacity:1}50%{opacity:.45}}
 
 /* velo row */
 .velo-row{display:flex;align-items:center;gap:8px;background:var(--dark2);border-radius:8px;padding:6px 10px;margin-top:6px;}
@@ -511,6 +519,35 @@ var S = {
 }
 function currentPC(){ return S.isTop ? S.oppPitchCount : S.acesPitchCount }
 
+// ── ARM CARE (Pitch Smart 13U) ──────────────────────────────
+// Same thresholds bullpen.html uses for rest status, applied LIVE so the
+// count itself warns you before a kid crosses into another rest day.
+// Only ever applied to OUR pitcher — we don't track the opponent's kids.
+var DAILY_MAX = 95
+var ARM_STEPS = [21, 36, 51, 66, DAILY_MAX]
+function restDaysRequired(p){ return p>=66?4 : p>=51?3 : p>=36?2 : p>=21?1 : 0 }
+function armTier(count){
+  if (count >= DAILY_MAX) return {cls:'arm-max',  rest:4, note:'DAILY MAX'}
+  if (count >= 66)        return {cls:'arm-red',  rest:4, note:'4d rest'}
+  if (count >= 51)        return {cls:'arm-orange',rest:3, note:'3d rest'}
+  if (count >= 36)        return {cls:'arm-amber', rest:2, note:'2d rest'}
+  if (count >= 21)        return {cls:'arm-ok',    rest:1, note:'1d rest'}
+  return {cls:'', rest:0, note:''}
+}
+// Fired when our pitcher's count crosses a threshold — the moment a coach
+// actually needs to know, rather than after the game.
+function checkArmCare(before, after){
+  for (var i=0; i<ARM_STEPS.length; i++){
+    var t = ARM_STEPS[i]
+    if (before < t && after >= t){
+      var name = (S.currentPitcherName||'Pitcher').split(' ')[0]
+      if (t === DAILY_MAX) showToast('🛑 '+name+' at '+DAILY_MAX+' — daily max reached')
+      else showToast('⚠ '+name+' at '+t+' — now needs '+restDaysRequired(t)+ ' day'+(restDaysRequired(t)===1?'':'s')+' rest')
+      break
+    }
+  }
+}
+
 // State history for undo — each entry is a snapshot + DB ids to delete.
 // One entry = one undoable action. A ball-in-play outcome (snapshot taken in
 // logAB BEFORE any mutation) shares its entry with the in_play pitch logged
@@ -929,7 +966,17 @@ function updateBatterDisplay() {
   // Pitcher
   var pitcherName = S.isTop ? (S.oppPitcher||'Opp. Pitcher') : (S.currentPitcherName||'—')
   setText('ab-pitcher', pitcherName)
-  setText('ab-pc', 'PC '+currentPC())
+  renderPC()
+}
+
+// Pitch count line, colored by arm-care tier when OUR pitcher is working.
+function renderPC(){
+  var el = document.getElementById('ab-pc'); if(!el) return
+  var pc = currentPC()
+  var ours = !S.isTop
+  var tier = ours ? armTier(pc) : {cls:'', note:''}
+  el.className = 'ab-sub'+(tier.cls?' '+tier.cls:'')
+  el.textContent = 'PC '+pc+(tier.note?'  ·  '+tier.note:'')
 }
 
 function advanceBatter() {
@@ -1032,7 +1079,10 @@ async function quickLog(result) {
   if (!IN_LOGAB) saveSnapshot(null, null)
 
   S.pitchCount++
+  var pcBefore = S.acesPitchCount
   if(S.isTop) S.oppPitchCount++; else S.acesPitchCount++
+  // Arm care: warn the moment OUR pitcher crosses a rest threshold
+  if(!S.isTop) checkArmCare(pcBefore, S.acesPitchCount)
   var bBefore=S.balls, sBefore=S.strikes
   var autoWalk=false, autoK=false, autoKLooking=false
 
@@ -1467,7 +1517,7 @@ function renderCount(){
   document.getElementById('sc-them').textContent=S.scores.them
   document.getElementById('top-meta').textContent=(S.isTop?'Top':'Bot')+' '+S.inning+' · '+S.outs+' out'+(S.outs===1?'':'s')
   document.getElementById('inn-lbl').textContent=(S.isTop?'▲':'▼')+' '+S.inning
-  document.getElementById('ab-pc').textContent='PC '+currentPC()
+  renderPC()
 }
 function renderBases(){
   var bases=[{id:'b1b',hid:'h1',rid:'r1b',on:S.bases[0]},

@@ -79,6 +79,16 @@
   .minfo .stat{ margin-left:auto; font-size:12px; color:#c7ccd4; font-family:ui-monospace,"SF Mono",monospace;
     font-variant-numeric:tabular-nums; white-space:nowrap; padding-left:14px; flex-shrink:0; }
   .minfo .stat b{ color:var(--orange2); font-weight:700; }
+  /* Arm care (Pitch Smart 13U): tint OUR pitcher's count as it climbs toward
+     each rest threshold. Deliberately subtler than the scorer's version —
+     this is a broadcast overlay, so it informs without alarming viewers. */
+  /* NOTE the default count color is already orange (--orange2), so the scale
+     runs yellow -> red rather than amber -> orange; an orange tier would be
+     indistinguishable from a normal count. */
+  .minfo .stat b.arm-amber{ color:#FACC15; }
+  .minfo .stat b.arm-orange{ color:#FB7185; }
+  .minfo .stat b.arm-red{ color:#EF4444; }
+  .minfo .stat b.arm-max{ color:#fff; background:#dc2626; border-radius:3px; padding:0 5px; }
   .minfo.hide{ display:none; }
   .bug-bot.hide{ display:none; }
 </style>
@@ -158,6 +168,15 @@ function applyTiers(pitOn, abOn){
 var BASERUNNER = /(stolen_base|wp_advance|pb_advance|balk|caught_stealing|pickoff|out_advancing)/i;
 var HIT        = /^(single|double|triple|home_run)$/i;
 var NOT_AB     = /^(walk|intentional_walk|hbp|sac_fly|sac_bunt)$/i;
+
+// Pitch Smart 13U rest thresholds (mirrors score.html + bullpen.html)
+function armTierClass(count){
+  if (count >= 95) return 'arm-max';
+  if (count >= 66) return 'arm-red';
+  if (count >= 51) return 'arm-orange';
+  if (count >= 36) return 'arm-amber';
+  return '';
+}
 
 function teamAbbr(name){
   var w = (name||'').replace(/[^a-zA-Z ]/g,' ').split(/\s+/).filter(Boolean).sort(function(a,b){return b.length-a.length;})[0];
@@ -268,7 +287,10 @@ function render(g, n, isAcesBatting, acesAbs, oppAbs, oppPC, acesPC, lastPitch){
   // Pitching: whoever is NOT batting is on the mound
   var pitName = isAcesBatting ? (n.oppPitcher || 'Opp. pitcher') : (acesPitcherName(n) || 'Aces pitcher');
   document.getElementById('pitName').textContent = pitName;
-  document.getElementById('pitPC').textContent   = isAcesBatting ? oppPC : acesPC;
+  var pcEl = document.getElementById('pitPC');
+  pcEl.textContent = isAcesBatting ? oppPC : acesPC;
+  // Arm-care tint, our pitcher only (we don't track the opponent's kids)
+  pcEl.className = isAcesBatting ? '' : armTierClass(acesPC);
   document.getElementById('pitVelo').textContent = lastPitch
     ? (' · ' + lastPitch.velocity_mph + (lastPitch.pitch_type ? ' '+lastPitch.pitch_type : ''))
     : '';
