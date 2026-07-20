@@ -358,6 +358,10 @@
     </div>
   </div>
 
+  <!-- "My player" shortcut — shown when a parent has starred their kid on a
+       player page (localStorage aces_my_player); rendered by renderMyPlayer() -->
+  <div id="my-player-card" style="display:none;max-width:1140px;margin:18px auto 0;padding:0 24px;"></div>
+
   <section class="section">
     <div class="section-header">
       <h2 class="section-title">The Squad</h2>
@@ -848,6 +852,7 @@ async function init() {
     try {
       db = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
       loadRosterPhotos()
+      loadUpcoming()
 
       setLoadingText('Loading players...')
       var { data: dbPlayers, error: pErr } = await db
@@ -1029,9 +1034,35 @@ function renderHome() {
   setText('roster-meta', ageLabel+' · '+players.length+' Players · '+gpMax+' Games Played')
 
   renderSquad()
+  renderMyPlayer()
   renderLeaders()
   renderAwards()
   renderResults()
+}
+
+// "My player" shortcut card — appears when a parent starred a kid on their
+// player page (localStorage aces_my_player = jersey number).
+function renderMyPlayer() {
+  var host = document.getElementById('my-player-card'); if (!host) return
+  var num = null
+  try { num = localStorage.getItem('aces_my_player') } catch(e) {}
+  var p = num != null ? (players||[]).find(function(x){ return String(x.num) === String(num) }) : null
+  if (!p) { host.style.display = 'none'; host.innerHTML = ''; return }
+  var line = p.ab > 0
+    ? f3(p.avg)+' AVG · '+p.hr+' HR · '+p.rbi+' RBI'
+    : 'Season starts soon'
+  host.innerHTML =
+    '<a href="/player/'+p.num+'" style="display:flex;align-items:center;gap:14px;text-decoration:none;color:var(--text);'+
+      'background:var(--dark2);border:1px solid var(--bdr-a);border-radius:12px;padding:12px 16px;">'+
+      avatarHtml(p.num, 44)+
+      '<div style="flex:1;min-width:0;">'+
+        '<div style="font-family:var(--mono);font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:var(--orange);">★ My player</div>'+
+        '<div style="font-family:var(--display);font-size:17px;font-weight:600;">#'+p.num+' '+p.first+' '+p.last+'</div>'+
+        '<div style="font-family:var(--mono);font-size:11px;color:var(--muted);">'+line+'</div>'+
+      '</div>'+
+      '<span style="font-family:var(--mono);font-size:11px;color:var(--orange);white-space:nowrap;">Stats & clips →</span>'+
+    '</a>'
+  host.style.display = 'block'
 }
 
 // Full roster on the home page — every kid gets a spot, links to their profile.
@@ -1558,7 +1589,68 @@ function renderSchedule() {
   })
 
   if (!html) html = '<div style="color:var(--muted);font-family:var(--mono);font-size:12px;padding:20px 0;">No games match this filter.</div>'
-  document.getElementById('schedule-grid').innerHTML = html
+  document.getElementById('schedule-grid').innerHTML = renderUpcomingBlock() + html
+}
+
+// ── Upcoming games (schedule page) ──────────────────────
+// The schedule list renders PLAYED games; parents also need the games ahead —
+// with one-tap add-to-calendar (.ics) and directions.
+async function loadUpcoming() {
+  if (!db) return
+  try {
+    var today = new Date(); var ymd = today.getFullYear()+'-'+String(today.getMonth()+1).padStart(2,'0')+'-'+String(today.getDate()).padStart(2,'0')
+    var {data} = await db.from('games')
+      .select('id,game_date,game_time,location,tournament,is_home,opponents(name)')
+      .eq('status','scheduled').gte('game_date', ymd)
+      .order('game_date').limit(20)
+    window._upcomingGames = data || []
+    if (window._upcomingGames.length) renderSchedule()
+  } catch(e) {}
+}
+function fmtGameTime(t) {
+  if (!t) return ''
+  var m = String(t).match(/^(\d{1,2}):(\d{2})/); if (!m) return ''
+  var h = parseInt(m[1],10), ap = h >= 12 ? 'PM' : 'AM'
+  return (h % 12 || 12) + ':' + m[2] + ' ' + ap
+}
+function icsHref(g) {
+  var opp = (g.opponents && g.opponents.name) || 'Opponent'
+  var d = String(g.game_date||'').replace(/-/g,'')
+  var t = String(g.game_time||'09:00:00').replace(/:/g,'').slice(0,6)
+  var endH = Math.min(23, parseInt(t.slice(0,2),10) + 2)
+  var esc = function(s){ return String(s).replace(/([,;])/g,'\\$1') }
+  var lines = ['BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//Delmarva Aces//EN','BEGIN:VEVENT',
+    'UID:'+(g.id||d+t)+'@delmarva-aces','DTSTART:'+d+'T'+t,'DTEND:'+d+'T'+String(endH).padStart(2,'0')+t.slice(2),
+    'SUMMARY:'+esc('Aces '+(g.is_home!==false?'vs':'@')+' '+opp),
+    g.location ? 'LOCATION:'+esc(g.location) : '',
+    'END:VEVENT','END:VCALENDAR'].filter(Boolean)
+  return 'data:text/calendar;charset=utf-8,'+encodeURIComponent(lines.join('\r\n'))
+}
+function renderUpcomingBlock() {
+  var up = window._upcomingGames || []
+  if (!up.length) return ''
+  var btn = 'font-family:var(--mono);font-size:10px;color:var(--orange);text-decoration:none;border:1px solid var(--bdr-a);border-radius:4px;padding:3px 8px;white-space:nowrap;'
+  var html = '<div style="margin-bottom:32px;">'
+  html += '<div style="display:flex;align-items:baseline;gap:12px;margin-bottom:12px;">'
+  html += '<div style="font-family:var(--display);font-size:20px;font-weight:600;text-transform:uppercase;color:var(--orange);">Upcoming</div>'
+  html += '<div style="flex:1;height:1px;background:var(--bdr);margin-left:8px;"></div></div>'
+  up.forEach(function(g){
+    var d = new Date(g.game_date)
+    var dateStr = d.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric',timeZone:'UTC'})
+    var opp = (g.opponents && g.opponents.name) || 'TBD'
+    var meta = [g.tournament||'', g.location||''].filter(Boolean).join(' · ')
+    var time = fmtGameTime(g.game_time)
+    html += '<div class="result-row" style="margin-bottom:6px;">'
+    html += '<div class="result-badge" style="background:rgba(232,83,10,.12);color:var(--orange);font-size:10px;">'+(time||'TBD').split(' ')[0]+'</div>'
+    html += '<div class="result-teams"><div class="result-matchup">'+(g.is_home!==false?'vs':'@')+' '+opp+'</div>'
+    html += '<div class="result-event">'+dateStr+(time?' · '+time:'')+(meta?' · '+meta:'')+'</div></div>'
+    html += '<div style="display:flex;align-items:center;gap:8px;justify-content:flex-end;">'
+    html += '<a href="'+icsHref(g)+'" download="aces-vs-'+opp.toLowerCase().replace(/[^a-z0-9]+/g,'-')+'.ics" style="'+btn+'">📅 Calendar</a>'
+    if (g.location) html += '<a href="https://maps.google.com/?q='+encodeURIComponent(g.location)+'" target="_blank" rel="noopener" style="'+btn+'">📍 Map</a>'
+    html += '</div></div>'
+  })
+  html += '</div>'
+  return html
 }
 
 function filterSchedule(f, btn) {

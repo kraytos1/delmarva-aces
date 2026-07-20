@@ -55,6 +55,8 @@
   .clip-play span::after{content:'';border-style:solid;border-width:9px 0 9px 15px;border-color:transparent transparent transparent #fff;margin-left:4px;}
   .clip-body{padding:13px 15px 15px;}
   .clip-top{display:flex;align-items:center;gap:8px;margin-bottom:9px;flex-wrap:wrap;}
+  .clip-share{margin-left:auto;background:none;border:1px solid var(--bdr);border-radius:6px;color:var(--muted);font-size:13px;padding:3px 9px;cursor:pointer;line-height:1;}
+  .clip-share:active{color:var(--orange);border-color:var(--orange);}
   .badge{font-family:var(--mono);font-size:10px;font-weight:500;letter-spacing:.5px;text-transform:uppercase;padding:3px 9px;border-radius:5px;}
   .b-hr{background:rgba(232,83,10,.16);color:var(--orange);border:1px solid var(--bdr-a);}
   .b-hit{background:rgba(61,220,106,.12);color:var(--green);border:1px solid rgba(61,220,106,.3);}
@@ -178,6 +180,29 @@ function playClip(el){
   el.innerHTML = '<iframe src="'+url+'&autoplay=1" allow="autoplay; encrypted-media; fullscreen" allowfullscreen></iframe>';
 }
 
+// Share one clip: a deep link back to this page (?clip=<id>) that scrolls to
+// and spotlights the card. Web Share on phones, clipboard fallback elsewhere.
+async function shareClip(btn, id){
+  event.stopPropagation();
+  var url = location.origin + '/highlights.html?clip=' + id;
+  try {
+    if (navigator.share) { await navigator.share({title:'Aces highlight', url:url}); return; }
+    await navigator.clipboard.writeText(url);
+    var old = btn.textContent; btn.textContent = '✓';
+    setTimeout(function(){ btn.textContent = old; }, 1600);
+  } catch(e) {}
+}
+function focusSharedClip(){
+  var id = new URLSearchParams(location.search).get('clip');
+  if (!id) return;
+  var el = document.getElementById('clip-' + id);
+  if (!el) return;
+  el.scrollIntoView({behavior:'smooth', block:'center'});
+  el.style.outline = '2px solid #E8530A';
+  el.style.outlineOffset = '3px';
+  setTimeout(function(){ el.style.outline=''; el.style.outlineOffset=''; }, 4000);
+}
+
 function setType(t, btn){
   state.type = t;
   document.querySelectorAll('.filter-btn').forEach(function(b){b.classList.remove('active');});
@@ -204,14 +229,15 @@ function render(){
     var pl = pName(ab);
     var rbi = (ab.rbi>0) ? '<span class="rbi">'+ab.rbi+' RBI</span>' : '';
     var g = ab.games || {};
-    return '<div class="clip">'
+    return '<div class="clip" id="clip-'+ab.id+'">'
       + '<div class="clip-vid" data-embed="'+ytEmbed(g.youtube_stream_id, ab.yt_offset_sec)+'" onclick="playClip(this)">'
       +   '<img loading="lazy" src="'+ytThumb(g.youtube_stream_id)+'" alt="'+info.label+'"/>'
       +   '<div class="clip-play"><span></span></div>'
       + '</div>'
       + '<div class="clip-body">'
       + '<div class="clip-top"><span class="badge '+info.cls+'">'+info.label+'</span>'
-        + (ab._kind==='pitching' ? '<span class="badge b-pitch">⚾ Pitching</span>' : rbi) + '</div>'
+        + (ab._kind==='pitching' ? '<span class="badge b-pitch">⚾ Pitching</span>' : rbi)
+        + '<button class="clip-share" onclick="shareClip(this,\''+ab.id+'\')" title="Share this clip">🔗</button></div>'
       + '<div class="clip-batter">'+(pl.num!=null
           ? '<a href="/player/'+pl.num+'" title="View '+pl.name+'’s page"><em>#'+pl.num+'</em>'+pl.name+'</a>'
           : pl.name)+'</div>'
@@ -317,6 +343,7 @@ async function init(){
     document.getElementById('filters').style.display = 'flex';
     buildPlayerFilter();
     render();
+    focusSharedClip();
   }catch(e){
     document.getElementById('sub').textContent = '';
     document.getElementById('content').innerHTML = '<div class="load-note">Couldn\'t load highlights: '+(e.message||e)+'</div>';

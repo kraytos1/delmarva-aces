@@ -167,6 +167,7 @@ nav{background:rgba(10,12,14,.95);border-bottom:1px solid var(--bdr);display:fle
       <div style="display:flex;flex-direction:column;align-items:flex-end;gap:8px;">
         <button class="share-btn" onclick="openCard()">📸 Player card</button>
         <button class="share-btn" onclick="shareProfile()">🔗 Share profile</button>
+        <button class="share-btn" id="my-player-btn" onclick="toggleMyPlayer()" title="Pin this player to the home page">☆ My player</button>
       </div>
     </div>
   </div>
@@ -351,6 +352,7 @@ async function init() {
   if (!p || !p.first) { showNotFound(); return }
 
   window._player = p
+  refreshMyPlayerBtn()
   renderProfile(p)
   renderCharts(p)
   loadVeloChart(p.id)
@@ -359,6 +361,26 @@ async function init() {
   document.getElementById('loading').style.display = 'none'
   document.getElementById('player-content').style.display = 'block'
   document.title = p.first+' '+p.last+' · Delmarva Aces'
+}
+
+// "My player" — parents pin their kid; the home page shows a shortcut card.
+// Stored as the jersey number in localStorage (shared with index.html).
+function myPlayerNum(){ try { return localStorage.getItem('aces_my_player') } catch(e){ return null } }
+function refreshMyPlayerBtn(){
+  var b = document.getElementById('my-player-btn'), p = window._player || {}
+  if (!b || p.jerseyNum == null) return
+  var mine = String(myPlayerNum()) === String(p.jerseyNum)
+  b.textContent = mine ? '★ My player' : '☆ My player'
+  b.style.color = mine ? '#E8530A' : ''
+}
+function toggleMyPlayer(){
+  var p = window._player || {}
+  if (p.jerseyNum == null) return
+  try {
+    if (String(myPlayerNum()) === String(p.jerseyNum)) localStorage.removeItem('aces_my_player')
+    else localStorage.setItem('aces_my_player', String(p.jerseyNum))
+  } catch(e) {}
+  refreshMyPlayerBtn()
 }
 
 function buildFromFallback(num) {

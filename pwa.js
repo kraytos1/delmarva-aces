@@ -47,4 +47,28 @@
     };
     document.body.appendChild(b);
   }
+
+  // iOS never fires beforeinstallprompt — show iPhone/iPad parents a one-time
+  // dismissible tip with the manual Add-to-Home-Screen steps instead.
+  var isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent) ||
+    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1); // iPadOS masquerades as Mac
+  function dismissedIosTip() { try { return localStorage.getItem('aces_ios_tip') === '1' } catch (e) { return true } }
+  function showIosTip() {
+    if (!isIOS || isInstalled() || dismissedIosTip() || document.getElementById('pwa-ios-tip') || !document.body) return;
+    var d = document.createElement('div');
+    d.id = 'pwa-ios-tip';
+    d.style.cssText = 'position:fixed;left:12px;right:12px;bottom:14px;z-index:9998;display:flex;align-items:center;gap:10px;' +
+      'background:#15181d;color:#F0EDE8;border:1px solid rgba(232,83,10,.45);border-radius:14px;padding:12px 14px;' +
+      'font-family:inherit;font-size:13px;line-height:1.4;box-shadow:0 10px 30px rgba(0,0,0,.55);';
+    d.innerHTML = '<span style="font-size:20px;">📲</span>' +
+      '<span style="flex:1;">Add the Aces app to your phone: tap <b>Share</b> ' +
+      '<span style="opacity:.8;">(the &#x2B06;&#xFE0E; box)</span> then <b>&ldquo;Add to Home Screen&rdquo;</b></span>' +
+      '<button style="background:none;border:none;color:#7A8290;font-size:20px;line-height:1;padding:4px 6px;cursor:pointer;">&times;</button>';
+    d.querySelector('button').onclick = function () {
+      try { localStorage.setItem('aces_ios_tip', '1') } catch (e) {}
+      d.remove();
+    };
+    document.body.appendChild(d);
+  }
+  window.addEventListener('load', function () { setTimeout(showIosTip, 2500); });
 })();
