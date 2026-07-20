@@ -36,7 +36,9 @@
     var b = document.createElement('button');
     b.id = 'pwa-install';
     b.textContent = '📲 Install app';
-    b.style.cssText = 'position:fixed;left:16px;bottom:16px;z-index:9998;background:#E8530A;color:#fff;border:none;' +
+    // Bottom-RIGHT: the hero's primary CTAs ("Roster & Stats" / "Watch Last
+    // Game") sit bottom-left, and a fixed chip there covered them.
+    b.style.cssText = 'position:fixed;right:16px;bottom:16px;z-index:9998;background:#E8530A;color:#fff;border:none;' +
       'border-radius:24px;padding:11px 18px;font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;' +
       'box-shadow:0 8px 24px rgba(0,0,0,.55);';
     b.onclick = async function () {

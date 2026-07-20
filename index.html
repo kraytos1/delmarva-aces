@@ -71,7 +71,8 @@
   .loading-text{font-family:var(--mono);font-size:11px;color:var(--muted);margin-top:12px;letter-spacing:1px;}
 
   /* db status badge */
-  .db-status{position:fixed;bottom:16px;right:16px;font-family:var(--mono);font-size:10px;padding:4px 10px;border-radius:4px;z-index:50;opacity:.7;}
+  /* sits ABOVE the PWA install chip (also bottom-right) so they never collide */
+  .db-status{position:fixed;bottom:62px;right:16px;font-family:var(--mono);font-size:10px;padding:4px 10px;border-radius:4px;z-index:50;opacity:.7;}
   .db-status.live{background:rgba(61,220,106,.1);border:1px solid rgba(61,220,106,.3);color:#3DDC6A;}
   .db-status.fallback{background:rgba(232,83,10,.1);border:1px solid rgba(232,83,10,.3);color:var(--orange);}
 
@@ -322,7 +323,6 @@
       <img src="/logo-wordmark.png" alt="Delmarva Aces Baseball" class="hero-wordmark"/>
       <div class="hero-eyebrow" id="hero-eyebrow-txt">13U East · Fall 2026</div>
       <h1 class="hero-title"><div>Play Hard,</div><div class="line2">Play Smart.</div></h1>
-      <p class="hero-desc">Live game streams, pitch-by-pitch scoring, velocity tracking, and auto-generated highlight clips — all in one place for the Aces family.</p>
       <div class="hero-stats" id="hero-stats">
         <div class="hero-stat"><div class="hero-stat-num" id="hs-avg">.467</div><div class="hero-stat-label">Team AVG</div></div>
         <div class="hero-stat"><div class="hero-stat-num" id="hs-rbi">685</div><div class="hero-stat-label">Team RBI</div></div>
@@ -1467,9 +1467,14 @@ function switchTab(tab){
 function f3(v){return v===0?'.000':('.'+Math.round(v*1000).toString().padStart(3,'0'))}
 function setText(id,val){var el=document.getElementById(id);if(el)el.textContent=val}
 function setLoadingText(txt){setText('loading-text',txt)}
+// Status badge is diagnostic, not decoration: stay SILENT when everything is
+// healthy (parents don't need database telemetry on the home page) and only
+// surface when the site has fallen back to cached stats — which is the one
+// case worth noticing.
 function setDBStatus(type,msg){
   var el=document.getElementById('db-status')
-  el.className='db-status '+type; el.textContent=msg
+  if(type==='live'){ el.className='db-status'; el.textContent=''; el.style.display='none'; return }
+  el.className='db-status '+type; el.textContent=msg; el.style.display=''
 }
 function hideLoading(){
   var el=document.getElementById('loading')
