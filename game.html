@@ -856,7 +856,7 @@ function addPlay(ab, isNew) {
   var rLabel = r.replace(/_/g,' ')
   var detail = ''
   if(ab.rbi>0) detail += ab.rbi+' RBI'
-  if(ab.runs_scored>0) detail += (detail?' · ':'')+ab.runs_scored+' run'+(ab.runs_scored>1?'s':'')+' score'
+  if(ab.runs_scored>0) detail += (detail?' · ':'')+ab.runs_scored+' run'+(ab.runs_scored>1?'s':'')+' scored'
   if(ab.notes&&ab.notes!==r) detail += (detail?' · ':'')+ab.notes
 
   var inningStr = (ab.half==='bottom'?'Bot':'Top')+' '+(ab.inning||'?')
@@ -955,7 +955,10 @@ init()
     });
     var innings=7, us=0, them=0, pts=[{x:'Start',wp:50}];
     abs.forEach(function(ab){
-      if(ab.batter_id!=null) us+=wnum(ab.runs_scored); else them+=wnum(ab.runs_scored);
+      // Classify by half, not batter_id — an Aces at-bat from an UNNAMED
+      // lineup slot has batter_id null and was crediting the run to the
+      // opponent (same flaw the scorebug batter fix addressed).
+      if(ab.half!=='bottom') us+=wnum(ab.runs_scored); else them+=wnum(ab.runs_scored);
       pts.push({x:(ab.half==='bottom'?'B':'T')+(ab.inning||'?'), wp:Math.round(winProbAces(us,them,ab.inning,ab.half,0,innings)*100)});
     });
     var g = window.liveGame;

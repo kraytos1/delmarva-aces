@@ -156,6 +156,9 @@ select
   count(ab.id) filter (where ab.result = 'triple')        as triples,
   count(ab.id) filter (where ab.result = 'home_run')      as home_runs,
   coalesce(sum(ab.rbi), 0)                                as rbi,
+  -- NOTE: "runs" = runs that scored ON this batter's plays (runs_scored is a
+  -- per-play total), NOT runs scored BY the player — runner identity isn't
+  -- tracked, so true R (like true SB) isn't computable from this data.
   coalesce(sum(ab.runs_scored), 0)                        as runs,
   count(ab.id) filter (where ab.result in
     ('walk','intentional_walk'))                          as walks,

@@ -1028,6 +1028,11 @@ function renderSquad(){
 }
 
 function renderLeaders() {
+  // Keep the section chip in sync with the active season (it was hardcoded
+  // "Spring 2026" and stayed that way with Fall active — awards-sub already
+  // does this).
+  var subEl = document.getElementById('leaders-sub')
+  if (subEl) subEl.textContent = (ACTIVE_SEASON === 'fall2026') ? 'Fall 2026' : 'Spring 2026'
   var qualified = players.filter(function(p){return p.ab>=1})
   if (qualified.length < 3) {
     document.getElementById('leaders-grid').innerHTML =
@@ -1196,15 +1201,19 @@ function calcAdvanced(p, teamPlayers) {
 // ─────────────────────────────────────────────────────────
 function getBadges(p, adv) {
   var badges = []
+  // Rate-stat badges need a real sample — 2-for-4 on opening day shouldn't
+  // print "MVP Candidate". Counting badges (HR/RBI/SB/K totals) are
+  // inherently sample-proof and stay ungated.
+  var enoughAB = p.ab >= 8
   // Batting badges
-  if (p.avg >= .570)                         badges.push({e:'🔥', l:'Elite Contact',   c:'#E8530A'})
-  if (adv.iso >= .600)                       badges.push({e:'💣', l:'Slugger',          c:'#DC2626'})
+  if (enoughAB && p.avg >= .570)             badges.push({e:'🔥', l:'Elite Contact',   c:'#E8530A'})
+  if (enoughAB && adv.iso >= .600)           badges.push({e:'💣', l:'Slugger',          c:'#DC2626'})
   if (p.hr >= 20)                            badges.push({e:'💪', l:'Power Threat',     c:'#9333EA'})
-  if (adv.opsPlus >= 160)                    badges.push({e:'🏆', l:'MVP Candidate',    c:'#F59E0B'})
-  if (adv.bbPct >= .15 && p.sb >= 20)       badges.push({e:'⚡', l:'Table Setter',     c:'#06B6D4'})
-  if (adv.bbPct >= .18)                      badges.push({e:'👁️',  l:'Plate Discipline', c:'#10B981'})
+  if (enoughAB && adv.opsPlus >= 160)        badges.push({e:'🏆', l:'MVP Candidate',    c:'#F59E0B'})
+  if (enoughAB && adv.bbPct >= .15 && p.sb >= 20) badges.push({e:'⚡', l:'Table Setter', c:'#06B6D4'})
+  if (enoughAB && adv.bbPct >= .18)          badges.push({e:'👁️',  l:'Plate Discipline', c:'#10B981'})
   if (p.sb >= 35)                            badges.push({e:'🚀', l:'Speedster',        c:'#3B82F6'})
-  if (adv.woba >= .550)                      badges.push({e:'⭐', l:'Elite Hitter',     c:'#EAB308'})
+  if (enoughAB && adv.woba >= .550)          badges.push({e:'⭐', l:'Elite Hitter',     c:'#EAB308'})
   if (adv.kPct <= .05 && p.ab >= 50)        badges.push({e:'🎯', l:'Contact King',     c:'#22C55E'})
   if (p.rbi >= 70)                           badges.push({e:'🏅', l:'Run Producer',     c:'#F97316'})
   // Pitching badges

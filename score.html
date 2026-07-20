@@ -1071,6 +1071,7 @@ async function quickLog(result) {
     var _plbl = result==='ball'?'Ball':result==='foul'?'Foul':result==='strike_called'?'Strike (looking)':'Strike (swinging)'
     var _pdot = result==='ball'?'ball':result==='foul'?'foul':'strike'
     pushRecent(_pdot, _plbl, S.balls+'-'+S.strikes)
+    if(HISTORY.length) HISTORY[HISTORY.length-1].recent=(HISTORY[HISTORY.length-1].recent||0)+1
   }
 
   var offset=currentClipOffset()
@@ -1183,6 +1184,7 @@ async function logAB(result, label, skipPitchLog, fromAuto) {
           : 'inplay'
   var _owho = currentBatterLast()
   pushRecent(_od, (label||result.replace(/_/g,' '))+(_owho?(' — '+_owho):''), runs>0?(runs+' run'+(runs>1?'s':'')):'')
+  if(HISTORY.length) HISTORY[HISTORY.length-1].recent=(HISTORY[HISTORY.length-1].recent||0)+1
   // Tally the batter's game line (Aces only); record it so Undo can reverse it
   if(S.isTop && !isBaserunnerEvent){
     var _bid = getCurrentBatterId()
@@ -1355,13 +1357,15 @@ function pickOutcome(v,l){
 
 /* ── CONTROLS ── */
 function toggleBase(b){S.bases[b-1]=!S.bases[b-1];renderBases();pushState()}
-function setOuts(n){S.outs=S.outs===n?n-1:n;renderCount()}
+// Manual corrections push to the DB too — otherwise the scorebug/gamecast lag
+// behind a tapped pip or inning arrow until the next scored play.
+function setOuts(n){S.outs=S.outs===n?n-1:n;renderCount();pushState()}
 function mc(t,i){
   if(t==='b')S.balls=S.balls===i+1?i:i+1
   else if(t==='s')S.strikes=S.strikes===i+1?i:i+1
-  renderCount()
+  renderCount();pushState()
 }
-function adjInn(d){S.inning=Math.max(1,S.inning+d);renderCount()}
+function adjInn(d){S.inning=Math.max(1,S.inning+d);renderCount();pushState()}
 function adjScore(t,d){S.scores[t]=Math.max(0,S.scores[t]+d);renderCount();pushState()}
 
 function newBatter(){
@@ -1379,8 +1383,8 @@ function newHalf(){
   S.balls=0;S.strikes=0;S.outs=0;S.bases=[false,false,false];S.pitchCount=0;S.velo=null
   // NOTE: acesPitchCount/oppPitchCount are per-pitcher game totals and are NOT
   // reset on a half change — each side's counter keeps accumulating across the
-  // innings that pitcher works. (No in-game pitching-change flow exists yet; if
-  // one is added, reset the relevant side's counter when a new pitcher enters.)
+  // innings that pitcher works. (On a pitching change, applyAcePitch recomputes
+  // acesPitchCount from the DB for the incoming pitcher.)
   document.getElementById('velo-val').textContent='—'
   var wasTop = S.isTop
   S.isTop=!S.isTop
@@ -1437,7 +1441,9 @@ async function undoLast(){
   await pushState()
   renderAll()
   updateBatterDisplay()
-  popRecent()
+  // Pop every feed row this action pushed (an auto walk/K entry holds the
+  // pitch row AND the outcome row — popping just one left a stale line).
+  for(var _r=last.recent||1; _r>0; _r--) popRecent()
   showToast(missed.length ? '⚠ Undone here, but the '+missed.join('+')+' stayed in the DB' : 'Undone ↩')
 }
 async function endGame(){

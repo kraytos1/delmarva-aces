@@ -294,14 +294,16 @@ function calcAdv(p) {
 
 function getBadges(p, adv) {
   var badges = []
-  if(p.avg>=.570)                    badges.push({e:'🔥',l:'Elite Contact',  c:'#E8530A'})
-  if(adv.iso>=.600)                  badges.push({e:'💣',l:'Slugger',        c:'#DC2626'})
+  // Rate-stat badges need a real sample (mirrors index.html's gate)
+  var enoughAB = p.ab >= 8
+  if(enoughAB&&p.avg>=.570)          badges.push({e:'🔥',l:'Elite Contact',  c:'#E8530A'})
+  if(enoughAB&&adv.iso>=.600)        badges.push({e:'💣',l:'Slugger',        c:'#DC2626'})
   if(p.hr>=20)                       badges.push({e:'💪',l:'Power Threat',   c:'#9333EA'})
-  if(adv.opsPlus>=160)               badges.push({e:'🏆',l:'MVP Candidate',  c:'#F59E0B'})
-  if(adv.bbPct>=.15&&p.sb>=20)      badges.push({e:'⚡',l:'Table Setter',   c:'#06B6D4'})
-  if(adv.bbPct>=.18)                 badges.push({e:'👁️', l:'Plate Discipline',c:'#10B981'})
+  if(enoughAB&&adv.opsPlus>=160)     badges.push({e:'🏆',l:'MVP Candidate',  c:'#F59E0B'})
+  if(enoughAB&&adv.bbPct>=.15&&p.sb>=20) badges.push({e:'⚡',l:'Table Setter',c:'#06B6D4'})
+  if(enoughAB&&adv.bbPct>=.18)       badges.push({e:'👁️', l:'Plate Discipline',c:'#10B981'})
   if(p.sb>=35)                       badges.push({e:'🚀',l:'Speedster',      c:'#3B82F6'})
-  if(adv.woba>=.550)                 badges.push({e:'⭐',l:'Elite Hitter',   c:'#EAB308'})
+  if(enoughAB&&adv.woba>=.550)       badges.push({e:'⭐',l:'Elite Hitter',   c:'#EAB308'})
   if(adv.kPct<=.05&&p.ab>=50)       badges.push({e:'🎯',l:'Contact King',   c:'#22C55E'})
   if(p.rbi>=70)                      badges.push({e:'🏅',l:'Run Producer',   c:'#F97316'})
   if(p.era<=1.50&&p.ip>=10)         badges.push({e:'🎯',l:'Ace',            c:'#E8530A'})
