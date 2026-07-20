@@ -222,6 +222,14 @@ create policy "auth write at_bats"   on at_bats   for all using (auth.role() = '
 create policy "auth write pitches"   on pitches   for all using (auth.role() = 'authenticated');
 create policy "auth write opponents" on opponents for all using (auth.role() = 'authenticated');
 
+-- App (anon key) delete — what makes the scorer's Undo and admin.html's
+-- Reset/Delete actually remove rows. Same public posture as "app can delete
+-- games" (2026-07-14): the anon key is public, so anyone with it could delete
+-- play data; real lockdown would require Supabase Auth.
+create policy "app can delete games"   on games   for delete to anon using (true);
+create policy "app can delete at_bats" on at_bats for delete to anon using (true);
+create policy "app can delete pitches" on pitches for delete to anon using (true);
+
 
 -- ============================================================
 -- REAL-TIME  (enable live push to viewer browsers)

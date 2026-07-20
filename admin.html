@@ -127,19 +127,25 @@ async function counts(gid){
   return {ab:ab,p:p};
 }
 
-async function wipePlays(gid){
-  // Children are deletable with the anon key (the scorer's Undo does the same)
-  var e1=(await db.from('at_bats').delete().eq('game_id',gid)).error;
-  var e2=(await db.from('pitches').delete().eq('game_id',gid)).error;
+async function wipePlays(gid, expected){
+  // .select() so we see the rows ACTUALLY removed — a delete blocked by RLS
+  // returns success with 0 rows (same trap deleteGame() below guards against).
+  var r1=await db.from('at_bats').delete().eq('game_id',gid).select('id');
+  var r2=await db.from('pitches').delete().eq('game_id',gid).select('id');
   try{ localStorage.removeItem('aces_game_state_'+gid); }catch(e){}
-  return e1||e2;
+  if(r1.error||r2.error) return r1.error||r2.error;
+  var removed=(r1.data?r1.data.length:0)+(r2.data?r2.data.length:0);
+  if(expected>0 && removed===0){
+    return {message:'the database quietly removed 0 rows — the at_bats/pitches tables have no delete permission. Fix once in Supabase (SQL editor):\n\n  create policy "app can delete at_bats" on public.at_bats for delete to anon using (true);\n  create policy "app can delete pitches" on public.pitches for delete to anon using (true);'};
+  }
+  return null;
 }
 
 async function resetGame(gid, opp){
   var c=await counts(gid);
   if(!confirm('Reset "Aces vs '+opp+'"?\n\nThis erases '+c.ab+' at-bat'+(c.ab===1?'':'s')+' and '+c.p+' pitch'+(c.p===1?'':'es')+', and sets the game back to a clean scheduled 0–0.\n\nThe game stays on your schedule. This cannot be undone.')) return;
   setBusy(gid,true);
-  var err=await wipePlays(gid);
+  var err=await wipePlays(gid, c.ab+c.p);
   if(!err){
     var u=await db.from('games').update({
       status:'scheduled', our_score:0, opp_score:0, inning:1, half:'top',

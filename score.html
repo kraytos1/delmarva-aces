@@ -511,8 +511,15 @@ var S = {
 }
 function currentPC(){ return S.isTop ? S.oppPitchCount : S.acesPitchCount }
 
-// State history for undo — each entry is a snapshot + DB ids to delete
+// State history for undo — each entry is a snapshot + DB ids to delete.
+// One entry = one undoable action. A ball-in-play outcome (snapshot taken in
+// logAB BEFORE any mutation) shares its entry with the in_play pitch logged
+// inside it; an auto walk/K shares the triggering pitch's entry (so one Undo
+// removes ball-4 + the walk together). IN_LOGAB stops quickLog from snapshotting
+// mid-outcome, which used to capture half-mutated state (bases already moved,
+// outs already added) and made Undo restore garbage.
 var HISTORY = []
+var IN_LOGAB = false
 
 function saveSnapshot(pitchId, atBatId) {
   HISTORY.push({
@@ -796,7 +803,14 @@ async function startScoring() {
   S.gameId=gid; S.game=g
   S.scores.us=g.our_score||0; S.scores.them=g.opp_score||0
   S.inning=g.inning||1; S.isTop=g.half!=='bottom'; S.outs=g.outs||0
-  await db.from('games').update({status:'live',stream_start_utc:new Date().toISOString()}).eq('id',gid)
+  // Full resume: also restore the count + baserunners, otherwise a mid-inning
+  // reload shows bases empty AND the next pushState wipes the real runners
+  // off the scorebug/gamecast in the DB.
+  S.balls=g.balls||0; S.strikes=g.strikes||0
+  S.bases=[!!g.base_1b, !!g.base_2b, !!g.base_3b]
+  // Keep the original stream_start_utc on resume — resetting it skews the
+  // wall-clock fallback used for clip offsets when no video player is up.
+  await db.from('games').update({status:'live',stream_start_utc:g.stream_start_utc||new Date().toISOString()}).eq('id',gid)
   // Safety net: a team can only be playing one game at a time. If any other
   // game got left in 'live' status (forgot to tap Final, dead battery, rained
   // out, etc.), close it out now so it can never hijack the live viewer.
@@ -962,13 +976,12 @@ async function flushQueue() {
     try {
       var {data, error} = await db.from(item.table).insert(item.data).select().single()
       if (error) throw error
-      // Update HISTORY with real DB id if we can match it
+      // Update HISTORY with real DB id if we can match it (a single entry can
+      // hold both a queued pitch and a queued at-bat — see HISTORY comment)
       if (data?.id) {
         HISTORY.forEach(function(h){
-          if(h.localId === item.id) {
-            if(item.table==='pitches') h.pitchId = data.id
-            if(item.table==='at_bats') h.atBatId = data.id
-          }
+          if(item.table==='pitches' && h.localPitchId === item.id) h.pitchId = data.id
+          if(item.table==='at_bats' && h.localAbId    === item.id) h.atBatId = data.id
         })
       }
     } catch(e) {
@@ -1014,8 +1027,9 @@ setInterval(function(){
 
 /* ── PITCH LOGGING ── */
 async function quickLog(result) {
-  // Save state before this pitch for undo
-  saveSnapshot(null, null)
+  // Save state before this pitch for undo — unless we're inside logAB, whose
+  // own pre-mutation snapshot already owns this action's history entry
+  if (!IN_LOGAB) saveSnapshot(null, null)
 
   S.pitchCount++
   if(S.isTop) S.oppPitchCount++; else S.acesPitchCount++
@@ -1075,38 +1089,44 @@ async function quickLog(result) {
   }catch(e){
     // Queue locally if offline or failed
     var localId = queueItem('pitches', pd)
-    if(HISTORY.length) HISTORY[HISTORY.length-1].localId = localId
+    if(HISTORY.length) HISTORY[HISTORY.length-1].localPitchId = localId
     setSynced(false)
   }
 
-  // Auto-trigger outcomes
+  // Auto-trigger outcomes (fromAuto=true: the outcome joins THIS pitch's
+  // history entry, so one Undo removes e.g. ball-4 + the walk together)
   if(autoWalk){
     S.balls=0; S.strikes=0
     await pushState(); renderAll()
-    await logAB('walk','Walk (BB)', true)
+    await logAB('walk','Walk (BB)', true, true)
     return
   }
   if(autoK){
     S.balls=0; S.strikes=0
     await pushState(); renderAll()
-    await logAB('strikeout_swinging','K swinging', true)
+    await logAB('strikeout_swinging','K swinging', true, true)
     return
   }
   if(autoKLooking){
     S.balls=0; S.strikes=0
     await pushState(); renderAll()
-    await logAB('strikeout_looking','K looking', true)
+    await logAB('strikeout_looking','K looking', true, true)
     return
   }
 
   await pushState(); renderAll()
 }
 
-async function logAB(result, label, skipPitchLog) {
+async function logAB(result, label, skipPitchLog, fromAuto) {
   // Baserunner-only events happen mid at-bat: the batter currently up stays
   // up. They should not advance the lineup, not reset the batter's own
   // ball/strike count, and not consume the next spot in the batting order.
   var isBaserunnerEvent=/(stolen_base|wp_advance|pb_advance|balk|caught_stealing|pickoff|out_advancing)/i.test(result)
+
+  // Snapshot BEFORE any mutation so Undo restores the true pre-play state
+  // (bases, outs, count, abNum). Auto walk/K skip this: the triggering
+  // pitch's entry (saved in quickLog) already holds the correct restore point.
+  if(!fromAuto) saveSnapshot(null, null)
 
   S.abNum++
   var runs=applyBaserunners(result)
@@ -1121,7 +1141,8 @@ async function logAB(result, label, skipPitchLog) {
   if(isHit){S.balls=0;S.strikes=0}
   // Only log in_play pitch for batted balls, not walks/strikeouts (already logged)
   if(!skipPitchLog && (isHit&&!/(walk|hbp|intentional_walk)/i.test(result)||isOut&&!/(strikeout)/i.test(result))){
-    await quickLog('in_play')
+    IN_LOGAB = true
+    try { await quickLog('in_play') } finally { IN_LOGAB = false }
   }
   // RBI: credited for runs scored by the batter's own action, except when
   // the run scores on an error, a double play, or a pure baserunner event
@@ -1146,7 +1167,7 @@ async function logAB(result, label, skipPitchLog) {
     setSynced(true)
   }catch(e){
     var localId2 = queueItem('at_bats', abd)
-    if(HISTORY.length) HISTORY[HISTORY.length-1].localId = localId2
+    if(HISTORY.length) HISTORY[HISTORY.length-1].localAbId = localId2
     setSynced(false)
   }
   if(runs>0){
@@ -1374,11 +1395,26 @@ async function undoLast(){
   var last = HISTORY.pop()
   if(last.tally) tallyAtBat(last.tally.bid, last.tally.result, -1)
 
-  // Delete from DB
+  // If this action is still sitting in the offline queue (never synced),
+  // pull it out so it can't phantom-insert later.
+  if(last.localPitchId || last.localAbId){
+    var q = getQueue().filter(function(it){ return it.id!==last.localPitchId && it.id!==last.localAbId })
+    saveQueue(q); updateSyncIndicator()
+  }
+
+  // Delete from DB — .select() so a silent 0-row delete (missing RLS policy)
+  // is caught instead of quietly leaving the play in the season stats.
+  var missed = []
   try{
-    if(last.pitchId) await db.from('pitches').delete().eq('id',last.pitchId)
-    if(last.atBatId) await db.from('at_bats').delete().eq('id',last.atBatId)
-  }catch(e){console.log('undo delete error:',e)}
+    if(last.pitchId){
+      var dp = await db.from('pitches').delete().eq('id',last.pitchId).select('id')
+      if(dp.error || !(dp.data&&dp.data.length)) missed.push('pitch')
+    }
+    if(last.atBatId){
+      var da = await db.from('at_bats').delete().eq('id',last.atBatId).select('id')
+      if(da.error || !(da.data&&da.data.length)) missed.push('at-bat')
+    }
+  }catch(e){console.log('undo delete error:',e); missed.push('db')}
 
   // Restore state snapshot (preserve gameId, game, npInput, pitchType, velo)
   var prev = last.state
@@ -1401,7 +1437,7 @@ async function undoLast(){
   renderAll()
   updateBatterDisplay()
   popRecent()
-  showToast('Undone ↩')
+  showToast(missed.length ? '⚠ Undone here, but the '+missed.join('+')+' stayed in the DB' : 'Undone ↩')
 }
 async function endGame(){
   if(!confirm('End game? Final: Aces '+S.scores.us+' – '+S.scores.them))return
