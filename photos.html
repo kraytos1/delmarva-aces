@@ -1,0 +1,365 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<!-- Photos of minors: publicly reachable by URL (same posture as the rest of
+     the site) but deliberately kept OUT of search engines. -->
+<meta name="robots" content="noindex,nofollow"/>
+<link rel="icon" href="/icon-192.png"/>
+<meta name="theme-color" content="#E8530A"/>
+<title>Photos · Delmarva Aces</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="config.js"></script>
+<script src="/nav.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Oswald:wght@400;600;700&family=Inter:wght@400;500;600&family=Roboto+Mono:wght@400;500&display=swap');
+:root{--orange:#E8530A;--black:#0A0C0E;--dark:#111418;--dark2:#181C22;--dark3:#1F242C;
+  --bdr:rgba(255,255,255,.08);--bdr-a:rgba(232,83,10,.35);--text:#F0EDE8;--muted:#7A8290;
+  --green:#3DDC6A;--amber:#F59E0B;--red:#ef4444;
+  --mono:'Roboto Mono',monospace;--display:'Oswald',sans-serif;--body:'Inter',sans-serif;}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--black);color:var(--text);font-family:var(--body);line-height:1.6;overflow-x:hidden;}
+.wrap{max-width:1180px;margin:0 auto;padding:26px 18px 80px;}
+h1{font-family:var(--display);font-size:32px;font-weight:700;letter-spacing:.5px;}
+.sub{color:var(--muted);font-size:14px;margin-bottom:20px;}
+
+/* filters */
+.filters{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:18px;}
+.chip{background:var(--dark2);border:1px solid var(--bdr);color:var(--muted);border-radius:20px;
+  padding:7px 15px;font-size:13px;cursor:pointer;font-family:var(--body);}
+.chip.active{background:var(--og,rgba(232,83,10,.15));border-color:var(--bdr-a);color:var(--orange);font-weight:600;}
+select.psel{background:var(--dark3);border:1px solid var(--bdr);border-radius:8px;padding:8px 11px;
+  color:var(--text);font-size:13px;font-family:var(--body);outline:none;margin-left:auto;}
+select.psel:focus{border-color:var(--orange);}
+
+/* grid */
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:12px;}
+.ph{position:relative;border-radius:10px;overflow:hidden;background:var(--dark2);border:1px solid var(--bdr);
+  cursor:pointer;aspect-ratio:4/3;}
+.ph img{width:100%;height:100%;object-fit:cover;display:block;transition:transform .25s;}
+.ph:hover img{transform:scale(1.04);}
+.ph-cap{position:absolute;left:0;right:0;bottom:0;padding:16px 10px 8px;font-size:12px;color:#fff;
+  background:linear-gradient(transparent,rgba(0,0,0,.8));pointer-events:none;}
+.ph-tag{position:absolute;top:7px;left:7px;font-family:var(--mono);font-size:9px;letter-spacing:1px;
+  text-transform:uppercase;background:rgba(10,12,14,.8);color:var(--orange);border-radius:4px;padding:2px 7px;}
+.ph-del{position:absolute;top:6px;right:6px;background:rgba(10,12,14,.85);border:1px solid var(--bdr);
+  color:var(--muted);border-radius:6px;font-size:13px;line-height:1;padding:4px 7px;cursor:pointer;display:none;}
+.coach .ph-del{display:block;}
+.ph-del:hover{color:var(--red);border-color:var(--red);}
+
+.empty{text-align:center;padding:56px 20px;color:var(--muted);}
+.empty .ic{font-size:42px;display:block;margin-bottom:10px;}
+.empty h3{font-family:var(--display);font-size:19px;color:var(--text);letter-spacing:.5px;margin-bottom:6px;}
+
+/* upload panel (coach only) */
+.up{background:var(--dark2);border:1px solid var(--bdr-a);border-radius:12px;padding:16px;margin-bottom:20px;}
+.up-head{display:flex;align-items:center;gap:9px;margin-bottom:12px;}
+.up-head h2{font-family:var(--display);font-size:18px;font-weight:600;letter-spacing:.4px;flex:1;}
+.lbl{font-family:var(--mono);font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin-bottom:6px;}
+.frow{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:11px;}
+.frow > div{flex:1;min-width:150px;}
+.up input[type=text],.up select,.up input[type=date]{width:100%;background:var(--dark3);border:1px solid var(--bdr);
+  border-radius:8px;padding:10px 11px;color:var(--text);font-size:13.5px;font-family:var(--body);outline:none;}
+.up input:focus,.up select:focus{border-color:var(--orange);}
+.btn{background:var(--orange);color:#fff;border:none;border-radius:9px;padding:11px 18px;
+  font-family:var(--display);font-size:15px;font-weight:600;letter-spacing:.4px;cursor:pointer;}
+.btn:active{opacity:.85;}
+.btn.ghost{background:transparent;border:1px solid var(--bdr-a);color:var(--orange);}
+.btn[disabled]{opacity:.5;cursor:default;}
+.prog{font-family:var(--mono);font-size:12px;color:var(--muted);margin-left:10px;}
+.unlock{background:var(--dark2);border:1px dashed var(--bdr);border-radius:12px;padding:13px 16px;margin-bottom:20px;
+  display:flex;align-items:center;gap:12px;font-size:13px;color:var(--muted);}
+.unlock input{width:96px;background:var(--dark3);border:1px solid var(--bdr);border-radius:8px;padding:9px 11px;
+  color:var(--text);font-family:var(--mono);font-size:15px;letter-spacing:3px;text-align:center;outline:none;}
+
+/* lightbox */
+.lb{position:fixed;inset:0;background:rgba(6,8,10,.94);z-index:500;display:none;align-items:center;justify-content:center;}
+.lb.on{display:flex;}
+.lb img{max-width:94vw;max-height:82vh;border-radius:8px;display:block;}
+.lb-cap{position:absolute;left:0;right:0;bottom:18px;text-align:center;color:#e8e8e8;font-size:14px;padding:0 20px;}
+.lb-x{position:absolute;top:14px;right:18px;background:none;border:none;color:#9aa3ad;font-size:32px;cursor:pointer;line-height:1;}
+.lb-nav{position:absolute;top:50%;transform:translateY(-50%);background:rgba(20,24,29,.75);border:1px solid var(--bdr);
+  color:#e8e8e8;font-size:26px;line-height:1;padding:12px 15px;border-radius:10px;cursor:pointer;}
+.lb-prev{left:14px;} .lb-next{right:14px;}
+.msg{border-left:3px solid var(--amber);background:rgba(245,158,11,.07);padding:10px 13px;border-radius:0 8px 8px 0;
+  font-size:13px;color:#f5d9a0;margin-bottom:14px;}
+.msg.err{border-color:var(--red);background:rgba(239,68,68,.07);color:#f8b4b4;}
+.msg.ok{border-color:var(--green);background:rgba(61,220,106,.07);color:#b7f0c8;}
+@media(max-width:640px){ .grid{grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px;} h1{font-size:26px;} }
+</style>
+</head>
+<body>
+<div id="site-nav"></div>
+<div class="wrap" id="wrap">
+  <h1>Photos</h1>
+  <div class="sub" id="sub">Game day, through the season.</div>
+
+  <div id="msgArea"></div>
+
+  <!-- Coach-only upload. The gallery itself stays open so families can browse. -->
+  <div class="unlock" id="unlockBox" style="display:none;">
+    <span>🔒 Coach? Enter the PIN to add photos.</span>
+    <input id="pinInput" type="password" inputmode="numeric" maxlength="4" placeholder="••••"/>
+    <button class="btn ghost" onclick="tryUnlock()">Unlock</button>
+  </div>
+
+  <div class="up" id="upBox" style="display:none;">
+    <div class="up-head">
+      <span style="font-size:20px;">📸</span>
+      <h2>Add photos</h2>
+      <button class="btn ghost" onclick="lockUp()" style="padding:7px 12px;font-size:13px;">Done</button>
+    </div>
+    <div class="frow">
+      <div>
+        <div class="lbl">Album</div>
+        <select id="upCat">
+          <option value="team">Team</option>
+          <option value="coaches">Coaches</option>
+          <option value="family">Family</option>
+        </select>
+      </div>
+      <div>
+        <div class="lbl">Tag a player (optional)</div>
+        <select id="upPlayer"><option value="">— none —</option></select>
+      </div>
+      <div>
+        <div class="lbl">Game (optional)</div>
+        <select id="upGame"><option value="">— none —</option></select>
+      </div>
+    </div>
+    <div class="frow">
+      <div style="flex:2;">
+        <div class="lbl">Caption (optional)</div>
+        <input id="upCap" type="text" placeholder="e.g. Championship Saturday"/>
+      </div>
+      <div>
+        <div class="lbl">Date taken (optional)</div>
+        <input id="upDate" type="date"/>
+      </div>
+    </div>
+    <div class="lbl">Photos — you can pick several at once</div>
+    <input id="upFiles" type="file" accept="image/*" multiple style="font-size:13px;margin-bottom:12px;"/>
+    <div>
+      <button class="btn" id="upBtn" onclick="doUpload()">Upload</button>
+      <span class="prog" id="upProg"></span>
+    </div>
+  </div>
+
+  <div class="filters" id="filters">
+    <button class="chip active" data-cat="all" onclick="setCat('all',this)">All</button>
+    <button class="chip" data-cat="team" onclick="setCat('team',this)">Team</button>
+    <button class="chip" data-cat="coaches" onclick="setCat('coaches',this)">Coaches</button>
+    <button class="chip" data-cat="family" onclick="setCat('family',this)">Family</button>
+    <select class="psel" id="playerSel" onchange="render()"><option value="">All players</option></select>
+  </div>
+
+  <div id="content"><div class="empty"><span class="ic">⏳</span>Loading photos…</div></div>
+</div>
+
+<div class="lb" id="lb" onclick="closeLb(event)">
+  <button class="lb-x" onclick="closeLb()">×</button>
+  <button class="lb-nav lb-prev" onclick="stepLb(event,-1)">‹</button>
+  <img id="lbImg" src="" alt=""/>
+  <button class="lb-nav lb-next" onclick="stepLb(event,1)">›</button>
+  <div class="lb-cap" id="lbCap"></div>
+</div>
+
+<script>
+var db = supabase.createClient(ACES_CONFIG.supabaseUrl, ACES_CONFIG.supabaseKey);
+var PIN_KEY = 'aces_pin_auth', PIN_MS = 7*24*60*60*1000;
+var BUCKET = 'team-photos';
+var MAX_DIM = 1600, JPEG_Q = 0.82;   // ~250-400KB/photo keeps the free tier comfortable
+
+var PHOTOS = [], PLAYERS = {}, state = {cat:'all'}, lbIdx = -1, lbList = [];
+
+/* ── coach gate (view is public; only uploading is gated) ── */
+function isCoach(){
+  try{ var s = JSON.parse(localStorage.getItem(PIN_KEY)||'{}');
+       return !!(s.ts && (Date.now()-s.ts) < PIN_MS); }catch(e){ return false }
+}
+function applyCoachUI(){
+  var coach = isCoach();
+  document.getElementById('upBox').style.display   = coach ? 'block' : 'none';
+  document.getElementById('unlockBox').style.display = coach ? 'none' : 'flex';
+  document.getElementById('wrap').classList.toggle('coach', coach);
+}
+function tryUnlock(){
+  var v = (document.getElementById('pinInput').value||'').trim();
+  if(v === String(ACES_CONFIG.pin)){
+    localStorage.setItem(PIN_KEY, JSON.stringify({ts:Date.now()}));
+    applyCoachUI(); render();
+  } else {
+    msg('err','That PIN didn\'t match.');
+    document.getElementById('pinInput').value = '';
+  }
+}
+function lockUp(){ document.getElementById('upBox').style.display='none'; document.getElementById('unlockBox').style.display='flex'; }
+function msg(cls, text){
+  document.getElementById('msgArea').innerHTML = text ? '<div class="msg '+cls+'">'+text+'</div>' : '';
+  if(text) setTimeout(function(){ var m=document.getElementById('msgArea'); if(m) m.innerHTML=''; }, 6000);
+}
+
+/* ── load ── */
+async function loadPlayers(){
+  var {data} = await db.from('players').select('id,jersey_num,first_name,last_name').order('jersey_num');
+  (data||[]).forEach(function(p){ PLAYERS[p.id] = p; });
+  var opts = (data||[]).map(function(p){
+    return '<option value="'+p.id+'">#'+p.jersey_num+' '+p.first_name+' '+p.last_name+'</option>';
+  }).join('');
+  document.getElementById('playerSel').innerHTML = '<option value="">All players</option>'+opts;
+  document.getElementById('upPlayer').innerHTML  = '<option value="">— none —</option>'+opts;
+}
+async function loadGames(){
+  var {data} = await db.from('games').select('id,game_date,opponents(name)').order('game_date',{ascending:false}).limit(40);
+  document.getElementById('upGame').innerHTML = '<option value="">— none —</option>' + (data||[]).map(function(g){
+    var d = new Date(g.game_date).toLocaleDateString('en-US',{month:'short',day:'numeric',timeZone:'UTC'});
+    return '<option value="'+g.id+'">'+d+' vs '+((g.opponents&&g.opponents.name)||'Opponent')+'</option>';
+  }).join('');
+}
+async function loadPhotos(){
+  var {data, error} = await db.from('team_photos').select('*').order('created_at',{ascending:false});
+  if(error){ document.getElementById('content').innerHTML = '<div class="empty">Couldn\'t load photos: '+error.message+'</div>'; return; }
+  PHOTOS = data || [];
+  render();
+}
+
+/* ── render ── */
+function setCat(c, btn){
+  state.cat = c;
+  document.querySelectorAll('.chip').forEach(function(b){ b.classList.remove('active'); });
+  btn.classList.add('active');
+  render();
+}
+function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]}); }
+function visible(){
+  var pid = document.getElementById('playerSel').value;
+  return PHOTOS.filter(function(p){
+    if(state.cat !== 'all' && p.category !== state.cat) return false;
+    if(pid && p.player_id !== pid) return false;
+    return true;
+  });
+}
+function render(){
+  var rows = visible(), c = document.getElementById('content');
+  document.getElementById('sub').textContent = PHOTOS.length
+    ? PHOTOS.length + (PHOTOS.length===1?' photo':' photos') + ' from the season.'
+    : 'Game day, through the season.';
+  if(!rows.length){
+    c.innerHTML = PHOTOS.length
+      ? '<div class="empty"><span class="ic">🔍</span><h3>Nothing here yet</h3>No photos match this filter.</div>'
+      : '<div class="empty"><span class="ic">📷</span><h3>No photos yet</h3>Photos from games and team events will show up here.</div>';
+    return;
+  }
+  lbList = rows;
+  c.innerHTML = '<div class="grid">' + rows.map(function(p, i){
+    var who = p.player_id && PLAYERS[p.player_id];
+    var tag = who ? '#'+who.jersey_num+' '+who.last_name : (p.category||'team');
+    var cap = p.caption ? '<div class="ph-cap">'+esc(p.caption)+'</div>' : '';
+    return '<div class="ph" onclick="openLb('+i+')">'
+      + '<img loading="lazy" src="'+esc(p.url)+'" alt="'+esc(p.caption||'Aces photo')+'"/>'
+      + '<span class="ph-tag">'+esc(tag)+'</span>'
+      + '<button class="ph-del" title="Delete photo" onclick="delPhoto(event,\''+p.id+'\')">🗑</button>'
+      + cap + '</div>';
+  }).join('') + '</div>';
+}
+
+/* ── lightbox ── */
+function openLb(i){
+  lbIdx = i; var p = lbList[i]; if(!p) return;
+  document.getElementById('lbImg').src = p.url;
+  var who = p.player_id && PLAYERS[p.player_id];
+  document.getElementById('lbCap').textContent =
+    [p.caption||'', who ? '#'+who.jersey_num+' '+who.first_name+' '+who.last_name : ''].filter(Boolean).join('  ·  ');
+  document.getElementById('lb').classList.add('on');
+}
+function closeLb(e){ if(!e || e.target.id==='lb' || e.target.classList.contains('lb-x')) document.getElementById('lb').classList.remove('on'); }
+function stepLb(e, d){
+  e.stopPropagation();
+  if(!lbList.length) return;
+  lbIdx = (lbIdx + d + lbList.length) % lbList.length;
+  openLb(lbIdx);
+}
+document.addEventListener('keydown', function(e){
+  if(!document.getElementById('lb').classList.contains('on')) return;
+  if(e.key==='Escape') document.getElementById('lb').classList.remove('on');
+  if(e.key==='ArrowRight') stepLb(e,1);
+  if(e.key==='ArrowLeft')  stepLb(e,-1);
+});
+
+/* ── upload ── */
+function resizeImage(file, maxDim){
+  return new Promise(function(resolve,reject){
+    var img = new Image();
+    img.onload = function(){
+      var s = Math.min(1, maxDim/Math.max(img.width,img.height));
+      var w = Math.max(1,Math.round(img.width*s)), h = Math.max(1,Math.round(img.height*s));
+      var cv = document.createElement('canvas'); cv.width=w; cv.height=h;
+      cv.getContext('2d').drawImage(img,0,0,w,h);
+      cv.toBlob(function(b){ b?resolve(b):reject(new Error('resize failed')); },'image/jpeg',JPEG_Q);
+    };
+    img.onerror = function(){ reject(new Error('Not a valid image')); };
+    img.src = URL.createObjectURL(file);
+  });
+}
+async function doUpload(){
+  var files = Array.from(document.getElementById('upFiles').files||[]);
+  if(!files.length){ msg('err','Choose at least one photo first.'); return; }
+  var btn = document.getElementById('upBtn'), prog = document.getElementById('upProg');
+  btn.disabled = true;
+  var cat = document.getElementById('upCat').value;
+  var pid = document.getElementById('upPlayer').value || null;
+  var gid = document.getElementById('upGame').value || null;
+  var cap = (document.getElementById('upCap').value||'').trim() || null;
+  var dt  = document.getElementById('upDate').value || null;
+  var ok = 0, fail = 0;
+  for(var i=0;i<files.length;i++){
+    prog.textContent = 'Uploading '+(i+1)+' of '+files.length+'…';
+    try{
+      var f = files[i];
+      if(!/^image\//.test(f.type||'')) throw new Error('not an image');
+      var blob = await resizeImage(f, MAX_DIM);
+      var key = 'g/'+Date.now()+'-'+Math.random().toString(36).slice(2,8)+'.jpg';
+      var up = await db.storage.from(BUCKET).upload(key, blob, {contentType:'image/jpeg', upsert:false});
+      if(up.error) throw up.error;
+      var pub = db.storage.from(BUCKET).getPublicUrl(key);
+      var ins = await db.from('team_photos').insert({
+        url: pub.data.publicUrl, storage_key: key, caption: cap, category: cat,
+        player_id: pid, game_id: gid, taken_on: dt,
+        season: (typeof ACES_CONFIG!=='undefined' && ACES_CONFIG.activeSeason) || null
+      }).select();
+      if(ins.error) throw ins.error;
+      if(!ins.data || !ins.data.length) throw new Error('saved to storage but the database row was rejected');
+      ok++;
+    }catch(e){ fail++; console.log('upload failed:', e); }
+  }
+  prog.textContent = '';
+  btn.disabled = false;
+  document.getElementById('upFiles').value = '';
+  msg(fail? 'err':'ok', ok+' photo'+(ok===1?'':'s')+' uploaded'+(fail? ' · '+fail+' failed':' ✓'));
+  await loadPhotos();
+}
+async function delPhoto(e, id){
+  e.stopPropagation();
+  if(!isCoach()) return;
+  var p = PHOTOS.find(function(x){ return x.id===id; });
+  if(!confirm('Delete this photo? This cannot be undone.')) return;
+  try{
+    var d = await db.from('team_photos').delete().eq('id',id).select();
+    if(d.error) throw d.error;
+    if(!d.data || !d.data.length) throw new Error('the database removed 0 rows');
+    if(p && p.storage_key){ try{ await db.storage.from(BUCKET).remove([p.storage_key]); }catch(_){} }
+    msg('ok','Photo deleted ✓');
+    await loadPhotos();
+  }catch(err){ msg('err','Couldn\'t delete: '+(err.message||err)); }
+}
+
+(async function init(){
+  applyCoachUI();
+  await loadPlayers();
+  if(isCoach()) loadGames();
+  await loadPhotos();
+})();
+</script>
+</body>
+</html>

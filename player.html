@@ -242,6 +242,13 @@ nav{background:rgba(10,12,14,.95);border-bottom:1px solid var(--bdr);display:fle
       </div>
     </div>
 
+    <!-- PHOTOS tagged to this player (filled by loadPlayerPhotos; hidden when none) -->
+    <div class="section" id="photos-section" style="display:none;">
+      <div class="section-title">Photos</div>
+      <div id="pp-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;"></div>
+      <div class="clips-all" style="margin-top:12px;"><a href="/photos.html">See all team photos →</a></div>
+    </div>
+
   </div>
 </div>
 
@@ -370,6 +377,7 @@ async function init() {
   renderCharts(p)
   loadVeloChart(p.id)
   loadPlayerClips(p.id)
+  loadPlayerPhotos(p.id)
 
   document.getElementById('loading').style.display = 'none'
   document.getElementById('player-content').style.display = 'block'
@@ -419,6 +427,25 @@ function playClip(el){
   var url = el.getAttribute('data-embed'); if(!url) return
   el.innerHTML = '<iframe src="'+url+'&autoplay=1" allow="autoplay; encrypted-media; fullscreen" allowfullscreen></iframe>'
 }
+// Photos tagged to this player in the team gallery. Section stays hidden
+// unless there's at least one, so pages don't sprout an empty block.
+async function loadPlayerPhotos(playerId) {
+  var sec = document.getElementById('photos-section'), grid = document.getElementById('pp-grid')
+  if (!sec || !grid || !playerId) return
+  try {
+    var {data, error} = await db.from('team_photos')
+      .select('id,url,caption').eq('player_id', playerId)
+      .order('created_at', {ascending:false}).limit(12)
+    if (error || !data || !data.length) return
+    grid.innerHTML = data.map(function(p){
+      var cap = (p.caption||'').replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})
+      return '<a href="/photos.html" title="'+cap+'" style="display:block;aspect-ratio:4/3;border-radius:9px;overflow:hidden;border:1px solid var(--bdr);">'
+        + '<img loading="lazy" src="'+p.url+'" alt="'+(cap||'Aces photo')+'" style="width:100%;height:100%;object-fit:cover;display:block;"/></a>'
+    }).join('')
+    sec.style.display = 'block'
+  } catch(e) {}
+}
+
 // Fill the Highlights section with this player's clips (or keep the
 // "coming soon" placeholder), plus a link to the full team reel.
 async function loadPlayerClips(playerId) {

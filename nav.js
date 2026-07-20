@@ -11,6 +11,7 @@
     { label: 'Schedule',   href: '/#schedule' },
     { label: 'Roster',     href: '/#roster' },
     { label: 'Highlights', href: '/highlights.html', test: function (p) { return /\/highlights\.html$/.test(p); } },
+    { label: 'Photos',     href: '/photos.html',     test: function (p) { return /\/photos\.html$/.test(p); } },
     { label: 'Live Game',  href: '/game.html',       test: function (p) { return /\/game\.html$/.test(p); } }
   ];
   var COACH = [
