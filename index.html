@@ -760,7 +760,7 @@ async function loadFall2026Stats() {
   try {
     var {data} = await db.from('player_season_stats').select('*').order('jersey_num')
     if (data && data.length) {
-      players = data.map(mapDBPlayer)
+      players = seasonStatsRows(data).map(mapDBPlayer)
       renderHome(); renderBatting(); renderPitching(); renderRosterGrid()
     } else {
       setText('roster-meta', 'Delmarva Aces 13U East · Season starting soon')
@@ -843,7 +843,7 @@ async function init() {
       if (!pErr && dbPlayers && dbPlayers.length > 0) {
         // If DB players have no at_bats yet, keep fallback stats for display
         // but confirm DB connection is working
-        var mappedPlayers = dbPlayers.map(mapDBPlayer)
+        var mappedPlayers = seasonStatsRows(dbPlayers).map(mapDBPlayer)
         var hasStats = mappedPlayers.some(function(p){ return p.ab > 0 })
         if (hasStats) {
           players = mappedPlayers
@@ -919,6 +919,27 @@ async function init() {
 }
 
 // Map Supabase view columns → local format
+// player_season_stats returns one row per player PER SEASON. Keep only the
+// active season's numbers: prefer each player's ACTIVE_SEASON row; a player
+// without one still appears, with stats zeroed (identity columns kept). This
+// is what stops test games / past seasons from leaking into the live stats.
+var SEASON_STAT_COLS = ['games_played','at_bats','hits','singles','doubles','triples',
+  'home_runs','rbi','runs','walks','hbp','strikeouts','times_on_base']
+function seasonStatsRows(rows) {
+  var byId = {}
+  ;(rows||[]).forEach(function(r){
+    var cur = byId[r.id]
+    if (r.season === ACTIVE_SEASON) byId[r.id] = r          // the season we want
+    else if (!cur) {                                        // placeholder: zero the stats
+      var z = {}; for (var k in r) z[k] = r[k]
+      SEASON_STAT_COLS.forEach(function(c){ z[c] = 0 })
+      byId[r.id] = z
+    }
+  })
+  return Object.keys(byId).map(function(k){ return byId[k] })
+    .sort(function(a,b){ return (a.jersey_num||0)-(b.jersey_num||0) })
+}
+
 function mapDBPlayer(p) {
   return {
     num: p.jersey_num, first: p.first_name, last: p.last_name,

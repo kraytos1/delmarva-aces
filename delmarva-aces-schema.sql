@@ -130,7 +130,11 @@ create table pitches (
 -- VIEWS  (pre-built queries your website calls constantly)
 -- ============================================================
 
--- Season batting stats per player (auto-calculated)
+-- Season batting stats per player (auto-calculated).
+-- One row per player PER SEASON (games.season) — pages filter to the active
+-- season client-side; a player with no at_bats gets a single null-season row.
+-- Baserunner-only events are excluded from at_bats: the scorer stamps them
+-- with the AT-PLATE batter's id, so counting them would add phantom 0-fers.
 create view player_season_stats as
 select
   p.id,
@@ -141,7 +145,10 @@ select
   p.top_velo,
   count(distinct ab.game_id)                              as games_played,
   count(ab.id) filter (where ab.result not in
-    ('walk','hbp','intentional_walk','sac_fly','sac_bunt')) as at_bats,
+    ('walk','hbp','intentional_walk','sac_fly','sac_bunt',
+     'stolen_base','wp_advance','pb_advance','balk_advance',
+     'caught_stealing','pickoff_1b','pickoff_2b','pickoff_3b',
+     'out_advancing'))                                    as at_bats,
   count(ab.id) filter (where ab.result in
     ('single','double','triple','home_run'))               as hits,
   count(ab.id) filter (where ab.result = 'single')        as singles,
@@ -157,11 +164,13 @@ select
     ('strikeout_looking','strikeout_swinging'))            as strikeouts,
   count(ab.id) filter (where ab.result in
     ('single','double','triple','home_run',
-     'walk','hbp','intentional_walk'))                    as times_on_base
+     'walk','hbp','intentional_walk'))                    as times_on_base,
+  g.season                                                as season
 from players p
 left join at_bats ab on ab.batter_id = p.id
+left join games g on g.id = ab.game_id
 group by p.id, p.jersey_num, p.first_name,
-         p.last_name, p.positions, p.top_velo;
+         p.last_name, p.positions, p.top_velo, g.season;
 
 
 -- Pitching stats per player

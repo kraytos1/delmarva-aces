@@ -518,26 +518,17 @@ async function loadLiveGame() {
     // Bases already loaded via updateScoreboard above
     document.getElementById('pregame-screen').style.display = 'none'
 
-    // Load lineup from game notes
+    // Load lineup from game notes, then set the At-bat card with the SAME
+    // math the realtime path uses (Aces-only at-bats, baserunner events
+    // excluded; no-op in the bottom half where the opponent card applies).
+    // The old inline version here counted BOTH teams' at-bats and overrode
+    // the card even while the opponent was batting.
     if (game.notes) {
       try {
         var lineup = JSON.parse(game.notes)
         loadLineupIntoCards(lineup, game)
-
-        // Figure out current batter from number of at-bats already logged
-        try {
-          var {data:abCount} = await db.from('at_bats')
-            .select('id').eq('game_id', game.id)
-          if (abCount && abCount.length && lineup.aces_lineup && lineup.aces_lineup.length) {
-            var currentIdx = abCount.length % lineup.aces_lineup.length
-            var currentBatter = lineup.aces_lineup[currentIdx]
-            if (currentBatter) {
-              setText('b-name', currentBatter.playerName || '—')
-              setText('b-avatar', currentBatter.jerseyNum ? '#'+currentBatter.jerseyNum : 'B')
-            }
-          }
-        } catch(e) {}
       } catch(e) {}
+      try { await refreshCurrentBatter() } catch(e) {}
     }
 
     try {
