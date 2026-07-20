@@ -427,6 +427,7 @@ function renderAcesLineup() {
         }).join('')+
       '</select>'+
       '<select class="pos-sel" onchange="setPos('+idx+',this.value)">'+
+        '<option value=""'+(entry.position?'':' selected')+'>—</option>'+
         POSITIONS.map(function(p){return '<option value="'+p+'"'+(entry.position===p?' selected':'')+'>'+p+'</option>'}).join('')+
       '</select>'+
       '<button class="row-del" onclick="removeBatter('+idx+')">×</button>'
@@ -441,7 +442,13 @@ function setPlayer(idx, playerId) {
     acesLineup[idx].playerId = p.id
     acesLineup[idx].playerName = p.first_name+' '+p.last_name
     acesLineup[idx].jerseyNum = p.jersey_num
-    if(p.positions && p.positions.length) acesLineup[idx].position = p.positions[0]
+    // Auto-fill only from a REAL fielding slot. Rosters carry generic tags
+    // ("IF"/"OF") that aren't selectable positions — using one would store a
+    // value the dropdown can't show, so the row would display "P" while
+    // holding "IF". Fall back to the first listed slot that is valid; if none
+    // is, leave it blank for the coach to pick.
+    var slot = (p.positions || []).find(function(x){ return POSITIONS.indexOf(x) >= 0 })
+    acesLineup[idx].position = slot || ''
     renderAcesLineup()
   } else {
     acesLineup[idx].playerId = ''
