@@ -149,7 +149,8 @@ async function resetGame(gid, opp){
   if(!err){
     var u=await db.from('games').update({
       status:'scheduled', our_score:0, opp_score:0, inning:1, half:'top',
-      outs:0, balls:0, strikes:0, base_1b:false, base_2b:false, base_3b:false
+      outs:0, balls:0, strikes:0, base_1b:false, base_2b:false, base_3b:false,
+      push_sent_live:false, push_sent_final:false   // a reset game may notify again
     }).eq('id',gid);
     err=u.error;
   }

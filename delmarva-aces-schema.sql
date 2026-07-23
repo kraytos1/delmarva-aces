@@ -73,6 +73,27 @@ create table games (
 );
 
 
+-- ── PUSH SUBSCRIPTIONS ─────────────────────────────────────
+-- One row per device that opted into game-day notifications (push.js bell).
+-- api/notify.js reads these to send "game is live" / "final score" pings and
+-- prunes rows whose push service says the subscription is gone (404/410).
+create table push_subs (
+  id         uuid primary key default gen_random_uuid(),
+  endpoint   text not null unique,
+  p256dh     text not null,
+  auth       text not null,
+  ua         text,
+  created_at timestamptz default now()
+);
+alter table push_subs enable row level security;
+create policy "public read push_subs" on push_subs for select using (true);
+create policy "app insert push_subs"  on push_subs for insert to anon with check (true);
+create policy "app update push_subs"  on push_subs for update to anon using (true) with check (true); -- upsert merge-duplicates needs UPDATE
+create policy "app delete push_subs"  on push_subs for delete to anon using (true);
+-- games also carry once-only dedupe flags for the two notification types:
+--   alter table games add column push_sent_live  boolean not null default false;
+--   alter table games add column push_sent_final boolean not null default false;
+
 -- ── AT BATS ────────────────────────────────────────────────
 create table at_bats (
   id           uuid primary key default gen_random_uuid(),

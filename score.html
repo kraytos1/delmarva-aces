@@ -847,7 +847,17 @@ async function startScoring() {
   S.bases=[!!g.base_1b, !!g.base_2b, !!g.base_3b]
   // Keep the original stream_start_utc on resume — resetting it skews the
   // wall-clock fallback used for clip offsets when no video player is up.
+  var wasLive = g.status === 'live'
   await db.from('games').update({status:'live',stream_start_utc:g.stream_start_utc||new Date().toISOString()}).eq('id',gid)
+  // Ping subscribed families exactly once per game — only on the FIRST
+  // transition to live (a mid-game reload must not re-notify; the server
+  // also dedupes via games.push_sent_live). Fire-and-forget.
+  if (!wasLive) {
+    try {
+      fetch('/api/notify', {method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({type:'live', gameId:gid})}).catch(function(){})
+    } catch(e) {}
+  }
   // Safety net: a team can only be playing one game at a time. If any other
   // game got left in 'live' status (forgot to tap Final, dead battery, rained
   // out, etc.), close it out now so it can never hijack the live viewer.
@@ -1536,6 +1546,11 @@ async function undoLast(){
 async function endGame(){
   if(!confirm('End game? Final: Aces '+S.scores.us+' – '+S.scores.them))return
   await db.from('games').update({status:'final',our_score:S.scores.us,opp_score:S.scores.them}).eq('id',S.gameId)
+  // Final-score ping (server dedupes via games.push_sent_final)
+  try {
+    fetch('/api/notify', {method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({type:'final', gameId:S.gameId})}).catch(function(){})
+  } catch(e) {}
   showToast('Game final! ✓')
   setTimeout(function(){window.location="/index.html"},2000)
 }

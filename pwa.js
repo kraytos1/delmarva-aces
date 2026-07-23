@@ -19,6 +19,11 @@
     });
   }
 
+  // Game-day push notifications (bell toggle + subscription plumbing)
+  if (!document.querySelector('script[src="/push.js"]')) {
+    var ps = document.createElement('script'); ps.src = '/push.js'; document.head.appendChild(ps);
+  }
+
   function isInstalled() {
     return window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
   }

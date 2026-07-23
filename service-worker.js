@@ -1,7 +1,7 @@
 // Delmarva Aces Service Worker
 // Caches core files for offline use
 
-const CACHE_NAME = 'aces-v7'
+const CACHE_NAME = 'aces-v8'
 const CORE_FILES = [
   '/',
   '/index.html',
@@ -42,6 +42,38 @@ self.addEventListener('activate', function(e) {
     })
   )
   self.clients.claim()
+})
+
+// Push — show game-day notifications sent by api/notify.js
+self.addEventListener('push', function(e) {
+  var msg = {}
+  try { msg = e.data ? e.data.json() : {} } catch (err) {}
+  var title = msg.title || 'Delmarva Aces'
+  e.waitUntil(self.registration.showNotification(title, {
+    body: msg.body || '',
+    icon: '/icon-192.png',
+    badge: '/icon-192.png',
+    data: { url: msg.url || '/game.html' },
+    tag: 'aces-game',          // a newer game ping replaces an unread older one
+    renotify: true
+  }))
+})
+
+// Tap on the notification — focus an open Aces tab or open the gamecast
+self.addEventListener('notificationclick', function(e) {
+  e.notification.close()
+  var url = (e.notification.data && e.notification.data.url) || '/game.html'
+  e.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function(list) {
+      for (var i = 0; i < list.length; i++) {
+        if (list[i].url.indexOf(self.location.origin) === 0 && 'focus' in list[i]) {
+          list[i].navigate(url)
+          return list[i].focus()
+        }
+      }
+      return clients.openWindow(url)
+    })
+  )
 })
 
 // Fetch — network first, fall back to cache
