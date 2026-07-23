@@ -79,6 +79,7 @@ create table at_bats (
   game_id      uuid references games(id) on delete cascade,
   batter_id    uuid references players(id),   -- our batter (set only when we bat / top half)
   aces_pitcher_id uuid references players(id),-- our pitcher (set only when we pitch / bottom half); powers pitching highlights
+  runner_id    uuid references players(id),   -- on single-runner events (SB/CS/pickoff/out advancing): the kid who ran — SB/CS credit goes here, batter_id is just who was at the plate
   pitcher_name text,             -- opponent pitcher (free text)
   inning       int  not null,
   half         text not null,    -- 'top' | 'bottom'
@@ -133,8 +134,9 @@ create table pitches (
 -- Season batting stats per player (auto-calculated).
 -- One row per player PER SEASON (games.season) — pages filter to the active
 -- season client-side; a player with no at_bats gets a single null-season row.
--- Baserunner-only events are excluded from at_bats: the scorer stamps them
--- with the AT-PLATE batter's id, so counting them would add phantom 0-fers.
+-- The join matches rows where the player BATTED or RAN (runner_id): batting
+-- stats filter on batter_id (so runner-only rows can't add phantom 0-fers),
+-- while SB/CS credit the runner — the kid who actually stole.
 create view player_season_stats as
 select
   p.id,
@@ -144,33 +146,34 @@ select
   p.positions,
   p.top_velo,
   count(distinct ab.game_id)                              as games_played,
-  count(ab.id) filter (where ab.result not in
+  count(ab.id) filter (where ab.batter_id = p.id and ab.result not in
     ('walk','hbp','intentional_walk','sac_fly','sac_bunt',
      'stolen_base','wp_advance','pb_advance','balk_advance',
      'caught_stealing','pickoff_1b','pickoff_2b','pickoff_3b',
      'out_advancing'))                                    as at_bats,
-  count(ab.id) filter (where ab.result in
+  count(ab.id) filter (where ab.batter_id = p.id and ab.result in
     ('single','double','triple','home_run'))               as hits,
-  count(ab.id) filter (where ab.result = 'single')        as singles,
-  count(ab.id) filter (where ab.result = 'double')        as doubles,
-  count(ab.id) filter (where ab.result = 'triple')        as triples,
-  count(ab.id) filter (where ab.result = 'home_run')      as home_runs,
-  coalesce(sum(ab.rbi), 0)                                as rbi,
+  count(ab.id) filter (where ab.batter_id = p.id and ab.result = 'single')   as singles,
+  count(ab.id) filter (where ab.batter_id = p.id and ab.result = 'double')   as doubles,
+  count(ab.id) filter (where ab.batter_id = p.id and ab.result = 'triple')   as triples,
+  count(ab.id) filter (where ab.batter_id = p.id and ab.result = 'home_run') as home_runs,
+  coalesce(sum(ab.rbi)         filter (where ab.batter_id = p.id), 0)        as rbi,
   -- NOTE: "runs" = runs that scored ON this batter's plays (runs_scored is a
-  -- per-play total), NOT runs scored BY the player — runner identity isn't
-  -- tracked, so true R (like true SB) isn't computable from this data.
-  coalesce(sum(ab.runs_scored), 0)                        as runs,
-  count(ab.id) filter (where ab.result in
+  -- per-play total), NOT runs scored BY the player.
+  coalesce(sum(ab.runs_scored) filter (where ab.batter_id = p.id), 0)        as runs,
+  count(ab.id) filter (where ab.batter_id = p.id and ab.result in
     ('walk','intentional_walk'))                          as walks,
-  count(ab.id) filter (where ab.result = 'hbp')           as hbp,
-  count(ab.id) filter (where ab.result in
+  count(ab.id) filter (where ab.batter_id = p.id and ab.result = 'hbp')      as hbp,
+  count(ab.id) filter (where ab.batter_id = p.id and ab.result in
     ('strikeout_looking','strikeout_swinging'))            as strikeouts,
-  count(ab.id) filter (where ab.result in
+  count(ab.id) filter (where ab.batter_id = p.id and ab.result in
     ('single','double','triple','home_run',
      'walk','hbp','intentional_walk'))                    as times_on_base,
-  g.season                                                as season
+  g.season                                                as season,
+  count(ab.id) filter (where ab.runner_id = p.id and ab.result = 'stolen_base')     as stolen_bases,
+  count(ab.id) filter (where ab.runner_id = p.id and ab.result = 'caught_stealing') as caught_stealing
 from players p
-left join at_bats ab on ab.batter_id = p.id
+left join at_bats ab on (ab.batter_id = p.id or ab.runner_id = p.id)
 left join games g on g.id = ab.game_id
 group by p.id, p.jersey_num, p.first_name,
          p.last_name, p.positions, p.top_velo, g.season;

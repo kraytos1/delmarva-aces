@@ -1168,7 +1168,7 @@ async function quickLog(result) {
   await pushState(); renderAll()
 }
 
-async function logAB(result, label, skipPitchLog, fromAuto) {
+async function logAB(result, label, skipPitchLog, fromAuto, runnerId) {
   // Baserunner-only events happen mid at-bat: the batter currently up stays
   // up. They should not advance the lineup, not reset the batter's own
   // ball/strike count, and not consume the next spot in the batting order.
@@ -1206,6 +1206,7 @@ async function logAB(result, label, skipPitchLog, fromAuto) {
     game_id:S.gameId,
     batter_id: S.isTop ? getCurrentBatterId() : null,  // our batter only when top half
     aces_pitcher_id: !S.isTop ? S.currentPitcherId : null,  // our pitcher only when bottom half
+    runner_id: (S.isTop && runnerId) ? runnerId : null,  // the kid who stole/was picked off (SB/CS credit)
     inning:S.inning,half:S.isTop?'top':'bottom',
     ab_num:S.abNum,result:result,rbi:rbi,runs_scored:runs,notes:label,
     yt_offset_sec:offset,clip_status:CLIP.includes(result)?'queued':'none'
@@ -1232,7 +1233,13 @@ async function logAB(result, label, skipPitchLog, fromAuto) {
           : /(walk|hbp)/i.test(result)?'walk'
           : /(strikeout|groundout|flyout|lineout|popout|double_play|sac_)/i.test(result)?'out'
           : 'inplay'
+  // Feed attribution: runner events name the RUNNER, not the kid at the plate
   var _owho = currentBatterLast()
+  if(isBaserunnerEvent && runnerId){
+    var _re = S.acesLineup.find(function(e){return e.playerId===runnerId}) ||
+              (S.roster||[]).find(function(r){return r.id===runnerId})
+    if(_re) _owho = (_re.playerName || (_re.first_name+' '+_re.last_name)).split(' ').pop()
+  }
   pushRecent(_od, (label||result.replace(/_/g,' '))+(_owho?(' — '+_owho):''), runs>0?(runs+' run'+(runs>1?'s':'')):'')
   if(HISTORY.length) HISTORY[HISTORY.length-1].recent=(HISTORY[HISTORY.length-1].recent||0)+1
   // Tally the batter's game line (Aces only); record it so Undo can reverse it
@@ -1395,14 +1402,44 @@ function openModal(type){
   document.getElementById('modal-overlay').style.display='flex'
 }
 function closeModal(e){if(!e||e.target.id==='modal-overlay')document.getElementById('modal-overlay').style.display='none'}
+// Single-runner events need to know WHO the runner was — the at_bats row
+// otherwise carries only the at-plate batter, and SB/CS can't be credited to
+// anyone (the season SB column would read 0 forever). Multi-runner advances
+// (WP/PB/balk) move everybody, so there's no single kid to credit.
+var RUNNER_EVENTS = /^(stolen_base|caught_stealing|pickoff_1b|pickoff_2b|pickoff_3b|out_advancing)$/
+var _pendingBR = null
 function pickOutcome(v,l){
-  document.getElementById('modal-overlay').style.display='none'
   // Walks/HBP: pitch already logged as in_play, skip double logging.
   // Baserunner-only events (steal/WP/PB/balk/caught stealing/pickoff/out
   // advancing): either the pitch was already logged separately, or there
   // was no pitch at all (pickoff throw) — never log a phantom pitch for these.
   var skipPitch = /(walk|hbp|intentional_walk|stolen_base|wp_advance|pb_advance|balk|caught_stealing|pickoff|out_advancing)/i.test(v)
+  // Aces runner event -> ask who (bottom half = opponent runners, skip)
+  if(RUNNER_EVENTS.test(v) && S.isTop && S.acesLineup.length){
+    _pendingBR = {v:v, l:l, skipPitch:skipPitch}
+    renderRunnerPick(l)
+    return
+  }
+  document.getElementById('modal-overlay').style.display='none'
   logAB(v,l,skipPitch)
+}
+function renderRunnerPick(label){
+  document.getElementById('modal-title').textContent = label+' — who was the runner?'
+  var kids = S.acesLineup.filter(function(e){ return e.playerName && e.playerId })
+  var html = '<div class="outcome-grid">'
+  kids.forEach(function(e){
+    html += '<button class="oc-btn oc-hit" onclick="finishRunnerPick(\''+e.playerId+'\')">'+
+      (e.jerseyNum?'#'+e.jerseyNum+' ':'')+ (e.playerName.split(' ').pop()) +'</button>'
+  })
+  html += '</div><button class="oc-btn oc-out" style="width:100%;margin-top:10px;" '+
+          'onclick="finishRunnerPick(\'\')">Not sure — skip</button>'
+  document.getElementById('modal-body').innerHTML = html
+}
+function finishRunnerPick(rid){
+  var p = _pendingBR; _pendingBR = null
+  document.getElementById('modal-overlay').style.display='none'
+  if(!p) return
+  logAB(p.v, p.l, p.skipPitch, false, rid || null)
 }
 
 /* ── CONTROLS ── */
