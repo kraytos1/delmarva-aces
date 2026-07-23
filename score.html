@@ -1593,6 +1593,51 @@ function showToast(msg){
   setTimeout(function(){t.classList.remove('show')},2200)
 }
 
+// ── KEYBOARD / STREAM DECK LAYER ─────────────────────────────
+// Every common scoring action gets a single-key shortcut, which makes the
+// scorer drivable from a Stream Deck (its Hotkey buttons send keystrokes to
+// the focused window). Desk-scoring workflow: score.html focused with the
+// embedded stream, physical buttons for pitches/outcomes/undo.
+// Ignored while typing in a field or while any modal/sheet is open (except
+// Escape, which closes them) so keys can't double-fire into overlays.
+var KEY_ACTIONS = {
+  'b': function(){ quickLog('ball') },
+  'c': function(){ quickLog('strike_called') },
+  's': function(){ quickLog('strike_swinging') },
+  'f': function(){ quickLog('foul') },
+  '1': function(){ logAB('single','Single',false) },
+  '2': function(){ logAB('double','Double',false) },
+  '3': function(){ logAB('triple','Triple',false) },
+  '4': function(){ logAB('home_run','Home Run',false) },
+  'g': function(){ logAB('groundout','Ground out',false) },
+  'o': function(){ logAB('flyout','Fly out',false) },
+  'w': function(){ logAB('walk','Walk (BB)',true) },
+  'm': function(){ openModal('inplay') },
+  'k': function(){ openModal('outk') },
+  'r': function(){ openModal('base') },
+  'u': function(){ undoLast() },
+  'n': function(){ newBatter() },
+  'e': function(){ newHalf() }
+}
+function overlayOpen(){
+  return ['modal-overlay','numpad-sheet','subs-sheet'].some(function(id){
+    var el=document.getElementById(id)
+    return el && el.style.display && el.style.display!=='none'
+  })
+}
+document.addEventListener('keydown', function(e){
+  if(!S.gameId || e.repeat || e.ctrlKey || e.metaKey || e.altKey) return
+  var t=document.activeElement
+  if(t && /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName)) return
+  if(e.key==='Escape'){
+    closeModal(); closeNumpad(); closeSubs()
+    return
+  }
+  if(overlayOpen()) return   // keys must not fire behind an open picker/sheet
+  var fn=KEY_ACTIONS[e.key.toLowerCase()]
+  if(fn){ e.preventDefault(); fn() }
+})
+
 init()
 </script>
 <script>if("serviceWorker"in navigator){window.addEventListener("load",function(){navigator.serviceWorker.register("/service-worker.js").then(function(r){console.log("SW registered")}).catch(function(e){console.log("SW error:",e)})})}</script>
