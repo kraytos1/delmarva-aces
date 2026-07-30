@@ -265,6 +265,9 @@ create policy "auth write opponents" on opponents for all using (auth.role() = '
 create policy "app can delete games"   on games   for delete to anon using (true);
 create policy "app can delete at_bats" on at_bats for delete to anon using (true);
 create policy "app can delete pitches" on pitches for delete to anon using (true);
+-- UPDATE on at_bats: the scorer rewrites a logged play in place when a
+-- strikeout is converted to a dropped third strike.
+create policy "app can update at_bats" on at_bats for update to anon using (true) with check (true);
 
 
 -- ============================================================

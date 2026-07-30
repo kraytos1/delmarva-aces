@@ -179,6 +179,26 @@ body{background:var(--black);color:var(--text);font-family:var(--body);min-heigh
 .toast{position:fixed;bottom:90px;left:50%;transform:translateX(-50%);background:#1a2332;border:1px solid var(--orange);color:var(--orange);padding:8px 20px;border-radius:20px;font-family:var(--mono);font-size:12px;opacity:0;transition:opacity .3s;pointer-events:none;z-index:300;white-space:nowrap;}
 .toast.show{opacity:1;}
 
+/* game clock (tap to set a time limit) */
+#game-clock{font-family:var(--mono);font-size:11px;color:var(--muted);margin-left:auto;cursor:pointer;padding:2px 6px;border-radius:4px;}
+#game-clock.tl-warn{color:#F59E0B;font-weight:600;}
+#game-clock.tl-over{color:#ef4444;font-weight:700;animation:blink 1.2s infinite;}
+#game-clock + .inning-lbl{margin-left:10px;}
+
+/* keyboard/Stream Deck focus dot (desktop only) */
+#kb-dot{display:none;font-size:12px;line-height:1;cursor:default;}
+@media(pointer:fine){ #kb-dot{display:inline;} }
+#kb-dot.off{opacity:.35;filter:grayscale(1);}
+
+/* dropped-3rd conversion chip */
+#d3k-chip{position:fixed;bottom:76px;left:50%;transform:translateX(-50%);background:var(--dark2);border:1px solid var(--bdr-a);
+  border-radius:14px;padding:10px 12px;z-index:290;display:none;align-items:center;gap:8px;box-shadow:0 10px 26px rgba(0,0,0,.5);}
+#d3k-chip .d3k-q{font-family:var(--mono);font-size:11px;color:var(--muted);white-space:nowrap;}
+#d3k-chip button{border:1px solid var(--bdr);border-radius:8px;background:var(--dark3);color:var(--text);
+  font-size:12px;padding:8px 10px;cursor:pointer;white-space:nowrap;}
+#d3k-chip .d3k-safe{border-color:#27ae60;color:#3DDC6A;}
+#d3k-chip .d3k-out{border-color:#555;color:#999;}
+
 /* subs button + sheet */
 .subs-btn{background:var(--dark3);border:1px solid var(--bdr-a);color:var(--orange);border-radius:8px;padding:7px 11px;font-family:var(--mono);font-size:11px;font-weight:500;cursor:pointer;white-space:nowrap;}
 .subs-btn:active{opacity:.8;}
@@ -247,6 +267,7 @@ body{background:var(--black);color:var(--text);font-family:var(--body);min-heigh
           <button onclick="adjScore('them',-1)" style="background:none;border:none;color:var(--muted);font-size:11px;cursor:pointer;line-height:1;padding:1px 4px;">▼</button>
         </div>
       </div>
+      <span id="kb-dot" title="Keyboard / Stream Deck input will land here">⌨</span>
       <div class="sync-dot" id="sync-dot"></div>
     </div>
   </div>
@@ -282,6 +303,7 @@ body{background:var(--black);color:var(--text);font-family:var(--body);min-heigh
       <div class="pip" id="o2" onclick="setOuts(2)"></div>
       <div class="pip" id="o3" onclick="setOuts(3)"></div>
     </div>
+    <span id="game-clock" onclick="setTimeLimit()" title="Elapsed game time — tap to set a time limit"></span>
     <div class="inning-lbl" id="inn-lbl">Top 1</div>
     <div style="margin-left:10px;display:flex;gap:4px;">
       <button onclick="adjInn(-1)" style="background:none;border:1px solid var(--bdr);color:var(--muted);border-radius:4px;width:22px;height:22px;cursor:pointer;font-size:12px;">‹</button>
@@ -351,7 +373,7 @@ body{background:var(--black);color:var(--text);font-family:var(--body);min-heigh
       <div>
         <div class="ab-section">
           <div class="ab-micro">At bat</div>
-          <div class="ab-name" id="ab-batter">—</div>
+          <div class="ab-name" id="ab-batter" onclick="openBatterPick()" style="cursor:pointer;" title="Tap to correct who's at bat">—</div>
           <div class="ab-sub" id="ab-stats"></div>
         </div>
         <div class="ab-section">
@@ -484,6 +506,13 @@ body{background:var(--black);color:var(--text);font-family:var(--body);min-heigh
     </div>
     <div class="subs-body" id="subs-body"></div>
   </div>
+</div>
+
+<!-- Dropped-3rd conversion chip: appears for ~7s after a legal-D3K strikeout -->
+<div id="d3k-chip">
+  <span class="d3k-q">Dropped 3rd?</span>
+  <button class="d3k-safe" onclick="convertD3K(true)">Safe at 1st</button>
+  <button class="d3k-out" onclick="convertD3K(false)">Out at 1st</button>
 </div>
 
 <div class="toast" id="toast"></div>
@@ -837,6 +866,22 @@ async function startScoring() {
   var gid = document.getElementById('game-sel').value
   if(!gid){alert('Select a game');return}
   var {data:g} = await db.from('games').select('*,opponents(name)').eq('id',gid).single()
+
+  // GUARD: scoring without a lineup "works" but writes batter_id null on every
+  // at-bat — the game looks scored while no kid gets credit for anything, and
+  // it is NOT repairable afterwards. Interrupt before any state is touched.
+  var hasLineup = false
+  try {
+    var chk = JSON.parse(g.notes || '{}')
+    hasLineup = !!(chk.aces_lineup && chk.aces_lineup.some(function(e){ return e.playerId }))
+  } catch(e) {}
+  if (!hasLineup) {
+    if (!confirm('⚠ No lineup is set for this game.\n\nWithout one, at-bats are NOT credited to any player — season stats for this game would be lost permanently.\n\nOK = score anyway (opponent-only / emergency)\nCancel = go set the lineup first')) {
+      window.location = '/lineup.html'
+      return
+    }
+  }
+
   S.gameId=gid; S.game=g
   S.scores.us=g.our_score||0; S.scores.them=g.opp_score||0
   S.inning=g.inning||1; S.isTop=g.half!=='bottom'; S.outs=g.outs||0
@@ -848,7 +893,12 @@ async function startScoring() {
   // Keep the original stream_start_utc on resume — resetting it skews the
   // wall-clock fallback used for clip offsets when no video player is up.
   var wasLive = g.status === 'live'
-  await db.from('games').update({status:'live',stream_start_utc:g.stream_start_utc||new Date().toISOString()}).eq('id',gid)
+  // Mirror the start time locally too — S.game came from the pre-update fetch,
+  // so on a fresh game it still has stream_start_utc null, which left the game
+  // clock (and the wall-clock clip-offset fallback) with nothing to measure from.
+  var startedAt = g.stream_start_utc || new Date().toISOString()
+  S.game.stream_start_utc = startedAt
+  await db.from('games').update({status:'live',stream_start_utc:startedAt}).eq('id',gid)
   // Ping subscribed families exactly once per game — only on the FIRST
   // transition to live (a mid-game reload must not re-notify; the server
   // also dedupes via games.push_sent_live). Fire-and-forget.
@@ -942,9 +992,11 @@ async function startScoring() {
   document.getElementById('scorer').style.display='flex'
   var opp=g.opponents?.name||'Opponent'
   document.getElementById('top-game').textContent='Aces vs '+opp
+  try { _timeLimitMin = parseInt(localStorage.getItem('aces_timelimit_'+gid)) || null } catch(e){}
   renderAll()
   updateBatterDisplay()
   updateSyncIndicator()
+  updateKbDot()
   flushQueue()
   showToast('Game on! ⚾')
 }
@@ -1049,6 +1101,10 @@ async function flushQueue() {
   if (failed.length < q.length) {
     var synced = q.length - failed.length
     showToast('Synced '+synced+' pitch'+(synced===1?'':'es')+' ✓')
+    // The queued PLAYS just synced, but the games row (score/inning/count that
+    // the gamecast + scorebug read) was last pushed while offline — push it
+    // now instead of leaving the broadcast stale until the next tap.
+    pushState()
   }
   updateSyncIndicator()
 }
@@ -1084,6 +1140,7 @@ setInterval(function(){
 
 /* ── PITCH LOGGING ── */
 async function quickLog(result) {
+  if (!IN_LOGAB) hideD3K()   // a new pitch invalidates a pending dropped-3rd offer
   // Save state before this pitch for undo — unless we're inside logAB, whose
   // own pre-mutation snapshot already owns this action's history entry
   if (!IN_LOGAB) saveSnapshot(null, null)
@@ -1163,15 +1220,21 @@ async function quickLog(result) {
     return
   }
   if(autoK){
+    // D3K is legal when 1st is open or there are 2 outs — capture BEFORE the
+    // K adds its out, and offer a quick conversion chip after logging.
+    var d3kLegal = !S.bases[0] || S.outs >= 2
     S.balls=0; S.strikes=0
     await pushState(); renderAll()
     await logAB('strikeout_swinging','K swinging', true, true)
+    if(d3kLegal) offerD3K()
     return
   }
   if(autoKLooking){
+    var d3kLegal2 = !S.bases[0] || S.outs >= 2
     S.balls=0; S.strikes=0
     await pushState(); renderAll()
     await logAB('strikeout_looking','K looking', true, true)
+    if(d3kLegal2) offerD3K()
     return
   }
 
@@ -1179,6 +1242,13 @@ async function quickLog(result) {
 }
 
 async function logAB(result, label, skipPitchLog, fromAuto, runnerId) {
+  // Double-tap guard: two OUTCOMES inside 450ms is a phone double-tap, not
+  // two real plays. Raw pitch taps (Ball/Strike) stay unguarded — those can
+  // legitimately come fast — and auto walk/K calls are exempt.
+  var _dtNow = Date.now()
+  if(!fromAuto && _dtNow - (window._lastLogAB||0) < 450) return
+  window._lastLogAB = _dtNow
+  hideD3K()   // any new action invalidates a pending dropped-3rd offer
   // Baserunner-only events happen mid at-bat: the batter currently up stays
   // up. They should not advance the lineup, not reset the batter's own
   // ball/strike count, and not consume the next spot in the batting order.
@@ -1477,6 +1547,7 @@ function newBatter(){
   }
 }
 function newHalf(){
+  hideD3K()
   S.balls=0;S.strikes=0;S.outs=0;S.bases=[false,false,false];S.pitchCount=0;S.velo=null
   // NOTE: acesPitchCount/oppPitchCount are per-pitcher game totals and are NOT
   // reset on a half change — each side's counter keeps accumulating across the
@@ -1567,6 +1638,7 @@ function renderCount(){
   })
   document.getElementById('sc-us').textContent=S.scores.us
   document.getElementById('sc-them').textContent=S.scores.them
+  renderClock()
   document.getElementById('top-meta').textContent=(S.isTop?'Top':'Bot')+' '+S.inning+' · '+S.outs+' out'+(S.outs===1?'':'s')
   document.getElementById('inn-lbl').textContent=(S.isTop?'▲':'▼')+' '+S.inning
   renderPC()
@@ -1591,6 +1663,135 @@ function showToast(msg){
   var t=document.getElementById('toast')
   t.textContent=msg;t.classList.add('show')
   setTimeout(function(){t.classList.remove('show')},2200)
+}
+
+// ── DROPPED THIRD STRIKE conversion ──────────────────────────
+// Tapping Swing on strike 3 (correctly) auto-logs the K — but on an uncaught
+// third strike the batter may run. Rather than making every K wait on a
+// prompt, the K logs instantly and, when D3K was LEGAL (1B open or 2 outs),
+// a 7s chip offers to convert the play. Any other action dismisses it.
+var _d3k = null, _d3kTimer = null
+function offerD3K(){
+  if(!HISTORY.length) return
+  _d3k = { entry: HISTORY[HISTORY.length-1], isTop: S.isTop, inning: S.inning }
+  document.getElementById('d3k-chip').style.display = 'flex'
+  clearTimeout(_d3kTimer)
+  _d3kTimer = setTimeout(hideD3K, 7000)
+}
+function hideD3K(){
+  _d3k = null
+  var el = document.getElementById('d3k-chip')
+  if(el) el.style.display = 'none'
+}
+async function convertD3K(safe){
+  var ctx = _d3k
+  hideD3K()
+  // Only convertible while the K is still the LAST action and the half hasn't
+  // changed — otherwise state math would corrupt the game.
+  if(!ctx || !HISTORY.length || HISTORY[HISTORY.length-1] !== ctx.entry ||
+     S.isTop !== ctx.isTop || S.inning !== ctx.inning){
+    showToast('Too late to convert — use Undo'); return
+  }
+  var entry = ctx.entry
+  var result = safe ? 'dropped_third' : 'dropped_third_k'
+  var label  = safe ? 'Dropped 3rd — safe at 1st' : 'Dropped 3rd — out at 1st'
+  var runs = 0
+  if(safe){
+    S.outs = Math.max(0, S.outs - 1)          // the K's out comes back off
+    runs = applyBaserunners('dropped_third')  // batter to 1st, forced advances
+    if(runs > 0){ S.scores[S.isTop ? 'us' : 'them'] += runs }
+  }
+  // Update the row wherever it currently lives: DB, or the offline queue
+  var patch = { result: result, notes: label, clip_status: 'none', runs_scored: runs, rbi: 0 }
+  if(entry.atBatId){
+    // .select() so a blocked write (missing RLS policy) can't silently no-op —
+    // same trap that made Undo look like it worked while the row survived.
+    try {
+      var up = await db.from('at_bats').update(patch).eq('id', entry.atBatId).select('id')
+      if(up.error || !(up.data && up.data.length)) showToast('⚠ Play changed here, not in the DB')
+    } catch(e){ showToast('⚠ Play changed here, not in the DB') }
+  } else if(entry.localAbId){
+    var q = getQueue()
+    q.forEach(function(it){ if(it.id === entry.localAbId) Object.assign(it.data, patch) })
+    saveQueue(q)
+  }
+  // Keep undo + the feed truthful about what the play now is
+  if(entry.tally) entry.tally.result = result
+  popRecent()
+  pushRecent(safe ? 'inplay' : 'out', label, runs > 0 ? (runs+' run'+(runs>1?'s':'')) : '')
+  await pushState()
+  renderAll()
+  showToast(safe ? '✓ Batter safe at 1st' : '✓ Out at 1st recorded')
+}
+
+// ── GAME CLOCK (tap to set a tournament time limit) ──────────
+var _timeLimitMin = null
+function renderClock(){
+  var el = document.getElementById('game-clock'); if(!el) return
+  var st = S.game && S.game.stream_start_utc
+  if(!S.gameId || !st){ el.textContent = ''; return }
+  var sec = Math.max(0, Math.floor((Date.now() - new Date(st)) / 1000))
+  var h = Math.floor(sec/3600), m = Math.floor((sec%3600)/60)
+  el.textContent = '⏱ ' + h + ':' + String(m).padStart(2,'0')
+  el.className = ''
+  if(_timeLimitMin){
+    var left = _timeLimitMin*60 - sec
+    if(left <= 0) el.className = 'tl-over'
+    else if(left <= 10*60) el.className = 'tl-warn'
+    el.title = 'Limit '+_timeLimitMin+' min · '+(left > 0 ? Math.ceil(left/60)+' min left' : 'TIME OVER')+' · tap to change'
+  } else {
+    el.title = 'Elapsed game time — tap to set a time limit'
+  }
+}
+function setTimeLimit(){
+  if(!S.gameId) return
+  var v = prompt('Game time limit in minutes (blank = no limit):', _timeLimitMin || '')
+  if(v === null) return
+  _timeLimitMin = parseInt(v) > 0 ? parseInt(v) : null
+  try {
+    if(_timeLimitMin) localStorage.setItem('aces_timelimit_'+S.gameId, _timeLimitMin)
+    else localStorage.removeItem('aces_timelimit_'+S.gameId)
+  } catch(e){}
+  renderClock()
+}
+setInterval(renderClock, 10000)
+
+// ── KEYBOARD FOCUS DOT (does a keypress/Deck press land here?) ──
+function updateKbDot(){
+  var el = document.getElementById('kb-dot'); if(!el) return
+  var typing = document.activeElement && /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName)
+  var ok = document.hasFocus() && !typing && !!S.gameId
+  el.className = ok ? '' : 'off'
+  el.title = ok ? 'Keyboard / Stream Deck input will land here'
+              : 'Click anywhere on the page so key presses register'
+}
+window.addEventListener('focus', updateKbDot)
+window.addEventListener('blur', updateKbDot)
+document.addEventListener('focusin', updateKbDot)
+document.addEventListener('focusout', updateKbDot)
+
+// ── BATTER POINTER CORRECTION (tap the batter's name) ────────
+// The order pointer only ever moves forward; when it drifts (missed play,
+// sub confusion) this jumps it straight to whoever is actually at the plate.
+function openBatterPick(){
+  if(!S.gameId || !S.isTop || !S.acesLineup.length) return
+  document.getElementById('modal-title').textContent = 'Who is at bat?'
+  var html = '<div class="outcome-grid">'
+  S.acesLineup.forEach(function(e, idx){
+    if(!e.playerName) return
+    html += '<button class="oc-btn oc-hit" onclick="setBatterIdx('+idx+')">'+
+      (e.jerseyNum ? '#'+e.jerseyNum+' ' : '')+subEsc(e.playerName.split(' ').pop())+'</button>'
+  })
+  html += '</div>'
+  document.getElementById('modal-body').innerHTML = html
+  document.getElementById('modal-overlay').style.display = 'flex'
+}
+function setBatterIdx(idx){
+  document.getElementById('modal-overlay').style.display = 'none'
+  if(!S.acesLineup[idx]) return
+  S.currentBatterIdx = idx
+  updateBatterDisplay()
+  showToast('Batter: '+(S.acesLineup[idx].playerName || '').split(' ').pop()+' ✓')
 }
 
 // ── KEYBOARD / STREAM DECK LAYER ─────────────────────────────
