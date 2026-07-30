@@ -47,6 +47,36 @@ nav{background:rgba(10,12,14,.95);border-bottom:1px solid var(--bdr);display:fle
 .hero{background:var(--dark2);border-bottom:1px solid var(--bdr);padding:32px 24px 24px;}
 .hero-inner{max-width:900px;margin:0 auto;display:flex;align-items:flex-start;gap:24px;}
 .player-avatar{width:80px;height:80px;border-radius:50%;background:var(--dark3);border:3px solid var(--bdr-a);display:flex;align-items:center;justify-content:center;font-family:var(--display);font-size:32px;font-weight:700;color:var(--orange);flex-shrink:0;background-size:cover;background-position:center;overflow:hidden;}
+/* ── photo library strip (under the avatar) ── */
+.ph-lib{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px;align-items:center;}
+.ph-thumb{position:relative;width:46px;height:46px;border-radius:8px;overflow:hidden;border:2px solid transparent;
+  background:#1a1f27 center/cover no-repeat;cursor:pointer;flex-shrink:0;}
+.ph-thumb.cur{border-color:var(--orange);}
+.ph-thumb .ph-x{position:absolute;top:0;right:0;background:rgba(10,12,14,.85);color:#9aa3ad;font-size:11px;
+  line-height:1;padding:2px 4px;border-bottom-left-radius:6px;}
+.ph-thumb .ph-x:hover{color:#ef4444;}
+.ph-add{width:46px;height:46px;border-radius:8px;border:1.5px dashed var(--bdr-a);background:transparent;
+  color:var(--orange);font-size:20px;cursor:pointer;flex-shrink:0;line-height:1;}
+.ph-hint{font-family:var(--mono);font-size:10px;color:var(--muted);}
+
+/* ── crop / zoom editor ── */
+.crop-ov{position:fixed;inset:0;background:rgba(6,8,10,.93);z-index:600;display:none;align-items:center;justify-content:center;}
+.crop-ov.on{display:flex;}
+.crop-box{width:min(92vw,380px);background:var(--dark2);border:1px solid var(--bdr);border-radius:16px;padding:16px;}
+.crop-title{font-family:var(--display);font-size:17px;font-weight:600;margin-bottom:10px;text-align:center;}
+.crop-stage{position:relative;width:100%;aspect-ratio:1;border-radius:12px;overflow:hidden;background:#0c0f13;
+  touch-action:none;cursor:grab;}
+.crop-stage canvas{position:absolute;inset:0;width:100%;height:100%;}
+.crop-ring{position:absolute;inset:0;pointer-events:none;
+  box-shadow:0 0 0 9999px rgba(6,8,10,.55) inset;border-radius:50%;}
+.crop-row{display:flex;align-items:center;gap:10px;margin-top:12px;}
+.crop-row input[type=range]{flex:1;accent-color:var(--orange);}
+.crop-actions{display:flex;gap:8px;margin-top:12px;}
+.crop-actions button{flex:1;padding:11px;border-radius:9px;font-family:var(--display);font-size:14px;
+  font-weight:600;cursor:pointer;border:1px solid var(--bdr);background:var(--dark3);color:var(--text);}
+.crop-actions .cr-go{background:var(--orange);border-color:var(--orange);color:#fff;}
+.crop-tip{font-family:var(--mono);font-size:10px;color:var(--muted);text-align:center;margin-top:8px;}
+
 .avatar-wrap{position:relative;flex-shrink:0;cursor:pointer;}
 .avatar-cam{position:absolute;right:-2px;bottom:-2px;width:26px;height:26px;border-radius:50%;background:var(--orange);border:2px solid var(--black);display:flex;align-items:center;justify-content:center;font-size:12px;line-height:1;}
 .avatar-wrap:hover .player-avatar{border-color:var(--orange);}
@@ -147,6 +177,26 @@ nav{background:rgba(10,12,14,.95);border-bottom:1px solid var(--bdr);display:fle
 <div id="player-content" style="display:none;">
 
   <!-- HERO -->
+  <!-- Crop / zoom editor (drag to move, slider or pinch to zoom) -->
+  <div class="crop-ov" id="crop-ov">
+    <div class="crop-box">
+      <div class="crop-title">Position the photo</div>
+      <div class="crop-stage" id="crop-stage">
+        <canvas id="crop-canvas"></canvas>
+        <div class="crop-ring"></div>
+      </div>
+      <div class="crop-row">
+        <span style="font-size:13px;">🔍</span>
+        <input type="range" id="crop-zoom" min="100" max="400" value="100" oninput="cropSetZoom(this.value)"/>
+      </div>
+      <div class="crop-actions">
+        <button onclick="cropCancel()">Cancel</button>
+        <button class="cr-go" id="crop-go" onclick="cropConfirm()">Use photo</button>
+      </div>
+      <div class="crop-tip">Drag the photo to move it · pinch or use the slider to zoom</div>
+    </div>
+  </div>
+
   <div class="hero">
     <div class="hero-inner">
       <div class="avatar-wrap" onclick="document.getElementById('photo-input').click()" title="Tap to add / change photo">
@@ -163,6 +213,8 @@ nav{background:rgba(10,12,14,.95);border-bottom:1px solid var(--bdr);display:fle
           <div class="hero-tag">📍 <span>Delmarva Aces 12U East</span></div>
         </div>
         <div class="badges-row" id="p-badges"></div>
+        <!-- every photo uploaded for this player; tap one to make it the profile pic -->
+        <div class="ph-lib" id="ph-lib"></div>
       </div>
       <div style="display:flex;flex-direction:column;align-items:flex-end;gap:8px;">
         <button class="share-btn" onclick="openCard()">📸 Player card</button>
@@ -378,6 +430,7 @@ async function init() {
   loadVeloChart(p.id)
   loadPlayerClips(p.id)
   loadPlayerPhotos(p.id)
+  renderPhotoLib()
 
   document.getElementById('loading').style.display = 'none'
   document.getElementById('player-content').style.display = 'block'
@@ -686,41 +739,194 @@ function renderAvatar(p){
   if(p && p.photoUrl){ el.style.backgroundImage='url("'+p.photoUrl+'")'; el.textContent=''; }
   else { el.style.backgroundImage=''; el.textContent='#'+((p&&p.jerseyNum!=null)?p.jerseyNum:''); }
 }
-function resizeImage(file, maxDim){
-  return new Promise(function(resolve,reject){
-    var img=new Image();
-    img.onload=function(){
-      var s=Math.min(1, maxDim/Math.max(img.width,img.height));
-      var w=Math.max(1,Math.round(img.width*s)), h=Math.max(1,Math.round(img.height*s));
-      var c=document.createElement('canvas'); c.width=w; c.height=h;
-      c.getContext('2d').drawImage(img,0,0,w,h);
-      c.toBlob(function(b){ b?resolve(b):reject(new Error('resize failed')); },'image/jpeg',0.85);
+// ── Crop / zoom editor ───────────────────────────────────────
+// The old uploader just scaled the whole picture down, so a full-body shot
+// became a tiny head inside the circular avatar. This lets you frame the face:
+// drag to pan, slider or pinch to zoom, and export exactly the square that
+// ends up on screen.
+var OUT_PX = 512;                       // exported avatar size
+var _crop = null;                       // {img, scale, minScale, x, y, stage}
+function cropOpen(file){
+  var img = new Image();
+  img.onload = function(){
+    var stage = document.getElementById('crop-stage').clientWidth || 320;
+    // start zoomed to COVER the square (never letterboxed), centred
+    var minScale = Math.max(stage/img.width, stage/img.height);
+    _crop = { img:img, stage:stage, minScale:minScale, scale:minScale,
+              x:(stage - img.width*minScale)/2, y:(stage - img.height*minScale)/2 };
+    var cv = document.getElementById('crop-canvas');
+    cv.width = stage; cv.height = stage;
+    var z = document.getElementById('crop-zoom');
+    z.min = 100; z.max = 400; z.value = 100;
+    document.getElementById('crop-ov').classList.add('on');
+    cropDraw();
+  };
+  img.onerror = function(){ alert('That file could not be read as an image.'); };
+  img.src = URL.createObjectURL(file);
+}
+function cropClamp(){
+  if(!_crop) return;
+  var w = _crop.img.width*_crop.scale, h = _crop.img.height*_crop.scale, s = _crop.stage;
+  // never allow a gap inside the square
+  _crop.x = Math.min(0, Math.max(s - w, _crop.x));
+  _crop.y = Math.min(0, Math.max(s - h, _crop.y));
+}
+function cropDraw(){
+  if(!_crop) return;
+  cropClamp();
+  var cv = document.getElementById('crop-canvas'), ctx = cv.getContext('2d');
+  ctx.clearRect(0,0,cv.width,cv.height);
+  ctx.drawImage(_crop.img, _crop.x, _crop.y, _crop.img.width*_crop.scale, _crop.img.height*_crop.scale);
+}
+function cropSetZoom(pct){
+  if(!_crop) return;
+  var old = _crop.scale, s = _crop.stage;
+  _crop.scale = _crop.minScale * (pct/100);
+  // keep the centre of the square anchored while zooming
+  var k = _crop.scale/old;
+  _crop.x = s/2 - (s/2 - _crop.x)*k;
+  _crop.y = s/2 - (s/2 - _crop.y)*k;
+  cropDraw();
+}
+function cropCancel(){ _crop = null; document.getElementById('crop-ov').classList.remove('on'); }
+(function cropDragSetup(){
+  var stage = null, drag = null, pinch = null;
+  function pt(e){ return e.touches ? e.touches[0] : e; }
+  function dist(e){
+    var a=e.touches[0], b=e.touches[1];
+    return Math.hypot(a.clientX-b.clientX, a.clientY-b.clientY);
+  }
+  document.addEventListener('DOMContentLoaded', function(){
+    stage = document.getElementById('crop-stage'); if(!stage) return;
+    var down = function(e){
+      if(!_crop) return;
+      if(e.touches && e.touches.length===2){ pinch={d:dist(e), s:_crop.scale}; return; }
+      var q=pt(e); drag={x:q.clientX, y:q.clientY, ox:_crop.x, oy:_crop.y};
     };
-    img.onerror=function(){ reject(new Error('Not a valid image')); };
-    img.src=URL.createObjectURL(file);
+    var move = function(e){
+      if(!_crop) return;
+      if(pinch && e.touches && e.touches.length===2){
+        e.preventDefault();
+        var f = dist(e)/pinch.d;
+        var pct = Math.max(100, Math.min(400, (pinch.s*f)/_crop.minScale*100));
+        document.getElementById('crop-zoom').value = Math.round(pct);
+        cropSetZoom(pct);
+        return;
+      }
+      if(!drag) return;
+      e.preventDefault();
+      var q=pt(e);
+      _crop.x = drag.ox + (q.clientX-drag.x);
+      _crop.y = drag.oy + (q.clientY-drag.y);
+      cropDraw();
+    };
+    var up = function(){ drag=null; pinch=null; };
+    stage.addEventListener('mousedown', down);
+    stage.addEventListener('touchstart', down, {passive:true});
+    window.addEventListener('mousemove', move);
+    window.addEventListener('touchmove', move, {passive:false});
+    window.addEventListener('mouseup', up);
+    window.addEventListener('touchend', up);
+  });
+})();
+function cropBlob(){
+  return new Promise(function(resolve,reject){
+    if(!_crop) return reject(new Error('nothing to crop'));
+    var k = OUT_PX/_crop.stage;                     // stage px -> output px
+    var c = document.createElement('canvas'); c.width=OUT_PX; c.height=OUT_PX;
+    c.getContext('2d').drawImage(_crop.img, _crop.x*k, _crop.y*k,
+      _crop.img.width*_crop.scale*k, _crop.img.height*_crop.scale*k);
+    c.toBlob(function(b){ b?resolve(b):reject(new Error('crop failed')); },'image/jpeg',0.85);
   });
 }
-async function uploadPhoto(file){
+async function cropConfirm(){
+  var btn=document.getElementById('crop-go'); btn.disabled=true; btn.textContent='Uploading…';
+  try{
+    var blob = await cropBlob();
+    await putPhoto(blob);
+    cropCancel();
+  }catch(e){ alert('Upload failed: '+(e.message||e)); }
+  finally{ btn.disabled=false; btn.textContent='Use photo'; }
+}
+
+// ── Photo library ────────────────────────────────────────────
+// Every upload already lands at "{player_id}-{timestamp}.jpg", so a player's
+// whole history is recoverable straight from the bucket — no extra table.
+async function listPlayerPhotos(playerId){
+  try{
+    var r = await db.storage.from('player-photos').list('', {limit:100, search:playerId});
+    if(r.error || !r.data) return [];
+    return r.data
+      .filter(function(o){ return o.name.indexOf(playerId)===0 && /\.jpg$/i.test(o.name); })
+      .sort(function(a,b){ return (b.created_at||'').localeCompare(a.created_at||''); });
+  }catch(e){ return [] }
+}
+async function renderPhotoLib(){
+  var host=document.getElementById('ph-lib'), p=window._player;
+  if(!host || !p || !p.id) return;
+  var files = await listPlayerPhotos(p.id);
+  var html = files.map(function(o){
+    var url = db.storage.from('player-photos').getPublicUrl(o.name).data.publicUrl;
+    var cur = (p.photoUrl||'').indexOf(o.name) >= 0;
+    return '<div class="ph-thumb'+(cur?' cur':'')+'" style="background-image:url(\''+url+'\')" '+
+           'title="'+(cur?'Current profile photo':'Tap to use this photo')+'" '+
+           'onclick="setPrimaryPhoto(\''+o.name+'\')">'+
+           '<span class="ph-x" onclick="deletePhoto(event,\''+o.name+'\')" title="Delete">✕</span></div>';
+  }).join('');
+  html += '<button class="ph-add" onclick="document.getElementById(\'photo-input\').click()" title="Add a photo">+</button>';
+  if(!files.length) html += '<span class="ph-hint">add a photo</span>';
+  host.innerHTML = html;
+}
+async function setPrimaryPhoto(name){
+  var p=window._player; if(!p||!p.id) return;
+  var url = db.storage.from('player-photos').getPublicUrl(name).data.publicUrl;
+  var up = await db.from('players').update({photo_url:url}).eq('id', p.id).select('id');
+  if(up.error || !(up.data&&up.data.length)){ alert('Could not set that photo.'); return; }
+  p.photoUrl = url;
+  renderAvatar(p);
+  renderPhotoLib();
+}
+async function deletePhoto(ev, name){
+  ev.stopPropagation();
+  if(!confirm('Delete this photo?')) return;
+  var p=window._player; if(!p||!p.id) return;
+  var wasCurrent = (p.photoUrl||'').indexOf(name) >= 0;
+  try{
+    var r = await db.storage.from('player-photos').remove([name]);
+    if(r.error) throw r.error;
+  }catch(e){ alert('Could not delete: '+(e.message||e)); return; }
+  if(wasCurrent){
+    // fall back to whatever photo remains, else clear the avatar
+    var left = await listPlayerPhotos(p.id);
+    var next = left.length ? db.storage.from('player-photos').getPublicUrl(left[0].name).data.publicUrl : null;
+    await db.from('players').update({photo_url:next}).eq('id', p.id);
+    p.photoUrl = next;
+    renderAvatar(p);
+  }
+  renderPhotoLib();
+}
+
+async function putPhoto(blob){
+  var p=window._player;
+  // Unique path per upload so a new photo is always a brand-new URL — avoids
+  // the CDN serving the previously-cached image (upsert to a fixed path doesn't
+  // invalidate the cache, which made a 2nd photo "stick" to the first).
+  var path=p.id+'-'+Date.now()+'.jpg';
+  var up=await db.storage.from('player-photos').upload(path, blob, {contentType:'image/jpeg', cacheControl:'3600'});
+  if(up.error) throw up.error;
+  var url=db.storage.from('player-photos').getPublicUrl(path).data.publicUrl;
+  await db.from('players').update({photo_url:url}).eq('id', p.id);
+  p.photoUrl = url;
+  renderAvatar(p);
+  renderPhotoLib();
+}
+function uploadPhoto(file){
   if(!file) return;
   var p=window._player;
   if(!p||!p.id){ alert('Photos can be added once the player loads from the roster.'); return; }
   if(!/^image\//.test(file.type||'')){ alert('Please choose an image file.'); return; }
   if(file.size > 12*1024*1024){ alert('That image is too large (max 12MB). Try a smaller one.'); return; }
-  var cam=document.getElementById('avatar-cam'); if(cam) cam.textContent='⏳';
-  try{
-    var blob=await resizeImage(file, 512);
-    // Unique path per upload so a new photo is always a brand-new URL — avoids
-    // the CDN serving the previously-cached image (upsert to a fixed path doesn't
-    // invalidate the cache, which made a 2nd photo "stick" to the first).
-    var path=p.id+'-'+Date.now()+'.jpg';
-    var up=await db.storage.from('player-photos').upload(path, blob, {contentType:'image/jpeg', cacheControl:'3600'});
-    if(up.error) throw up.error;
-    var url=db.storage.from('player-photos').getPublicUrl(path).data.publicUrl;
-    await db.from('players').update({photo_url:url}).eq('id', p.id);
-    p.photoUrl = url;
-    renderAvatar(p);
-  }catch(e){ alert('Upload failed: '+(e.message||e)); }
-  finally{ if(cam) cam.textContent='📷'; }
+  cropOpen(file);   // upload happens after framing
 }
 
 function shareProfile() {
