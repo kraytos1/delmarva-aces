@@ -152,8 +152,6 @@
     font-family:var(--display);font-size:24px;font-weight:700;color:var(--orange);}
   .newkid-num{font-family:var(--display);font-size:21px;font-weight:700;color:var(--orange);line-height:1;}
   .newkid-name{font-size:14px;font-weight:600;line-height:1.25;}
-  .newkid-tag{font-family:var(--mono);font-size:10px;letter-spacing:1.5px;color:var(--green);
-    background:rgba(61,220,106,.1);border:1px solid rgba(61,220,106,.3);padding:3px 9px;border-radius:11px;}
   .preseason-cta{font-size:15px;}
 
   /* player headshots (Season Leaders + Team Awards) */
@@ -383,7 +381,7 @@
         <span style="font-size:20px;">⚾</span>
         <div>
           <div style="font-family:var(--display);font-size:16px;font-weight:600;letter-spacing:.5px;">Season starts soon</div>
-          <div style="font-size:12.5px;color:#8f97a3;" id="hero-preseason-sub">Spring 2026: 62–2 Champions 🏆</div>
+          <div style="font-size:12.5px;color:#8f97a3;" id="hero-preseason-sub">Spring 2026: 62–2, Cooperstown Champions 🏆</div>
         </div>
       </div>
       <div class="hero-cta">
@@ -1148,8 +1146,7 @@ function renderPreseason(isPre) {
       return '<a class="newkid" href="/player/'+p.num+'">'
         + '<div class="newkid-photo" style="'+st+'">'+(photo.photo_url?'':(p.num!=null?p.num:''))+'</div>'
         + '<div class="newkid-num">#'+p.num+'</div>'
-        + '<div class="newkid-name">'+(p.first||'')+'<br>'+(p.last||'')+'</div>'
-        + '<div class="newkid-tag">NEW ACE</div></a>'
+        + '<div class="newkid-name">'+(p.first||'')+'<br>'+(p.last||'')+'</div></a>'
     }).join('')
   }
   // The bell only exists where push is supported (installed PWA on iOS)
