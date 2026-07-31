@@ -155,7 +155,7 @@
   .leader-val{font-family:var(--display);font-size:28px;font-weight:700;color:var(--orange);}
   .leader-rest{font-size:11px;color:var(--muted);margin-top:6px;line-height:1.6;}
   /* pre-season story block (replaces Leaders/Awards/Results before game 1) */
-  .preseason-lede{font-size:15px;line-height:1.6;color:#c8cdd4;max-width:62ch;margin-bottom:22px;}
+  .preseason-lede{font-size:15px;line-height:1.6;color:#c8cdd4;max-width:56ch;margin-bottom:22px;}
   .newkid-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:24px;}
   .newkid{background:var(--dark2);border:1px solid var(--bdr-a);border-radius:14px;padding:18px 12px;text-align:center;
     display:flex;flex-direction:column;align-items:center;gap:8px;text-decoration:none;color:var(--text);
@@ -1148,6 +1148,11 @@ function renderHeroSquad() {
 // game of the active season the page tells the Fall story instead of stacking
 // three "once games are scored" apologies and ending on an empty header.
 var PRESEASON_NEW = [24, 99, 7, 44]   // kids new to the team this season
+// Roster counts read better spelled out in prose; falls back to the digit
+// past twenty, which a 12-kid roster will never reach.
+var NUM_WORDS = ['zero','one','two','three','four','five','six','seven','eight','nine','ten',
+  'eleven','twelve','thirteen','fourteen','fifteen','sixteen','seventeen','eighteen','nineteen','twenty']
+function numWord(n){ return NUM_WORDS[n] || String(n) }
 function renderPreseason(isPre) {
   var block = document.getElementById('preseason-block')
   var seasonSections = document.querySelectorAll('.season-section')
@@ -1161,14 +1166,13 @@ function renderPreseason(isPre) {
   setText('preseason-sub', ACTIVE_SEASON==='fall2026' ? '13U East' : '')
   var newOnes = (players||[]).filter(function(p){ return PRESEASON_NEW.indexOf(p.num)>=0 })
   // Both counts come from the roster, so the sentence can't go stale the next
-  // time a kid joins or leaves.
+  // time a kid joins or leaves. Spelled out to match the sentence's voice.
   var returning = Math.max(0, (players||[]).length - newOnes.length)
-  var mix = newOnes.length
-    ? returning + ' return, ' + newOnes.length + ' new Aces'
-    : 'a new season'
   setText('preseason-lede',
-    'The 62–2 champions move up to 13U — ' + mix +
-    '. The first game is announced right here (and pushed to your phone) the moment it\'s scheduled.')
+    'After finishing 74–3 as 12U’s — including a 62–2 spring season — the Aces move up to 13U with ' +
+    numWord(returning) + ' returning player' + (returning===1?'':'s') + ' and ' +
+    numWord(newOnes.length) + ' new Ace' + (newOnes.length===1?'':'s') +
+    '. The moment the first game is scheduled, it’ll be announced right here and sent straight to your phone.')
 
   var grid = document.getElementById('newkid-grid')
   if (grid) {
