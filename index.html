@@ -428,7 +428,10 @@
        player page (localStorage aces_my_player); rendered by renderMyPlayer() -->
   <div id="my-player-card" style="display:none;max-width:1140px;margin:18px auto 0;padding:0 24px;"></div>
 
-  <section class="section">
+  <!-- "The Squad" — the same twelve photos the hero already shows, so it's off
+       by default (see SHOW_HOME_SQUAD). Names and positions live on the Roster
+       tab. Flip the flag to bring this back; the markup and styles stay put. -->
+  <section class="section" id="squad-section">
     <div class="section-header">
       <h2 class="section-title">The Squad</h2>
       <div class="section-rule"></div>
@@ -1214,7 +1217,15 @@ function renderMyPlayer() {
 }
 
 // Full roster on the home page — every kid gets a spot, links to their profile.
+// The hero already shows all twelve faces, so repeating them here made the home
+// page state the same thing twice within two screens. Set this to true to bring
+// the named-card section back — nothing else needs changing.
+var SHOW_HOME_SQUAD = false
+
 function renderSquad(){
+  var section = document.getElementById('squad-section')
+  if (section) section.style.display = SHOW_HOME_SQUAD ? '' : 'none'
+  if (!SHOW_HOME_SQUAD) return
   var strip = document.getElementById('squad-strip'); if(!strip) return
   setText('squad-sub', ACTIVE_SEASON==='fall2026' ? '13U East' : '12U East')
   var list = (players||[]).slice().sort(function(a,b){return (a.num||0)-(b.num||0)})
