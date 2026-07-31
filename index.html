@@ -362,7 +362,7 @@
       <div class="hero-lede">
         <div class="hero-record" id="hero-record">
           <span class="hero-record-num">62–2</span>
-          <span class="hero-record-cap">Spring 2026 Champions</span>
+          <span class="hero-record-cap">Spring 2026 · Cooperstown Champions</span>
         </div>
         <div class="hero-lede-right">
           <h1 class="hero-title"><div>The squad</div><div class="line2">is back.</div></h1>
@@ -376,12 +376,14 @@
         <div class="hero-stat"><div class="hero-stat-num" id="hs-hr">177</div><div class="hero-stat-label">Home Runs</div></div>
       </div>
       <!-- Pre-season: shown instead of the zeroed stat tiles until the active
-           season has real at-bats (renderHome toggles the two) -->
+           season has real at-bats (renderHome toggles the two). Deliberately
+           FORWARD-looking — the record above already states the Spring title,
+           so repeating it here was the same fact twice in one screen. -->
       <div class="hero-stats" id="hero-preseason" style="display:none;padding:14px 22px;align-items:center;gap:10px;">
         <span style="font-size:20px;">⚾</span>
         <div>
-          <div style="font-family:var(--display);font-size:16px;font-weight:600;letter-spacing:.5px;">Season starts soon</div>
-          <div style="font-size:12.5px;color:#8f97a3;" id="hero-preseason-sub">Spring 2026: 62–2, Cooperstown Champions 🏆</div>
+          <div style="font-family:var(--display);font-size:16px;font-weight:600;letter-spacing:.5px;">First Fall game coming soon</div>
+          <div style="font-size:12.5px;color:#8f97a3;" id="hero-preseason-sub">It'll show up right here — and on your phone if notifications are on</div>
         </div>
       </div>
       <div class="hero-cta">
@@ -1169,7 +1171,7 @@ function renderMyPlayer() {
   if (!p) { host.style.display = 'none'; host.innerHTML = ''; return }
   var line = p.ab > 0
     ? f3(p.avg)+' AVG · '+p.hr+' HR · '+p.rbi+' RBI'
-    : 'Season starts soon'
+    : 'Stats appear after the first game'
   host.innerHTML =
     '<a href="/player/'+p.num+'" style="display:flex;align-items:center;gap:14px;text-decoration:none;color:var(--text);'+
       'background:var(--dark2);border:1px solid var(--bdr-a);border-radius:12px;padding:12px 16px;">'+
