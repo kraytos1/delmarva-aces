@@ -38,7 +38,7 @@
   html{scroll-behavior:smooth;}
   body{background:var(--black);color:var(--text);font-family:var(--body);line-height:1.6;overflow-x:hidden;}
   nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(10,12,14,.95);backdrop-filter:blur(16px);border-bottom:1px solid var(--bdr);display:flex;align-items:center;justify-content:space-between;padding:0 32px;height:64px;}
-  .nav-brand{display:flex;align-items:center;gap:10px;cursor:pointer;}
+  .nav-brand{display:flex;align-items:center;gap:10px;cursor:pointer;background:none;border:none;padding:0;color:inherit;font:inherit;text-align:left;}
   .nav-logo{width:40px;height:40px;display:flex;align-items:center;justify-content:center;}
   .nav-logo img{width:40px;height:40px;object-fit:contain;filter:drop-shadow(0 0 8px rgba(232,83,10,.3));}
   .nav-name{font-family:var(--display);font-size:17px;font-weight:600;color:var(--text);letter-spacing:.5px;}
@@ -96,8 +96,8 @@
   .hero-face{width:clamp(46px,7vw,62px);aspect-ratio:1;border-radius:50%;background:var(--dark2) center/cover no-repeat;
     border:2px solid rgba(255,255,255,.14);flex-shrink:0;transition:transform .18s,border-color .18s;
     display:flex;align-items:center;justify-content:center;font-family:var(--display);font-size:15px;color:var(--muted);text-decoration:none;}
-  .hero-face:hover,.hero-face:focus-visible{transform:translateY(-3px);border-color:var(--orange);outline:none;}
-  .hero-desc{font-size:16px;color:var(--muted);max-width:480px;margin-bottom:40px;line-height:1.7;}
+  .hero-face:hover{transform:translateY(-3px);border-color:var(--orange);}
+  .hero-face:focus-visible{transform:translateY(-3px);border-color:var(--orange);}
   .hero-stats{display:flex;border:1px solid var(--bdr);border-radius:10px;overflow:hidden;width:fit-content;margin-bottom:40px;background:var(--dark2);}
   .hero-stat{padding:16px 28px;border-right:1px solid var(--bdr);}
   .hero-stat:last-child{border-right:none;}
@@ -121,8 +121,22 @@
   .countdown-label{font-size:11px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;}
 
   /* sections */
+  /* ── Focus & landmarks ──────────────────────────────────
+     The site is built from custom dark buttons, tabs and rows; without an
+     authored ring, keyboard users navigate on whatever the browser guesses.
+     One token, applied everywhere, sitting clear of the dark surfaces. */
+  :focus-visible{outline:2px solid var(--orange);outline-offset:3px;border-radius:4px;}
+  .nav-link:focus-visible,.season-btn:focus-visible,.filter-btn:focus-visible{outline-offset:2px;}
+  tbody tr:focus-visible{outline:2px solid var(--orange);outline-offset:-2px;}
+  .skip-link{position:absolute;left:16px;top:-60px;z-index:300;background:var(--orange);color:#fff;
+    padding:10px 18px;border-radius:0 0 8px 8px;font-family:var(--display);font-size:14px;
+    letter-spacing:.5px;text-decoration:none;transition:top .15s;}
+  .skip-link:focus{top:0;}
+
   .section{padding:60px 40px;}
-  .section-header{display:flex;align-items:baseline;gap:16px;margin-bottom:28px;}
+  /* more space above a heading than below it — the section rules were reading
+     as if they belonged to the block above them */
+  .section-header{display:flex;align-items:baseline;gap:16px;margin:0 0 28px;padding-top:8px;}
   .section-title{font-family:var(--display);font-size:28px;font-weight:600;letter-spacing:.5px;text-transform:uppercase;}
   .section-rule{flex:1;height:1px;background:var(--bdr);}
   .section-sub{font-family:var(--mono);font-size:11px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;}
@@ -146,7 +160,8 @@
   .newkid{background:var(--dark2);border:1px solid var(--bdr-a);border-radius:14px;padding:18px 12px;text-align:center;
     display:flex;flex-direction:column;align-items:center;gap:8px;text-decoration:none;color:var(--text);
     transition:transform .18s,border-color .18s;}
-  .newkid:hover,.newkid:focus-visible{transform:translateY(-3px);border-color:var(--orange);outline:none;}
+  .newkid:hover{transform:translateY(-3px);border-color:var(--orange);}
+  .newkid:focus-visible{transform:translateY(-3px);border-color:var(--orange);}
   .newkid-photo{width:84px;aspect-ratio:1;border-radius:50%;background:var(--dark3) center/cover no-repeat;
     box-shadow:0 0 0 2px var(--orange);display:flex;align-items:center;justify-content:center;
     font-family:var(--display);font-size:24px;font-weight:700;color:var(--orange);}
@@ -264,7 +279,7 @@
   .footer-link{font-family:var(--mono);font-size:11px;color:var(--muted);text-decoration:none;transition:color .15s;}
   .footer-link:hover{color:var(--text);}
 
-  @media(max-width:640px){
+  @media(max-width:720px){
     nav{padding:0 16px;}
     .hero,.section{padding:40px 20px;}
     .next-game-strip,.roster-header,.roster-filters,.table-wrap,.last-updated,.roster-grid,.roster-viewsw{padding-left:20px;padding-right:20px;}
@@ -308,18 +323,20 @@
   <div class="loading-inner">
     <img src="/logo.png" alt="Aces" style="width:72px;height:72px;object-fit:contain;margin-bottom:16px;"/>
     <div class="loading-bar"><div class="loading-fill"></div></div>
-    <div class="loading-text" id="loading-text">Connecting to database...</div>
+    <div class="loading-text" id="loading-text">Warming up…</div>
   </div>
 </div>
 
 <!-- DB status badge -->
 <div class="db-status" id="db-status"></div>
 
+<a class="skip-link" href="#main-content">Skip to content</a>
+
 <nav>
-  <div class="nav-brand" onclick="showPage('home')">
-    <div class="nav-logo"><img src="/logo.png" alt="Aces"/></div>
+  <button class="nav-brand" type="button" onclick="showPage('home')" aria-label="Delmarva Aces — home">
+    <div class="nav-logo"><img src="/logo.png" alt=""/></div>
     <span class="nav-name">Delmarva <span>Aces</span></span>
-  </div>
+  </button>
   <div class="nav-links">
     <button class="nav-link active" id="nav-home" onclick="showPage('home')">Home</button>
     <button class="nav-link" id="nav-schedule" onclick="showPage('schedule')">Schedule</button>
@@ -350,6 +367,7 @@
 <script src="/gamestrip.js"></script>
 
 <!-- ══ HOME ══ -->
+<main id="main-content">
 <div class="page active" id="page-home">
   <section class="hero">
     <div class="hero-bg"></div>
@@ -380,14 +398,14 @@
            FORWARD-looking — the record above already states the Spring title,
            so repeating it here was the same fact twice in one screen. -->
       <div class="hero-stats" id="hero-preseason" style="display:none;padding:14px 22px;align-items:center;gap:10px;">
-        <span style="font-size:20px;">⚾</span>
+        <span style="font-size:20px;" aria-hidden="true">⚾</span>
         <div>
           <div style="font-family:var(--display);font-size:16px;font-weight:600;letter-spacing:.5px;">First Fall game coming soon</div>
           <div style="font-size:12.5px;color:#8f97a3;" id="hero-preseason-sub">It'll show up right here — and on your phone if notifications are on</div>
         </div>
       </div>
       <div class="hero-cta">
-        <button class="btn-primary" onclick="showPage('roster')">▶ Roster &amp; Stats</button>
+        <button class="btn-primary" onclick="showPage('roster')"><span aria-hidden="true">▶</span> Roster &amp; Stats</button>
         <button class="btn-secondary" onclick="window.location='/game.html'">Watch Last Game</button>
       </div>
     </div>
@@ -432,7 +450,7 @@
     </div>
     <p class="preseason-lede" id="preseason-lede"></p>
     <div class="newkid-grid" id="newkid-grid"></div>
-    <button class="btn-primary preseason-cta" id="preseason-cta" onclick="preseasonNotify()">🔔 Get notified at first pitch</button>
+    <button class="btn-primary preseason-cta" id="preseason-cta" onclick="preseasonNotify()"><span aria-hidden="true">🔔</span> Get notified at first pitch</button>
   </section>
 
   <section class="section season-section" style="padding-top:0">
@@ -461,7 +479,7 @@
     <div class="section-header">
       <h2 class="section-title">Recent Results</h2>
       <div class="section-rule"></div>
-      <div class="section-sub" id="results-sub">2026 Season</div>
+      <div class="section-sub" id="results-sub">Spring 2026</div>
     </div>
     <div class="results-grid" id="results-grid">
       <!-- populated by JS -->
@@ -630,6 +648,7 @@
     <div class="footer-links"><a class="footer-link" href="/highlights.html">Highlights</a></div>
   </footer>
 </div>
+</main>
 
 <script>
 var allGames = []
@@ -765,6 +784,9 @@ function setSeason(season) {
       if (el) {
         el.style.background = isActive ? 'var(--orange)' : 'transparent'
         el.style.color = isActive ? 'white' : 'var(--muted)'
+        // which season is selected was conveyed by background colour alone —
+        // inaudible to a screen reader and invisible in high-contrast mode
+        el.setAttribute('aria-pressed', isActive ? 'true' : 'false')
       }
     })
   })
@@ -905,7 +927,7 @@ async function init() {
     renderHome(); renderBatting(); updateCountdown(); hideLoading()
   }, 6000)
 
-  setLoadingText('Connecting to database...')
+  setLoadingText('Warming up…')
 
   var configured = ACES_CONFIG.supabaseUrl && ACES_CONFIG.supabaseKey &&
     ACES_CONFIG.supabaseUrl !== 'your_supabase_url_here'
@@ -916,7 +938,7 @@ async function init() {
       loadRosterPhotos()
       loadUpcoming()
 
-      setLoadingText('Loading players...')
+      setLoadingText('Loading the roster…')
       var { data: dbPlayers, error: pErr } = await db
         .from('player_season_stats').select('*').order('jersey_num')
 
@@ -932,7 +954,7 @@ async function init() {
           console.log('Players found in DB but no at_bats yet — using fallback stats for display')
         }
         usingDB = true
-        setLoadingText('Loading games...')
+        setLoadingText('Loading games…')
 
         var { data: dbGames } = await db
           .from('games')
@@ -1303,6 +1325,9 @@ function renderAwards() {
 }
 
 function renderResults() {
+  // the only section chip that wasn't season-aware
+  var rs = document.getElementById('results-sub')
+  if (rs) rs.textContent = (ACTIVE_SEASON === 'fall2026') ? 'Fall 2026' : 'Spring 2026'
   document.getElementById('results-grid').innerHTML = games.map(function(g, i) {
     return '<div class="result-row">'+
       '<div class="result-badge '+(g.W?'W':'L')+'">'+(g.W?'W':'L')+'</div>'+
@@ -1450,7 +1475,7 @@ function renderBatting() {
         '<div style="display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:50%;'+
         'background:'+ratingColor(adv.acesRating)+';font-family:var(--mono);font-size:11px;font-weight:500;color:white;">'+
         adv.acesRating+'</div></td>'
-    tr.addEventListener('click',function(){toggleExpand(p,tr,'batting')})
+    makeRowExpandable(tr, p, 'batting')
     body.appendChild(tr)
   })
 }
@@ -1497,7 +1522,7 @@ function renderPitching() {
       td(bb9,parseFloat(bb9)<=3?'hi':'lo')+
       td(p.era.toFixed(2),eraGood?'hi':'')+
       td(p.whip.toFixed(3),p.whip<=1.1&&p.ip>=10?'hi':'')
-    tr.addEventListener('click',function(){toggleExpand(p,tr,'pitching')})
+    makeRowExpandable(tr, p, 'pitching')
     body.appendChild(tr)
   })
 }
@@ -1506,12 +1531,30 @@ function td(val,cls){
   return '<td class="td-s'+(cls?' '+cls:'')+'">'+(val===undefined||val===null?'—':val)+'</td>'
 }
 
+// Stat rows expand to a detail panel. They were click-only, so keyboard and
+// screen-reader users could not open them at all. A row is a real control:
+// focusable, operable with Enter/Space, and it reports its own expanded state.
+function makeRowExpandable(tr, p, tab) {
+  tr.tabIndex = 0
+  tr.setAttribute('role', 'button')
+  tr.setAttribute('aria-expanded', 'false')
+  tr.setAttribute('aria-label', 'Season detail for #' + p.num + ' ' + p.first + ' ' + p.last)
+  tr.addEventListener('click', function(){ toggleExpand(p, tr, tab) })
+  tr.addEventListener('keydown', function(e){
+    if (e.key === 'Enter' || e.key === ' ' || e.key === 'Spacebar') {
+      e.preventDefault()
+      toggleExpand(p, tr, tab)
+    }
+  })
+}
+
 function toggleExpand(p,tr,tab) {
   var existing = document.querySelector('.detail-row')
   var isSame = existing && existing.dataset.num===String(p.num)
-  if(existing){existing.remove();document.querySelectorAll('tbody tr').forEach(function(r){r.classList.remove('expanded')})}
+  if(existing){existing.remove();document.querySelectorAll('tbody tr').forEach(function(r){r.classList.remove('expanded');r.setAttribute('aria-expanded','false')})}
   if(isSame) return
   tr.classList.add('expanded')
+  tr.setAttribute('aria-expanded','true')
   var det = document.createElement('tr')
   det.className='detail-row'; det.dataset.num=p.num
   var adv = calcAdvanced(p, players)
