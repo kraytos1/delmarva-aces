@@ -20,6 +20,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script src="/config.js"></script>
 <script src="/nav.js"></script>
+<script src="/clips.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 <style>
@@ -130,7 +131,7 @@ nav{background:rgba(10,12,14,.95);border-bottom:1px solid var(--bdr);display:fle
 .pclip{background:var(--dark2);border:1px solid var(--bdr);border-radius:10px;overflow:hidden;}
 .pclip-vid{position:relative;aspect-ratio:16/9;background:#000;cursor:pointer;overflow:hidden;}
 .pclip-vid img{width:100%;height:100%;object-fit:cover;display:block;}
-.pclip-vid iframe{width:100%;height:100%;border:0;display:block;}
+.pclip-vid iframe,.pclip-vid .clip-player{width:100%;height:100%;border:0;display:block;}
 .pclip-play{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;}
 .pclip-play span{width:44px;height:44px;border-radius:50%;background:rgba(232,83,10,.92);display:flex;align-items:center;justify-content:center;box-shadow:0 4px 14px rgba(0,0,0,.5);}
 .pclip-play span::after{content:'';border-style:solid;border-width:7px 0 7px 12px;border-color:transparent transparent transparent #fff;margin-left:3px;}
@@ -469,17 +470,8 @@ var CLIP_LABEL = {
   walk:'Walk', hbp:'HBP', double_play:'Double Play'
 }
 // Path A: a clip is a YouTube deep-link into the game's live-stream VOD.
-var CLIP_PRE = 20, CLIP_POST = 10
-function ytEmbed(streamId, offset){
-  if(!streamId) return ''
-  var o = offset||0, start = Math.max(0, o - CLIP_PRE), end = o + CLIP_POST
-  return 'https://www.youtube.com/embed/'+streamId+'?start='+start+'&end='+end+'&rel=0&modestbranding=1'
-}
-function ytThumb(streamId){ return streamId ? 'https://i.ytimg.com/vi/'+streamId+'/hqdefault.jpg' : '' }
-function playClip(el){
-  var url = el.getAttribute('data-embed'); if(!url) return
-  el.innerHTML = '<iframe src="'+url+'&autoplay=1" allow="autoplay; encrypted-media; fullscreen" allowfullscreen></iframe>'
-}
+// ytEmbed / ytThumb / playClip live in /clips.js — shared with highlights.html
+// so the clip window and the stop-at-the-end behaviour stay identical on both.
 // Photos tagged to this player in the team gallery. Section stays hidden
 // unless there's at least one, so pages don't sprout an empty block.
 async function loadPlayerPhotos(playerId) {

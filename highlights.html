@@ -9,6 +9,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script src="config.js"></script>
 <script src="/nav.js"></script>
+<script src="/clips.js"></script>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Inter:wght@300;400;500;600&family=Roboto+Mono:wght@400;500&display=swap');
   :root{--orange:#E8530A;--orange-dim:#C44208;--og:rgba(232,83,10,.18);--black:#0A0C0E;--dark:#111418;--dark2:#181C22;--dark3:#1F242C;--bdr:rgba(255,255,255,.08);--bdr-a:rgba(232,83,10,.35);--text:#F0EDE8;--muted:#7A8290;--mono:'Roboto Mono',monospace;--display:'Oswald',sans-serif;--body:'Inter',sans-serif;--green:#3DDC6A;}
@@ -48,7 +49,7 @@
   .clip:hover{border-color:var(--bdr-a);transform:translateY(-2px);}
   .clip-vid{position:relative;aspect-ratio:16/9;background:#000;cursor:pointer;overflow:hidden;}
   .clip-vid img{width:100%;height:100%;object-fit:cover;display:block;}
-  .clip-vid iframe{width:100%;height:100%;border:0;display:block;}
+  .clip-vid iframe,.clip-vid .clip-player{width:100%;height:100%;border:0;display:block;}
   .clip-play{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;transition:background .15s;}
   .clip-vid:hover .clip-play{background:rgba(0,0,0,.15);}
   .clip-play span{width:54px;height:54px;border-radius:50%;background:rgba(232,83,10,.92);box-shadow:0 6px 20px rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;}
@@ -164,21 +165,8 @@ function meta(ab){
 // ── Path A: a "clip" is a YouTube deep-link into the game's live-stream VOD.
 // yt_offset_sec is captured when the scorer taps the result (a few sec AFTER the
 // play), so we open the window ~20s before that and end ~3s after. Tune here.
-var CLIP_PRE = 20, CLIP_POST = 10;
-function ytEmbed(streamId, offset){
-  if(!streamId) return '';
-  var o = offset||0;
-  var start = Math.max(0, o - CLIP_PRE), end = o + CLIP_POST;
-  return 'https://www.youtube.com/embed/'+streamId+'?start='+start+'&end='+end+'&rel=0&modestbranding=1';
-}
-function ytThumb(streamId){
-  return streamId ? 'https://i.ytimg.com/vi/'+streamId+'/hqdefault.jpg' : '';
-}
-function playClip(el){
-  var url = el.getAttribute('data-embed');
-  if(!url) return;
-  el.innerHTML = '<iframe src="'+url+'&autoplay=1" allow="autoplay; encrypted-media; fullscreen" allowfullscreen></iframe>';
-}
+// ytEmbed / ytThumb / playClip live in /clips.js — shared with player.html so
+// the clip window and the stop-at-the-end behaviour stay identical on both.
 
 // Share one clip: a deep link back to this page (?clip=<id>) that scrolls to
 // and spotlights the card. Web Share on phones, clipboard fallback elsewhere.
