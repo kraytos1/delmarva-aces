@@ -1157,9 +1157,14 @@ function renderPreseason(isPre) {
   setText('preseason-title', (meta.hero || 'Fall 2026').replace(/^.*·\s*/,'') + ' is Coming')
   setText('preseason-sub', ACTIVE_SEASON==='fall2026' ? '13U East' : '')
   var newOnes = (players||[]).filter(function(p){ return PRESEASON_NEW.indexOf(p.num)>=0 })
+  // Both counts come from the roster, so the sentence can't go stale the next
+  // time a kid joins or leaves.
+  var returning = Math.max(0, (players||[]).length - newOnes.length)
+  var mix = newOnes.length
+    ? returning + ' return, ' + newOnes.length + ' new Aces'
+    : 'a new season'
   setText('preseason-lede',
-    'The 62–2 champions move up to 13U — same core, ' +
-    (newOnes.length ? newOnes.length + ' new Aces' : 'a new season') +
+    'The 62–2 champions move up to 13U — ' + mix +
     '. The first game is announced right here (and pushed to your phone) the moment it\'s scheduled.')
 
   var grid = document.getElementById('newkid-grid')
