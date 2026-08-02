@@ -195,6 +195,13 @@ body{background:var(--black);color:var(--text);font-family:var(--body);min-heigh
 #game-clock + .inning-lbl{margin-left:10px;}
 #side-chip{margin-left:10px;background:none;border:1px solid var(--bdr);color:var(--muted);border-radius:4px;height:22px;padding:0 7px;cursor:pointer;font-family:var(--mono);font-size:10px;letter-spacing:.5px;}
 #side-chip.home{color:var(--orange);border-color:var(--orange);}
+/* gameday QoL: no pull-to-refresh / rubber-band mid-game */
+html,body{overscroll-behavior-y:none;}
+/* the Undo button echoes what it will revert */
+.undo-what{display:block;font-size:9px;font-weight:400;opacity:.75;max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin:1px auto 0;}
+/* one-tap live-stream lookup on the setup screen */
+.find-live{background:var(--dark3);border:1px solid var(--bdr-a);color:var(--orange);border-radius:10px;padding:0 14px;font-family:var(--mono);font-size:12px;cursor:pointer;white-space:nowrap;}
+.find-live:disabled{opacity:.55;cursor:default;}
 
 /* keyboard/Stream Deck focus dot (desktop only) */
 #kb-dot{display:none;font-size:12px;line-height:1;cursor:default;}
@@ -273,7 +280,10 @@ body{background:var(--black);color:var(--text);font-family:var(--body);min-heigh
     </div>
     <div>
       <div class="field-lbl">YouTube stream ID <span style="color:#444;">(optional)</span></div>
-      <input class="field-inp" id="yt-id" placeholder="e.g. qePhApm8lFA"/>
+      <div style="display:flex;gap:8px;">
+        <input class="field-inp" id="yt-id" placeholder="e.g. qePhApm8lFA" style="flex:1;min-width:0;"/>
+        <button class="find-live" onclick="findLive(this)">⚡ Find live</button>
+      </div>
     </div>
     <button class="setup-btn" onclick="startScoring()">▶ Start Scoring</button>
     <a href="lineup.html" style="display:block;text-align:center;margin-top:10px;font-family:var(--mono);font-size:11px;color:var(--muted);text-decoration:none;letter-spacing:.5px;">Set lineup first →</a>
@@ -430,6 +440,7 @@ body{background:var(--black);color:var(--text);font-family:var(--body);min-heigh
           <div class="ab-micro">Pitching</div>
           <div class="ab-name" id="ab-pitcher">—</div>
           <div class="ab-sub" id="ab-pc">PC 0</div>
+          <div class="ab-sub" id="ab-dueup" style="margin-top:3px;"></div>
         </div>
       </div>
 
@@ -507,7 +518,7 @@ body{background:var(--black);color:var(--text);font-family:var(--body);min-heigh
   <div class="bot-bar">
     <button class="bot-btn next" onclick="newBatter()">Next batter</button>
     <button class="bot-btn" onclick="newHalf()">End half</button>
-    <button class="bot-btn danger" onclick="undoLast()">Undo</button>
+    <button class="bot-btn danger" id="undo-btn" onclick="undoLast()">Undo</button>
     <button class="bot-btn end" onclick="endGame()">Final</button>
   </div>
 
@@ -677,6 +688,17 @@ function pushRecent(dotCls, main, meta) {
 }
 function popRecent() { RECENT.pop(); renderRecent() }
 function renderRecent() {
+  // The Undo button echoes what it will revert — on a phone the feed below
+  // is hidden, so after the toast fades this is the only visible record of
+  // the last action. (Compound actions like ball-4→walk show the outcome,
+  // which is exactly what one Undo removes.)
+  var ub = document.getElementById('undo-btn')
+  if (ub) {
+    var lastR = RECENT[RECENT.length-1]
+    ub.innerHTML = lastR
+      ? 'Undo<span class="undo-what">'+String(lastR.m).replace(/[&<>]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;'}[c]})+'</span>'
+      : 'Undo'
+  }
   var list = document.getElementById('rf-list'); if (!list) return
   if (!RECENT.length) { list.innerHTML = '<div class="rf-empty">Plays appear here as you score</div>'; return }
   var esc = function(s){ return String(s).replace(/[&<>]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;'}[c]}) }
@@ -902,9 +924,56 @@ async function init() {
     var opp=g.opponents?.name||'Opponent'
     var d=new Date(g.game_date)
     var ds=d.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric',timeZone:'UTC'})
-    return '<option value="'+g.id+'">'+ds+' vs '+opp+'</option>'
+    return '<option value="'+g.id+'">'+ds+' vs '+opp+(g.status==='live'?' · LIVE':'')+'</option>'
   }).join('')
+  // Post-crash recovery with zero thinking: a live game means someone was
+  // mid-scoring — pre-select it and make the button say what it will do.
+  var setBtn=function(){
+    var g=data.find(function(x){ return x.id===sel.value })
+    var b=document.querySelector('.setup-btn')
+    if(b) b.textContent=(g && g.status==='live') ? '▶ Resume Scoring' : '▶ Start Scoring'
+  }
+  var liveG=data.find(function(g){ return g.status==='live' })
+  if(liveG) sel.value=liveG.id
+  setBtn(); sel.addEventListener('change', setBtn)
 }
+
+// ── GAMEDAY QoL ──────────────────────────────────────────────
+// Screen wake lock: the phone dimming/locking between innings means
+// re-unlock + re-focus before the next pitch. Hold the screen awake for the
+// whole game; the OS releases the lock whenever the tab hides, so re-acquire
+// on return. No-ops harmlessly where unsupported.
+var _wake=null
+async function keepAwake(){
+  if(!('wakeLock' in navigator) || !S.gameId) return
+  try{ _wake=await navigator.wakeLock.request('screen') }catch(e){}
+}
+document.addEventListener('visibilitychange',function(){
+  if(document.visibilityState==='visible') keepAwake()
+})
+
+// One tap instead of copy-pasting an 11-char video ID at the field: ask
+// YouTube for the channel's current live broadcast and fill the box.
+async function findLive(btn){
+  if(!ACES_CONFIG.ytApiKey || !ACES_CONFIG.ytChannelId){ showToast('No YouTube key configured'); return }
+  btn.disabled=true; var old=btn.textContent; btn.textContent='Looking…'
+  try{
+    var r=await fetch('https://www.googleapis.com/youtube/v3/search?part=snippet&channelId='+ACES_CONFIG.ytChannelId+'&type=video&eventType=live&key='+ACES_CONFIG.ytApiKey)
+    var j=await r.json()
+    var id=j.items && j.items[0] && j.items[0].id && j.items[0].id.videoId
+    if(id){ document.getElementById('yt-id').value=id; showToast('📡 Live stream found ✓') }
+    else showToast('No live stream on the channel yet — start the YoloBox first')
+  }catch(e){ showToast('Couldn\'t reach YouTube — paste the ID instead') }
+  btn.textContent=old; btn.disabled=false
+}
+
+// A swipe-back or pull-to-refresh mid-game is recoverable (full resume) but
+// costs 30 seconds at the worst possible moment — ask first. GAME_OVER lets
+// the intentional post-Final redirect leave without nagging.
+var GAME_OVER=false
+window.addEventListener('beforeunload',function(e){
+  if(S.gameId && !GAME_OVER){ e.preventDefault(); e.returnValue='' }
+})
 
 // ── Stream video → clip timing ──────────────────────────────
 // Two clocks can stamp a play, and picking the wrong one is the clip-drift bug:
@@ -1137,6 +1206,7 @@ async function startScoring() {
   updateKbDot()
   flushQueue()
   showToast('Game on! ⚾ Aces are the '+(S.acesHome?'HOME team — opponent bats first':'AWAY team — Aces bat first'))
+  keepAwake()
 }
 
 /* ── LINEUP DISPLAY ── */
@@ -1167,6 +1237,21 @@ function updateBatterDisplay() {
   var pitcherName = acesUp() ? (S.oppPitcher||'Opp. Pitcher') : (S.currentPitcherName||'—')
   setText('ab-pitcher', pitcherName)
   renderPC()
+  // Due-up preview while the Aces are in the field — who needs a helmet on.
+  // Mirrors the batter pointer's math over the named lineup entries.
+  var due = document.getElementById('ab-dueup')
+  if (due) {
+    var txt = ''
+    if (!acesUp() && S.acesLineup.length) {
+      var v = S.acesLineup.filter(function(e){ return e.playerName })
+      if (v.length) {
+        var di = S.currentBatterIdx % v.length, names = []
+        for (var i = 0; i < Math.min(3, v.length); i++) names.push(v[(di+i) % v.length].playerName.split(' ').pop())
+        txt = 'Due up: ' + names.join(', ')
+      }
+    }
+    due.textContent = txt
+  }
 }
 
 // Pitch count line, colored by arm-care tier when OUR pitcher is working.
@@ -1811,6 +1896,7 @@ async function endGame(){
       body: JSON.stringify({type:'final', gameId:S.gameId})}).catch(function(){})
   } catch(e) {}
   showToast('Game final! ✓')
+  GAME_OVER=true   // let the redirect below leave without the unload prompt
   setTimeout(function(){window.location="/index.html"},2000)
 }
 
