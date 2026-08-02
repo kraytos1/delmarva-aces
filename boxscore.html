@@ -283,7 +283,7 @@ function renderLineScore() {
     var inn = ab.inning || 1
     var runs = ab.runs_scored || 0
     var isHit = ['single','double','triple','home_run'].includes(ab.result)
-    if (ab.half === 'top') {
+    if (ab.half === acesHalf()) {
       acesRuns[inn] = (acesRuns[inn]||0) + runs
       if (isHit) acesHits++
     } else {
@@ -314,8 +314,8 @@ function renderLineScore() {
 }
 
 function renderBatting() {
-  // Only show Aces batters (top half, has batter_id)
-  var acesABs = atBats.filter(function(ab){ return ab.half === 'top' && ab.batter_id })
+  // Only show Aces batters (the Aces' half, has batter_id)
+  var acesABs = atBats.filter(function(ab){ return ab.half === acesHalf() && ab.batter_id })
   if (!acesABs.length) return
 
   // Aggregate per batter in order of first appearance
@@ -377,14 +377,14 @@ function renderBatting() {
 }
 
 function renderPitching() {
-  // Only pitches with pitcher_id (Aces pitching = bottom half)
+  // Only pitches with pitcher_id (Aces pitching = the opponent's half)
   var acesPitches = pitches.filter(function(p){ return p.pitcher_id })
   if (!acesPitches.length) return
 
   // Aggregate per pitcher
   var pitcherOrder = []
   var pitcherStats = {}
-  var bottomABs = atBats.filter(function(ab){ return ab.half === 'bottom' })
+  var bottomABs = atBats.filter(function(ab){ return ab.half !== acesHalf() })
 
   acesPitches.forEach(function(p) {
     var pid = p.pitcher_id
@@ -451,7 +451,7 @@ function renderPBP() {
 
     var pid = ab.batter_id
     var p = pid ? players[pid] : null
-    var name = p ? p.first_name[0]+'. '+p.last_name : (ab.half==='bottom' ? 'Opp.' : '—')
+    var name = p ? p.first_name[0]+'. '+p.last_name : (ab.half!==acesHalf() ? 'Opp.' : '—')
 
     var desc = name + ' — ' + result
     if (ab.rbi > 0) desc += ' ('+ab.rbi+' RBI)'
@@ -467,6 +467,8 @@ function renderPBP() {
   document.getElementById('pbp-wrap').innerHTML = html
 }
 
+// The Aces' half of each inning: the home team bats the bottom (games.is_home).
+function acesHalf(){ return (game && game.is_home) ? 'bottom' : 'top' }
 function td(val, hi) {
   return '<td'+(hi?' class="hi"':'')+'>'+val+'</td>'
 }

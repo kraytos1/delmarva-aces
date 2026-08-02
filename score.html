@@ -184,6 +184,8 @@ body{background:var(--black);color:var(--text);font-family:var(--body);min-heigh
 #game-clock.tl-warn{color:#F59E0B;font-weight:600;}
 #game-clock.tl-over{color:#ef4444;font-weight:700;animation:blink 1.2s infinite;}
 #game-clock + .inning-lbl{margin-left:10px;}
+#side-chip{margin-left:10px;background:none;border:1px solid var(--bdr);color:var(--muted);border-radius:4px;height:22px;padding:0 7px;cursor:pointer;font-family:var(--mono);font-size:10px;letter-spacing:.5px;}
+#side-chip.home{color:var(--orange);border-color:var(--orange);}
 
 /* keyboard/Stream Deck focus dot (desktop only) */
 #kb-dot{display:none;font-size:12px;line-height:1;cursor:default;}
@@ -309,6 +311,7 @@ body{background:var(--black);color:var(--text);font-family:var(--body);min-heigh
       <button onclick="adjInn(-1)" style="background:none;border:1px solid var(--bdr);color:var(--muted);border-radius:4px;width:22px;height:22px;cursor:pointer;font-size:12px;">‹</button>
       <button onclick="adjInn(1)"  style="background:none;border:1px solid var(--bdr);color:var(--muted);border-radius:4px;width:22px;height:22px;cursor:pointer;font-size:12px;">›</button>
     </div>
+    <button id="side-chip" onclick="swapSides()" title="Which side the Aces are — tap to swap home/away">⇄ AWAY</button>
   </div>
 
   <!-- Field + AB panel + Results -->
@@ -541,12 +544,19 @@ var S = {
   oppLineup:[],
   currentOppBatterIdx:0,
   // Per-pitcher running totals for THIS game (pitchers alternate by half, so a
-  // single counter would mix both teams). isTop = Aces batting = opponent
-  // pitching -> oppPitchCount; bottom = Aces pitching -> acesPitchCount.
+  // single counter would mix both teams). Aces batting = opponent pitching ->
+  // oppPitchCount; Aces in the field -> acesPitchCount.
   acesPitchCount:0,
-  oppPitchCount:0
+  oppPitchCount:0,
+  // Which side the Aces are: away bats the top, home bats the bottom.
+  // From games.is_home at start; the HOME/AWAY chip swaps it mid-game.
+  acesHome:false
 }
-function currentPC(){ return S.isTop ? S.oppPitchCount : S.acesPitchCount }
+// The one place "who is batting" is derived. S.isTop stays the TRUE half of
+// the inning (what the DB rows and every viewer page record); which team that
+// half belongs to depends on the side the Aces drew.
+function acesUp(){ return S.acesHome ? !S.isTop : S.isTop }
+function currentPC(){ return acesUp() ? S.oppPitchCount : S.acesPitchCount }
 
 // ── ARM CARE (Pitch Smart 13U) ──────────────────────────────
 // Same thresholds bullpen.html uses for rest status, applied LIVE so the
@@ -614,7 +624,7 @@ function renderRecent() {
   }).join('')
 }
 function currentBatterLast() {
-  if (!S.isTop) return ''
+  if (!acesUp()) return ''
   var valid = (S.acesLineup||[]).filter(function(e){return e.playerName})
   if (!valid.length) return ''
   var b = valid[S.currentBatterIdx % valid.length]
@@ -930,6 +940,10 @@ async function startScoring() {
   }
 
   S.gameId=gid; S.game=g
+  // Side from the schedule (lineup.html's Home/Away radio); the HOME/AWAY
+  // chip in the count bar swaps it if the plate-meeting coin flip went the
+  // other way.
+  S.acesHome=!!g.is_home
   S.scores.us=g.our_score||0; S.scores.them=g.opp_score||0
   S.inning=g.inning||1; S.isTop=g.half!=='bottom'; S.outs=g.outs||0
   // Full resume: also restore the count + baserunners, otherwise a mid-inning
@@ -1061,12 +1075,12 @@ async function startScoring() {
   updateSyncIndicator()
   updateKbDot()
   flushQueue()
-  showToast('Game on! ⚾')
+  showToast('Game on! ⚾ Aces are the '+(S.acesHome?'HOME team — opponent bats first':'AWAY team — Aces bat first'))
 }
 
 /* ── LINEUP DISPLAY ── */
 function updateBatterDisplay() {
-  if (S.isTop) {
+  if (acesUp()) {
     // Aces batting — show current Aces batter
     var validLineup = S.acesLineup.filter(function(e){return e.playerName})
     if (!validLineup.length) { setText('ab-batter','—'); setText('ab-stats',''); }
@@ -1089,7 +1103,7 @@ function updateBatterDisplay() {
     if(fld2) fld2.textContent = ''
   }
   // Pitcher
-  var pitcherName = S.isTop ? (S.oppPitcher||'Opp. Pitcher') : (S.currentPitcherName||'—')
+  var pitcherName = acesUp() ? (S.oppPitcher||'Opp. Pitcher') : (S.currentPitcherName||'—')
   setText('ab-pitcher', pitcherName)
   renderPC()
 }
@@ -1098,7 +1112,7 @@ function updateBatterDisplay() {
 function renderPC(){
   var el = document.getElementById('ab-pc'); if(!el) return
   var pc = currentPC()
-  var ours = !S.isTop
+  var ours = !acesUp()
   var tier = ours ? armTier(pc) : {cls:'', note:''}
   el.className = 'ab-sub'+(tier.cls?' '+tier.cls:'')
   el.textContent = 'PC '+pc+(tier.note?'  ·  '+tier.note:'')
@@ -1210,9 +1224,9 @@ async function quickLog(result) {
 
   S.pitchCount++
   var pcBefore = S.acesPitchCount
-  if(S.isTop) S.oppPitchCount++; else S.acesPitchCount++
+  if(acesUp()) S.oppPitchCount++; else S.acesPitchCount++
   // Arm care: warn the moment OUR pitcher crosses a rest threshold
-  if(!S.isTop) checkArmCare(pcBefore, S.acesPitchCount)
+  if(!acesUp()) checkArmCare(pcBefore, S.acesPitchCount)
   var bBefore=S.balls, sBefore=S.strikes
   var autoWalk=false, autoK=false, autoKLooking=false
 
@@ -1256,7 +1270,7 @@ async function quickLog(result) {
 
   var offset=currentClipOffset()
   var pd={game_id:S.gameId,
-    pitcher_id: !S.isTop ? S.currentPitcherId : null,  // our pitcher only when bottom half
+    pitcher_id: !acesUp() ? S.currentPitcherId : null,  // our pitcher only when the Aces are in the field
     pitch_num:S.pitchCount,pitch_type:S.pitchType,
     velocity_mph:S.velo,result:result,inning:S.inning,
     half:S.isTop?'top':'bottom',balls_before:bBefore,strikes_before:sBefore,yt_offset_sec:offset}
@@ -1347,9 +1361,9 @@ async function logAB(result, label, skipPitchLog, fromAuto, runnerId) {
   var offset=currentClipOffset()
   var abd={
     game_id:S.gameId,
-    batter_id: S.isTop ? getCurrentBatterId() : null,  // our batter only when top half
-    aces_pitcher_id: !S.isTop ? S.currentPitcherId : null,  // our pitcher only when bottom half
-    runner_id: (S.isTop && runnerId) ? runnerId : null,  // the kid who stole/was picked off (SB/CS credit)
+    batter_id: acesUp() ? getCurrentBatterId() : null,  // our batter only when the Aces bat
+    aces_pitcher_id: !acesUp() ? S.currentPitcherId : null,  // our pitcher only when the Aces field
+    runner_id: (acesUp() && runnerId) ? runnerId : null,  // the kid who stole/was picked off (SB/CS credit)
     inning:S.inning,half:S.isTop?'top':'bottom',
     ab_num:S.abNum,result:result,rbi:rbi,runs_scored:runs,notes:label,
     yt_offset_sec:offset,clip_status:CLIP.includes(result)?'queued':'none'
@@ -1366,7 +1380,7 @@ async function logAB(result, label, skipPitchLog, fromAuto, runnerId) {
     setSynced(false)
   }
   if(runs>0){
-    var t=S.isTop?'us':'them'
+    var t=acesUp()?'us':'them'
     S.scores[t]+=runs
     showToast(runs===1?'Run scores! 🏃':''+runs+' runs score! 🏃')
   }
@@ -1386,15 +1400,15 @@ async function logAB(result, label, skipPitchLog, fromAuto, runnerId) {
   pushRecent(_od, (label||result.replace(/_/g,' '))+(_owho?(' — '+_owho):''), runs>0?(runs+' run'+(runs>1?'s':'')):'')
   if(HISTORY.length) HISTORY[HISTORY.length-1].recent=(HISTORY[HISTORY.length-1].recent||0)+1
   // Tally the batter's game line (Aces only); record it so Undo can reverse it
-  if(S.isTop && !isBaserunnerEvent){
+  if(acesUp() && !isBaserunnerEvent){
     var _bid = getCurrentBatterId()
     tallyAtBat(_bid, result, 1)
     if(HISTORY.length) HISTORY[HISTORY.length-1].tally = {bid:_bid, result:result}
   }
   // Auto-advance the batter only when this at-bat actually ended
   if(!isBaserunnerEvent){
-    if(S.isTop && S.acesLineup.length) advanceBatter()
-    if(!S.isTop && S.oppLineup.length){
+    if(acesUp() && S.acesLineup.length) advanceBatter()
+    if(!acesUp() && S.oppLineup.length){
       S.currentOppBatterIdx=(S.currentOppBatterIdx+1)%S.oppLineup.length
       updateBatterDisplay()
     }
@@ -1557,8 +1571,8 @@ function pickOutcome(v,l){
   // advancing): either the pitch was already logged separately, or there
   // was no pitch at all (pickoff throw) — never log a phantom pitch for these.
   var skipPitch = /(walk|hbp|intentional_walk|stolen_base|wp_advance|pb_advance|balk|caught_stealing|pickoff|out_advancing)/i.test(v)
-  // Aces runner event -> ask who (bottom half = opponent runners, skip)
-  if(RUNNER_EVENTS.test(v) && S.isTop && S.acesLineup.length){
+  // Aces runner event -> ask who (opponent's half = their runners, skip)
+  if(RUNNER_EVENTS.test(v) && acesUp() && S.acesLineup.length){
     _pendingBR = {v:v, l:l, skipPitch:skipPitch}
     renderRunnerPick(l)
     return
@@ -1604,11 +1618,29 @@ function newBatter(){
   renderCount()
   // Note: batter auto-advances after logAB. This button is for manual skip/sub only.
   // Manually advance if needed:
-  if(S.isTop && S.acesLineup.length){
+  if(acesUp() && S.acesLineup.length){
     S.currentBatterIdx=(S.currentBatterIdx+1)%S.acesLineup.length
     updateBatterDisplay()
   }
 }
+// The plate-meeting coin flip: swap which side the Aces are. The half of the
+// inning doesn't move — only which team it belongs to. Past plays keep the
+// half they were scored in (if any were scored on the wrong side, Undo them).
+async function swapSides(){
+  if(!S.gameId){ showToast('Start a game first'); return }
+  var toHome = !S.acesHome
+  if(!confirm('Swap sides?\n\nAces become the '+(toHome?'HOME team — batting in the BOTTOM':'AWAY team — batting in the TOP')+' of each inning.')) return
+  S.acesHome = toHome
+  S.game.is_home = toHome
+  try{
+    // .select() so a silent RLS no-op can't fake success (the admin-page trap)
+    var r = await db.from('games').update({is_home:toHome}).eq('id',S.gameId).select('id')
+    if(r.error || !(r.data && r.data.length)) showToast('⚠ Swapped here, but not saved to the DB')
+  }catch(e){ showToast('⚠ Swapped here, but not saved to the DB') }
+  pushState(); renderAll()
+  showToast('Aces are now the '+(toHome?'HOME':'AWAY')+' team')
+}
+
 function newHalf(){
   hideD3K()
   S.balls=0;S.strikes=0;S.outs=0;S.bases=[false,false,false];S.pitchCount=0;S.velo=null
@@ -1702,8 +1734,10 @@ function renderCount(){
   document.getElementById('sc-us').textContent=S.scores.us
   document.getElementById('sc-them').textContent=S.scores.them
   renderClock()
-  document.getElementById('top-meta').textContent=(S.isTop?'Top':'Bot')+' '+S.inning+' · '+S.outs+' out'+(S.outs===1?'':'s')
+  document.getElementById('top-meta').textContent=(S.isTop?'Top':'Bot')+' '+S.inning+' · '+S.outs+' out'+(S.outs===1?'':'s')+' · '+(acesUp()?'Aces up':'Opp up')
   document.getElementById('inn-lbl').textContent=(S.isTop?'▲':'▼')+' '+S.inning
+  var sideChip=document.getElementById('side-chip')
+  if(sideChip){ sideChip.textContent='⇄ '+(S.acesHome?'HOME':'AWAY'); sideChip.className=S.acesHome?'home':'' }
   renderPC()
 }
 function renderBases(){
@@ -1762,7 +1796,7 @@ async function convertD3K(safe){
   if(safe){
     S.outs = Math.max(0, S.outs - 1)          // the K's out comes back off
     runs = applyBaserunners('dropped_third')  // batter to 1st, forced advances
-    if(runs > 0){ S.scores[S.isTop ? 'us' : 'them'] += runs }
+    if(runs > 0){ S.scores[acesUp() ? 'us' : 'them'] += runs }
   }
   // Update the row wherever it currently lives: DB, or the offline queue
   var patch = { result: result, notes: label, clip_status: 'none', runs_scored: runs, rbi: 0 }
@@ -1839,7 +1873,7 @@ document.addEventListener('focusout', updateKbDot)
 // The order pointer only ever moves forward; when it drifts (missed play,
 // sub confusion) this jumps it straight to whoever is actually at the plate.
 function openBatterPick(){
-  if(!S.gameId || !S.isTop || !S.acesLineup.length) return
+  if(!S.gameId || !acesUp() || !S.acesLineup.length) return
   document.getElementById('modal-title').textContent = 'Who is at bat?'
   var html = '<div class="outcome-grid">'
   S.acesLineup.forEach(function(e, idx){

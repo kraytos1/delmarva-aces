@@ -233,7 +233,7 @@ function pick(a){return a[Math.floor(Math.random()*a.length)];}
 
 function buildCall(ab){
   var r=(ab.result||'').toLowerCase();
-  var isAces=(ab.half==='top');                 // top = Aces batting in this scorer
+  var isAces=(ab.half===((B.game&&B.game.is_home)?'bottom':'top'));  // home team bats the bottom
   var runs=ab.runs_scored||0;
   var name=(isAces && ab.batter_id && B.names[ab.batter_id]) ? B.names[ab.batter_id] : null;
   var who=name || (isAces ? 'the batter' : 'the hitter');

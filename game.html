@@ -453,8 +453,15 @@ var bases = [false,false,false]
 var totalPitches = 0
 var acesPitches = 0   // Aces pitcher's pitches this game
 var oppPitches = 0    // opponent pitcher's pitches this game (pitcher_id is null)
-// current pitcher = the side NOT batting. isTop => Aces batting => opponent pitching.
-function pcForHalf(){ var isTop = !liveGame || liveGame.half==='top' || !liveGame.half; return isTop ? oppPitches : acesPitches }
+// Which half belongs to the Aces: the home team bats the bottom (games.is_home;
+// live_game_summary doesn't expose it, so loadLiveGame copies it from games).
+function acesHalfG(){ return (liveGame && liveGame.is_home) ? 'bottom' : 'top' }
+function acesBatting(half){
+  var h = (half !== undefined) ? half : (liveGame && liveGame.half)
+  return (h || 'top') === acesHalfG()
+}
+// current pitcher = the side NOT batting: Aces batting => opponent pitching.
+function pcForHalf(){ return acesBatting() ? oppPitches : acesPitches }
 
 async function init() {
   if (ACES_CONFIG.supabaseUrl && ACES_CONFIG.supabaseKey) {
@@ -506,11 +513,11 @@ async function loadLiveGame() {
       .order('stream_start_utc', {ascending:false}).limit(1)
     if (error || !data || !data.length) { await loadNextGame(); return }
     var game = data[0]
-    // live_game_summary doesn't expose base_1b/2b/3b — pull those directly
-    // from the underlying table instead of relying on the view for them.
+    // live_game_summary doesn't expose base_1b/2b/3b (or is_home) — pull those
+    // directly from the underlying table instead of relying on the view.
     try {
-      var {data:baseRow} = await db.from('games').select('base_1b,base_2b,base_3b').eq('id', game.id).single()
-      if (baseRow) { game.base_1b = baseRow.base_1b; game.base_2b = baseRow.base_2b; game.base_3b = baseRow.base_3b }
+      var {data:baseRow} = await db.from('games').select('base_1b,base_2b,base_3b,is_home').eq('id', game.id).single()
+      if (baseRow) { game.base_1b = baseRow.base_1b; game.base_2b = baseRow.base_2b; game.base_3b = baseRow.base_3b; game.is_home = baseRow.is_home }
     } catch(e) {}
     liveGame = game
     window._lastGameNotes = game.notes
@@ -558,12 +565,12 @@ async function loadLiveGame() {
 }
 
 function loadLineupIntoCards(lineup, game) {
-  var isTop = !game.half || game.half === 'top'
-  updateFieldOverlays(lineup, isTop)
-  updatePlayerCards(lineup, isTop)
+  var acesBat = acesBatting(game.half)
+  updateFieldOverlays(lineup, acesBat)
+  updatePlayerCards(lineup, acesBat)
 
   // Set initial batter — first non-empty lineup entry
-  if (isTop && lineup.aces_lineup) {
+  if (acesBat && lineup.aces_lineup) {
     var first = lineup.aces_lineup.find(function(e){return e.playerName})
     if (first) {
       setText('b-name', first.playerName)
@@ -606,8 +613,7 @@ function updateBatterCard(ab) {
 // the scorebug's math: advance over the full order, map onto named players.
 async function refreshCurrentBatter() {
   if (!liveGame || !liveGame.notes) return
-  var isTop = !liveGame.half || liveGame.half === 'top'
-  if (!isTop) return  // opponent batting — that card is handled elsewhere
+  if (!acesBatting()) return  // opponent batting — that card is handled elsewhere
   try {
     var lineup = JSON.parse(liveGame.notes)
     var full = lineup.aces_lineup || []
@@ -615,7 +621,7 @@ async function refreshCurrentBatter() {
     if (!valid.length) return
     var BR = /(stolen_base|wp_advance|pb_advance|balk|caught_stealing|pickoff|out_advancing)/i
     var {data:abs} = await db.from('at_bats').select('half,result').eq('game_id', liveGame.id)
-    var acesAbs = (abs||[]).filter(function(a){ return a.half!=='bottom' && !BR.test(a.result||''); })
+    var acesAbs = (abs||[]).filter(function(a){ return a.half===acesHalfG() && !BR.test(a.result||''); })
     var idx = full.length ? (acesAbs.length % full.length) : 0
     var b = valid[idx % valid.length]
     if (b) {
@@ -714,22 +720,26 @@ function updateScoreboard(game) {
     renderBases()
   }
 
-  // Always update liveGame.half so lineup cards use freshest value
-  if (liveGame) liveGame.half = game.half
+  // Always update liveGame.half (and is_home — the scorer's side-swap chip
+  // can flip it mid-game) so lineup cards use the freshest values
+  if (liveGame) {
+    liveGame.half = game.half
+    if (game.is_home !== undefined) liveGame.is_home = game.is_home
+  }
   setText('p-count', pcForHalf())  // switch PC to whoever is now pitching
 
-  var isTop = game.half === 'top' || !game.half
+  var acesBat = acesBatting(game.half)
   if (liveGame && liveGame.notes) {
     try {
       var lineup = JSON.parse(liveGame.notes)
-      updateFieldOverlays(lineup, isTop)
-      updatePlayerCards(lineup, isTop)
+      updateFieldOverlays(lineup, acesBat)
+      updatePlayerCards(lineup, acesBat)
     } catch(e) {}
   }
   try { updateWP() } catch(e) {}
 }
 
-function updateFieldOverlays(lineup, isTop) {
+function updateFieldOverlays(lineup, acesBat) {
   var posMap = {
     'CF':'name-cf','LF':'name-lf','RF':'name-rf',
     'SS':'name-ss','2B':'name-2b','3B':'name-3b',
@@ -741,8 +751,8 @@ function updateFieldOverlays(lineup, isTop) {
     if (el) el.textContent = ''
   })
 
-  if (!isTop) {
-    // Bottom half — Aces pitching — show Aces players on field
+  if (!acesBat) {
+    // Aces pitching — show Aces players on field
     if (lineup.aces_lineup) {
       lineup.aces_lineup.forEach(function(entry) {
         if (!entry.playerName || !entry.position) return
@@ -754,7 +764,7 @@ function updateFieldOverlays(lineup, isTop) {
       })
     }
   } else {
-    // Top half — Aces batting — show opponent fielders by position from opp_lineup
+    // Aces batting — show opponent fielders by position from opp_lineup
     if (lineup.opp_lineup) {
       lineup.opp_lineup.forEach(function(entry) {
         if (!entry.name || !entry.position) return
@@ -769,7 +779,7 @@ function updateFieldOverlays(lineup, isTop) {
   }
 }
 
-function updatePlayerCards(lineup, isTop) {
+function updatePlayerCards(lineup, acesBat) {
   var oppPitcherName = lineup.opp_pitcher || 'Opp. Pitcher'
   var ourPitcherName = '—', ourPitcherNum = 'P'
   if (lineup.aces_pitcher_id && lineup.aces_lineup) {
@@ -777,7 +787,7 @@ function updatePlayerCards(lineup, isTop) {
     if (pe) { ourPitcherName=pe.playerName; ourPitcherNum='#'+pe.jerseyNum }
   }
 
-  if (isTop) {
+  if (acesBat) {
     // Aces batting — left=opp pitcher, right=current Aces batter
     setText('p-name', oppPitcherName)
     setText('p-avatar', 'P')
@@ -954,11 +964,13 @@ init()
       return new Date(a.created_at||0)-new Date(b.created_at||0);
     });
     var innings=7, us=0, them=0, pts=[{x:'Start',wp:50}];
+    // The Aces' half depends on the side they drew: home bats the bottom.
+    var acesH=(window.liveGame&&window.liveGame.is_home)?'bottom':'top';
     abs.forEach(function(ab){
       // Classify by half, not batter_id — an Aces at-bat from an UNNAMED
       // lineup slot has batter_id null and was crediting the run to the
       // opponent (same flaw the scorebug batter fix addressed).
-      if(ab.half!=='bottom') us+=wnum(ab.runs_scored); else them+=wnum(ab.runs_scored);
+      if(ab.half===acesH) us+=wnum(ab.runs_scored); else them+=wnum(ab.runs_scored);
       pts.push({x:(ab.half==='bottom'?'B':'T')+(ab.inning||'?'), wp:Math.round(winProbAces(us,them,ab.inning,ab.half,0,innings)*100)});
     });
     var g = window.liveGame;

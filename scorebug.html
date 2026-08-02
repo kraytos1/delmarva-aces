@@ -218,15 +218,18 @@ async function poll(){
     if (GAMEID && g.status!=='live' && !DEBUG){ /* forced game: still render for testing */ }
 
     var n = parseNotes(g.notes);
-    var isAcesBatting = (g.half !== 'bottom');
+    // half is the TRUE half of the inning; which team it belongs to depends on
+    // the side the Aces drew (games.is_home — home bats the bottom).
+    var acesHalf = g.is_home ? 'bottom' : 'top';
+    var isAcesBatting = ((g.half||'top') === acesHalf);
 
     // 2) at-bats → who's up + today's line + plate-appearance counts.
-    // Classify by HALF (top = Aces batting, bottom = opponent). batter_id can be
-    // null on an Aces at-bat when that lineup slot has no name, so it's not a
-    // reliable side signal — half always is.
+    // Classify by HALF vs acesHalf. batter_id can be null on an Aces at-bat
+    // when that lineup slot has no name, so it's not a reliable side signal —
+    // half always is.
     var ab = (await db.from('at_bats').select('batter_id,result,half').eq('game_id',g.id)).data || [];
-    var acesAbs = ab.filter(function(a){ return a.half!=='bottom' && !BASERUNNER.test(a.result||''); });
-    var oppAbs  = ab.filter(function(a){ return a.half==='bottom' && !BASERUNNER.test(a.result||''); });
+    var acesAbs = ab.filter(function(a){ return a.half===acesHalf && !BASERUNNER.test(a.result||''); });
+    var oppAbs  = ab.filter(function(a){ return a.half!==acesHalf && !BASERUNNER.test(a.result||''); });
 
     // 3) pitches → current pitcher's count + last recorded velocity
     var pt = (await db.from('pitches').select('pitcher_id,velocity_mph,pitch_type,created_at').eq('game_id',g.id)).data || [];
@@ -269,7 +272,7 @@ function render(g, n, isAcesBatting, acesAbs, oppAbs, oppPC, acesPC, lastPitch){
   document.getElementById('scUs').textContent   = g.our_score||0;
   document.getElementById('scThem').textContent = g.opp_score||0;
   document.getElementById('innNum').textContent = g.inning||1;
-  document.getElementById('innTri').textContent = isAcesBatting ? '▲' : '▼';
+  document.getElementById('innTri').textContent = (g.half === 'bottom') ? '▼' : '▲';  // literal half, not who bats
 
   var oppName = (g.opponents && g.opponents.name) || 'Opponent';
   document.getElementById('oppAbbr').textContent = teamAbbr(oppName);
