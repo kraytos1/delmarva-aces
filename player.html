@@ -277,6 +277,23 @@ nav{background:rgba(10,12,14,.95);border-bottom:1px solid var(--bdr);display:fle
       </div>
     </div>
 
+    <!-- SPRAY CHART (shown only when the scorer captured hit locations) -->
+    <div class="section" id="spray-section" style="display:none;">
+      <div class="section-title">Spray Chart</div>
+      <div style="display:flex;flex-wrap:wrap;gap:20px;align-items:flex-start;">
+        <svg id="spray-svg" viewBox="0 0 200 200" width="240" height="240" style="background:#0d1a08;border-radius:10px;border:1px solid var(--bdr);flex-shrink:0;">
+          <polygon points="100,185 0,20 0,0 200,0 200,20" fill="#14260d"/>
+          <line x1="100" y1="185" x2="0" y2="20" stroke="#fff" stroke-width="1" opacity=".3"/>
+          <line x1="100" y1="185" x2="200" y2="20" stroke="#fff" stroke-width="1" opacity=".3"/>
+          <circle cx="100" cy="108" r="52" fill="#3a2a18" opacity=".55"/>
+          <polygon points="100,60 145,108 100,156 55,108" fill="#1a3510" opacity=".9"/>
+          <polygon points="100,196 93,189 93,183 107,183 107,189" fill="#e8e8e8" opacity=".85"/>
+          <g id="spray-dots"></g>
+        </svg>
+        <div id="spray-legend" style="font-family:var(--mono);font-size:11px;color:var(--muted);display:flex;flex-direction:column;gap:8px;"></div>
+      </div>
+    </div>
+
     <!-- PITCHING (shown only if player has pitched) -->
     <div class="section" id="pitching-section" style="display:none;">
       <div class="section-title">Pitching · Spring 2026</div>
@@ -432,6 +449,7 @@ async function init() {
   loadVeloChart(p.id)
   loadPlayerClips(p.id)
   loadPlayerPhotos(p.id)
+  loadSprayChart(p.id)
   renderPhotoLib()
 
   document.getElementById('loading').style.display = 'none'
@@ -502,6 +520,41 @@ async function loadPlayerPhotos(playerId) {
 
 // Fill the Highlights section with this player's clips (or keep the
 // "coming soon" placeholder), plus a link to the full team reel.
+// Spray chart — every batted ball the scorer marked a landing spot for.
+// hit_x/hit_y are normalized 0-1 in the scorer field's 200x200 viewBox, so
+// this SVG uses the same geometry (plate at 100,185). Hidden when no data.
+async function loadSprayChart(playerId) {
+  var sec = document.getElementById('spray-section')
+  if (!sec || !playerId) return
+  try {
+    var res = await db.from('at_bats')
+      .select('result,hit_x,hit_y,hit_type')
+      .eq('batter_id', playerId).not('hit_x', 'is', null)
+    var rows = res.data || []
+    if (!rows.length) return
+    var HIT = { single:1, double:1, triple:1, home_run:1 }
+    var dots = rows.map(function(ab){
+      var x = ab.hit_x*200, y = ab.hit_y*200
+      var isHit = !!HIT[ab.result], isHR = ab.result === 'home_run'
+      var fill = isHR ? '#E8530A' : isHit ? '#3DDC6A' : '#7A8290'
+      var title = (ab.result||'').replace(/_/g,' ') + (ab.hit_type ? ' · '+ab.hit_type : '')
+      return '<circle cx="'+x.toFixed(1)+'" cy="'+y.toFixed(1)+'" r="'+(isHR?6:4.5)+'" fill="'+fill+'" opacity=".9" stroke="#0A0C0E" stroke-width="1">'
+        + '<title>'+title+'</title></circle>'
+        + (isHR ? '<circle cx="'+x.toFixed(1)+'" cy="'+y.toFixed(1)+'" r="9" fill="none" stroke="#E8530A" stroke-width="1" opacity=".5"/>' : '')
+    }).join('')
+    document.getElementById('spray-dots').innerHTML = dots
+    var hits = rows.filter(function(a){ return HIT[a.result] }).length
+    var byType = { ground:0, line:0, fly:0 }
+    rows.forEach(function(a){ if (byType[a.hit_type] !== undefined) byType[a.hit_type]++ })
+    var typed = byType.ground + byType.line + byType.fly
+    var leg = '<div><span style="color:#E8530A;">●</span> Home run &nbsp; <span style="color:#3DDC6A;">●</span> Hit &nbsp; <span style="color:#7A8290;">●</span> Out</div>'
+      + '<div>'+rows.length+' batted ball'+(rows.length===1?'':'s')+' · '+hits+' hit'+(hits===1?'':'s')+'</div>'
+    if (typed) leg += '<div>GB '+byType.ground+' · LD '+byType.line+' · FB '+byType.fly+'</div>'
+    document.getElementById('spray-legend').innerHTML = leg
+    sec.style.display = 'block'
+  } catch(e) {}
+}
+
 async function loadPlayerClips(playerId) {
   var area = document.getElementById('clips-area')
   if (!area) return

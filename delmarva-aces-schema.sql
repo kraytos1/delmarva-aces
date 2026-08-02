@@ -126,6 +126,10 @@ create table at_bats (
                                  -- (tap order = the play chain, e.g. 6-4-3);
                                  -- added 2026-08-02, tagging also sets
                                  -- clip_status='queued' so the play clips
+  hit_x         real,            -- spray chart: landing spot, normalized 0-1
+  hit_y         real,            -- in the scorer field's 200x200 viewBox
+                                 -- (plate at 0.5,0.925); added 2026-08-02
+  hit_type      text,            -- 'ground' | 'line' | 'fly' (null = untyped)
   created_at    timestamptz default now()
 );
 

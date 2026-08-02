@@ -68,7 +68,16 @@ body{background:var(--black);color:var(--text);font-family:var(--body);min-heigh
 .mid-row{display:flex;align-items:stretch;gap:0;flex-shrink:0;border-bottom:1px solid var(--bdr);}
 
 /* field svg */
-.field-wrap{background:#0A0C0E;padding:10px 10px 6px;flex-shrink:0;}
+.field-wrap{background:#0A0C0E;padding:10px 10px 6px;flex-shrink:0;position:relative;}
+/* spray capture: the field arms after a batted ball — tap the landing spot */
+.field-wrap.spray-armed svg{outline:2px solid #5eead4;outline-offset:2px;border-radius:4px;animation:sprayPulse 1.6s infinite;}
+@keyframes sprayPulse{0%,100%{outline-color:rgba(94,234,212,.9);}50%{outline-color:rgba(94,234,212,.25);}}
+#spray-hint{display:none;position:absolute;top:14px;left:50%;transform:translateX(-50%);background:rgba(10,12,14,.85);
+  border:1px solid rgba(94,234,212,.4);color:#5eead4;font-family:var(--mono);font-size:9px;letter-spacing:.5px;
+  padding:3px 8px;border-radius:6px;pointer-events:none;white-space:nowrap;z-index:5;}
+#spray-type{display:none;position:absolute;bottom:8px;left:50%;transform:translateX(-50%);gap:4px;z-index:5;}
+#spray-type button{border:1px solid rgba(94,234,212,.4);border-radius:6px;background:rgba(10,12,14,.9);color:#5eead4;
+  font-family:var(--mono);font-size:9px;padding:4px 7px;cursor:pointer;white-space:nowrap;}
 
 /* at-bat info panel */
 .ab-panel{flex:1;background:var(--dark);padding:10px 12px;display:flex;flex-direction:column;justify-content:space-between;}
@@ -394,7 +403,19 @@ body{background:var(--black);color:var(--text);font-family:var(--body);min-heigh
         <text x="30"  y="112" text-anchor="middle" font-family="'Roboto Mono',monospace" font-size="7" fill="#3a6a2a">3B</text>
         <text x="170" y="112" text-anchor="middle" font-family="'Roboto Mono',monospace" font-size="7" fill="#3a6a2a">1B</text>
         <text id="fld-batter" x="100" y="199" text-anchor="middle" font-family="'Roboto Mono',monospace" font-size="7" fill="#E8530A" opacity=".9"></text>
+        <!-- spray capture: dot marks the tapped landing spot; the layer only
+             exists while armed so base taps are never intercepted -->
+        <g id="spray-dot" opacity="0" style="transition:opacity .3s;pointer-events:none;">
+          <circle id="spray-dot-c" cx="0" cy="0" r="5" fill="#5eead4" stroke="#0A0C0E" stroke-width="1.5"/>
+        </g>
+        <rect id="spray-layer" x="0" y="0" width="200" height="200" fill="transparent" style="display:none;cursor:crosshair;" onclick="sprayTap(event)"/>
       </svg>
+      <div id="spray-hint">📍 TAP LANDING SPOT</div>
+      <div id="spray-type">
+        <button onclick="sprayType('ground')">⏚ Ground</button>
+        <button onclick="sprayType('line')">→ Liner</button>
+        <button onclick="sprayType('fly')">⌒ Fly</button>
+      </div>
     </div>
 
     <!-- At bat info -->
@@ -1463,6 +1484,10 @@ async function logAB(result, label, skipPitchLog, fromAuto, runnerId) {
   // Aces recorded an out in the field — offer defensive credit (fine on the
   // 3rd out: the tag is a row patch, still valid after the half flips)
   if(FT_RESULTS.test(result) && !acesUp()) offerFielderTag(result, label)
+  // Any batted ball arms the field diagram for a spray-chart tap (both halves
+  // — our kids' charts AND opponent tendencies). Row patch only, zero taps
+  // if ignored.
+  if(SPRAY_RESULTS.test(result)) armSpray(result)
 }
 
 function applyBaserunners(r) {
@@ -1712,6 +1737,7 @@ async function undoLast(){
   var last = HISTORY.pop()
   // fielder tag survives other actions, but not the deletion of its own play
   if(_fldTag && _fldTag.entry === last) hideFielderTag()
+  if(_spray && _spray.entry === last) disarmSpray()
   if(last.tally) tallyAtBat(last.tally.bid, last.tally.result, -1)
 
   // If this action is still sitting in the offline queue (never synced),
@@ -2072,6 +2098,90 @@ async function saveFielderTag(){
     return e ? e.playerName.split(' ').pop() : '?'
   })
   showToast('🧤 '+names.join(' → ')+' — great play saved!')
+}
+
+// ── SPRAY CAPTURE (hit location + type) ──────────────────────
+// After any batted ball, the field diagram arms for 12s — tap where the ball
+// landed and it's stamped on the play's row (hit_x/hit_y normalized 0-1 in
+// the field's viewBox, hit_type ground/line/fly). Ignoring it costs zero
+// taps: no chip, no modal, the pulse just fades. Type is inferred when the
+// result already says it (groundout→ground, lineout→line); for hits a small
+// strip offers the three types. Captured for BOTH halves — Aces taps feed
+// player-page spray charts, opponent taps feed team tendency scouting.
+// Patch-only like the fielder tag, so no undo/score math is ever touched.
+var _spray = null, _sprayTimer = null
+var SPRAY_RESULTS = /^(single|double|triple|home_run|error|fielders_choice|sac_fly|sac_bunt|double_play|groundout|flyout|lineout|popout)$/
+var SPRAY_TYPE = { groundout:'ground', double_play:'ground', fielders_choice:'ground', sac_bunt:'ground',
+                   flyout:'fly', sac_fly:'fly', popout:'fly', home_run:'fly', lineout:'line' }
+
+function armSpray(result, entry){
+  entry = entry || (HISTORY.length ? HISTORY[HISTORY.length-1] : null)
+  if(!entry) return
+  _spray = { entry: entry, result: result, phase: 'aim' }
+  clearTimeout(_sprayTimer)
+  document.getElementById('spray-layer').style.display = 'block'
+  document.getElementById('spray-type').style.display = 'none'
+  var w = document.querySelector('.field-wrap'); if(w) w.classList.add('spray-armed')
+  document.getElementById('spray-hint').style.display = 'block'
+  _sprayTimer = setTimeout(disarmSpray, 12000)
+}
+function disarmSpray(){
+  _spray = null
+  clearTimeout(_sprayTimer)
+  var l = document.getElementById('spray-layer'); if(l) l.style.display = 'none'
+  var w = document.querySelector('.field-wrap'); if(w) w.classList.remove('spray-armed')
+  var h = document.getElementById('spray-hint'); if(h) h.style.display = 'none'
+  var t = document.getElementById('spray-type'); if(t) t.style.display = 'none'
+}
+async function _sprayPatch(entry, patch){
+  if(entry.atBatId){
+    try {
+      var up = await db.from('at_bats').update(patch).eq('id', entry.atBatId).select('id')
+      if(up.error || !(up.data && up.data.length)){ showToast('⚠ Spot not saved — play may have been undone'); return false }
+    } catch(e){ showToast('⚠ Spot not saved — check connection'); return false }
+  } else if(entry.localAbId){
+    var q = getQueue()
+    q.forEach(function(it){ if(it.id === entry.localAbId) Object.assign(it.data, patch) })
+    saveQueue(q)
+  } else return false
+  return true
+}
+async function sprayTap(evt){
+  var ctx = _spray
+  if(!ctx || ctx.phase !== 'aim') return
+  var svg = evt.currentTarget.ownerSVGElement
+  var pt = svg.createSVGPoint(); pt.x = evt.clientX; pt.y = evt.clientY
+  var p = pt.matrixTransform(svg.getScreenCTM().inverse())
+  var x = Math.max(0, Math.min(1, p.x/200)), y = Math.max(0, Math.min(1, p.y/200))
+  // dot lands immediately — the save follows
+  var dc = document.getElementById('spray-dot-c')
+  dc.setAttribute('cx', p.x); dc.setAttribute('cy', p.y)
+  document.getElementById('spray-dot').setAttribute('opacity', '1')
+  setTimeout(function(){ document.getElementById('spray-dot').setAttribute('opacity', '0') }, 4000)
+  var t = SPRAY_TYPE[ctx.result] || null
+  ctx.phase = 'type'
+  // aiming is done: layer + pulse away (base taps come back), keep ctx for the strip
+  document.getElementById('spray-layer').style.display = 'none'
+  var w = document.querySelector('.field-wrap'); if(w) w.classList.remove('spray-armed')
+  document.getElementById('spray-hint').style.display = 'none'
+  var ok = await _sprayPatch(ctx.entry, { hit_x: x, hit_y: y, hit_type: t })
+  if(!ok){ disarmSpray(); return }
+  if(t){
+    showToast('📍 Spot marked — '+t+' ball')
+    disarmSpray()
+  } else {
+    // a hit — type unknown; offer the strip, but it's optional too
+    showToast('📍 Spot marked')
+    document.getElementById('spray-type').style.display = 'flex'
+    clearTimeout(_sprayTimer)
+    _sprayTimer = setTimeout(disarmSpray, 8000)
+  }
+}
+async function sprayType(t){
+  var ctx = _spray
+  disarmSpray()
+  if(!ctx || ctx.phase !== 'type') return
+  if(await _sprayPatch(ctx.entry, { hit_type: t })) showToast('📍 '+t.charAt(0).toUpperCase()+t.slice(1)+' ball ✓')
 }
 
 // ── GAME CLOCK (tap to set a tournament time limit) ──────────
