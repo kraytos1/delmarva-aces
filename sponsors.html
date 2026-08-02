@@ -1,0 +1,245 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<link rel="icon" href="/icon-192.png"/>
+<meta name="theme-color" content="#E8530A"/>
+<title>Sponsors · Delmarva Aces</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="config.js"></script>
+<script src="/pin.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Oswald:wght@400;600;700&family=Inter:wght@400;500;600&family=Roboto+Mono:wght@400;500&display=swap');
+:root{--orange:#E8530A;--black:#0A0C0E;--dark:#111418;--dark2:#181C22;--dark3:#1F242C;
+  --bdr:rgba(255,255,255,.08);--bdr-a:rgba(232,83,10,.35);--text:#F0EDE8;--muted:#7A8290;
+  --green:#3DDC6A;--amber:#F59E0B;--red:#ef4444;
+  --mono:'Roboto Mono',monospace;--display:'Oswald',sans-serif;--body:'Inter',sans-serif;}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--black);color:var(--text);font-family:var(--body);line-height:1.6;}
+.wrap{max-width:1080px;margin:0 auto;padding:26px 18px 90px;}
+.head{display:flex;align-items:center;gap:12px;margin-bottom:2px;}
+.head img{width:40px;height:40px;object-fit:contain;filter:drop-shadow(0 0 12px rgba(232,83,10,.4));}
+h1{font-family:var(--display);font-size:30px;font-weight:700;letter-spacing:.5px;}
+h1 span{color:var(--orange);}
+.sub{color:var(--muted);font-size:13.5px;margin-bottom:22px;}
+.back{font-family:var(--mono);font-size:11px;color:var(--muted);text-decoration:none;}
+.back:hover{color:var(--orange);}
+
+.panel{background:var(--dark2);border:1px solid var(--bdr);border-radius:12px;padding:17px;margin-bottom:20px;}
+.panel h2{font-family:var(--mono);font-size:10.5px;letter-spacing:2px;text-transform:uppercase;color:var(--orange);
+  margin-bottom:12px;padding-bottom:7px;border-bottom:1px solid var(--bdr);}
+.row{display:flex;gap:9px;flex-wrap:wrap;align-items:center;}
+.inp{background:var(--dark3);border:1px solid var(--bdr);border-radius:8px;padding:10px 12px;color:var(--text);
+  font-family:var(--body);font-size:14px;outline:none;min-width:0;}
+.inp:focus{border-color:var(--orange);}
+.btn{background:var(--orange);color:#fff;border:none;border-radius:9px;padding:11px 17px;
+  font-family:var(--display);font-size:14px;font-weight:600;letter-spacing:.5px;text-transform:uppercase;cursor:pointer;}
+.btn:disabled{opacity:.5;cursor:default;}
+.btn.ghost{background:var(--dark3);color:var(--text);border:1px solid var(--bdr);font-family:var(--body);
+  text-transform:none;letter-spacing:0;font-weight:500;font-size:13px;padding:9px 14px;}
+.hint{font-family:var(--mono);font-size:10.5px;color:var(--muted);margin-top:9px;line-height:1.6;}
+.msg{border-radius:8px;padding:10px 13px;font-size:13px;margin-top:11px;display:none;}
+.msg.ok{display:block;background:rgba(61,220,106,.1);border:1px solid rgba(61,220,106,.35);color:var(--green);}
+.msg.err{display:block;background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.35);color:#fca5a5;}
+
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(178px,1fr));gap:13px;}
+.card{background:var(--dark2);border:1px solid var(--bdr);border-radius:12px;overflow:hidden;display:flex;flex-direction:column;}
+.card.off{opacity:.45;}
+.plate{background:#fff;height:104px;display:flex;align-items:center;justify-content:center;padding:13px;}
+.plate img{max-width:100%;max-height:100%;object-fit:contain;}
+.cbody{padding:10px 12px;display:flex;flex-direction:column;gap:7px;}
+.cname{font-size:13.5px;font-weight:600;line-height:1.3;word-break:break-word;}
+.cacts{display:flex;gap:6px;align-items:center;}
+.icon{background:var(--dark3);border:1px solid var(--bdr);color:var(--muted);border-radius:7px;
+  padding:5px 9px;font-size:12px;cursor:pointer;line-height:1;}
+.icon:hover{color:var(--text);border-color:var(--orange);}
+.icon.del:hover{color:#fca5a5;border-color:var(--red);}
+.icon.on{color:var(--green);border-color:rgba(61,220,106,.4);}
+.icon:disabled{opacity:.3;cursor:default;}
+.empty{color:var(--muted);font-family:var(--mono);font-size:12.5px;text-align:center;padding:34px 0;}
+.count{font-family:var(--mono);font-size:11px;color:var(--muted);margin-left:auto;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="head">
+    <img src="/logo.png" alt=""/>
+    <h1>Spon<span>sors</span></h1>
+  </div>
+  <div class="sub">
+    Logos rotate beside the scorebug during play and show as a card between innings.
+    <a class="back" href="/tools.html">← Coach HQ</a>
+  </div>
+
+  <div class="panel">
+    <h2>Add a sponsor</h2>
+    <div class="row">
+      <input class="inp" id="sp-name" placeholder="Business name" style="flex:2;"/>
+      <input class="inp" id="sp-url" placeholder="Website (optional)" style="flex:2;"/>
+      <input class="inp" id="sp-file" type="file" accept="image/*" multiple style="flex:3;"/>
+      <button class="btn" id="sp-add" onclick="addSponsors()">Upload</button>
+    </div>
+    <div class="hint">
+      Transparent PNG works best. Logos are shown on a white plate, so dark artwork reads cleanly on the broadcast.<br/>
+      Uploading several files at once creates one sponsor per file, named from the filename — fill in the name box only when uploading a single logo.
+    </div>
+    <div class="msg" id="msg"></div>
+  </div>
+
+  <div class="panel">
+    <h2>On the broadcast <span class="count" id="count"></span></h2>
+    <div class="grid" id="grid"><div class="empty">Loading…</div></div>
+    <div class="hint" style="margin-top:14px;">
+      Arrows set rotation order. The eye hides a sponsor without deleting it — use that when a deal lapses.
+    </div>
+  </div>
+</div>
+
+<script>
+var db = supabase.createClient(ACES_CONFIG.supabaseUrl, ACES_CONFIG.supabaseKey);
+var BUCKET = 'sponsors';
+var LIST = [];
+
+function msg(kind, text){
+  var m = document.getElementById('msg');
+  m.className = 'msg ' + kind; m.textContent = text;
+  if(kind === 'ok') setTimeout(function(){ m.className = 'msg'; }, 4000);
+}
+function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,function(c){
+  return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+function pubUrl(path){ return db.storage.from(BUCKET).getPublicUrl(path).data.publicUrl; }
+
+// Logos are small; cap the long edge so a 4MB press-kit PNG doesn't end up on
+// the overlay. Transparency is preserved (PNG in, PNG out).
+function shrink(file, max){
+  return new Promise(function(resolve, reject){
+    var img = new Image(), fr = new FileReader();
+    fr.onload = function(){ img.src = fr.result; };
+    fr.onerror = function(){ reject(new Error('could not read file')); };
+    img.onerror = function(){ reject(new Error('not a readable image')); };
+    img.onload = function(){
+      var w = img.width, h = img.height;
+      if(Math.max(w,h) <= max) { resolve({blob:file, type:file.type||'image/png'}); return; }
+      var s = max / Math.max(w,h);
+      var c = document.createElement('canvas');
+      c.width = Math.round(w*s); c.height = Math.round(h*s);
+      c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+      c.toBlob(function(b){ b ? resolve({blob:b, type:'image/png'}) : reject(new Error('resize failed')); }, 'image/png');
+    };
+    fr.readAsDataURL(file);
+  });
+}
+
+async function addSponsors(){
+  var fileEl = document.getElementById('sp-file');
+  var files = fileEl.files;
+  if(!files || !files.length){ msg('err','Pick a logo image first.'); return; }
+  var typed = document.getElementById('sp-name').value.trim();
+  var site  = document.getElementById('sp-url').value.trim();
+  var btn = document.getElementById('sp-add');
+  btn.disabled = true;
+  var okCount = 0;
+  for(var i=0; i<files.length; i++){
+    var f = files[i];
+    btn.textContent = files.length>1 ? ('…'+(i+1)+'/'+files.length) : 'Uploading…';
+    try{
+      if(!/^image\//.test(f.type||'')) throw new Error(f.name+' is not an image');
+      // one file → use the typed name; several → derive each from its filename
+      var name = (files.length === 1 && typed) ? typed
+        : f.name.replace(/\.[^.]+$/,'').replace(/[-_]+/g,' ').trim();
+      var out = await shrink(f, 900);
+      var ext = out.type === 'image/png' ? 'png' : (f.name.match(/\.([a-z0-9]+)$/i)||[,'png'])[1].toLowerCase();
+      var key = Date.now()+'-'+Math.random().toString(36).slice(2,7)+'.'+ext;
+      var up = await db.storage.from(BUCKET).upload(key, out.blob, {contentType: out.type, upsert:false});
+      if(up.error) throw up.error;
+      var ins = await db.from('sponsors').insert({
+        team_id: ACES_CONFIG.teamId, name: name, image_path: key,
+        website_url: (files.length===1 ? (site||null) : null),
+        sort_order: (LIST.length + okCount + 1) * 10
+      }).select();
+      if(ins.error) throw ins.error;
+      if(!ins.data || !ins.data.length) throw new Error('the database saved 0 rows');
+      okCount++;
+    }catch(err){ msg('err', 'Couldn\'t add '+f.name+': '+(err.message||err)); }
+  }
+  btn.disabled = false; btn.textContent = 'Upload';
+  if(okCount){
+    msg('ok', okCount+' sponsor'+(okCount===1?'':'s')+' added ✓');
+    document.getElementById('sp-name').value=''; document.getElementById('sp-url').value='';
+    fileEl.value='';
+    await load();
+  }
+}
+
+async function toggleActive(id){
+  var s = LIST.find(function(x){ return x.id===id; }); if(!s) return;
+  try{
+    var r = await db.from('sponsors').update({active: !s.active}).eq('id', id).select('id');
+    if(r.error || !(r.data && r.data.length)) throw new Error('not saved');
+    await load();
+  }catch(e){ msg('err','Couldn\'t update that sponsor.'); }
+}
+
+// Swap sort_order with the neighbour — simple, and stable with gaps of 10.
+async function move(id, dir){
+  var i = LIST.findIndex(function(x){ return x.id===id; });
+  var j = i + dir;
+  if(i<0 || j<0 || j>=LIST.length) return;
+  var a = LIST[i], b = LIST[j];
+  try{
+    await db.from('sponsors').update({sort_order: b.sort_order}).eq('id', a.id);
+    await db.from('sponsors').update({sort_order: a.sort_order}).eq('id', b.id);
+    await load();
+  }catch(e){ msg('err','Couldn\'t reorder.'); }
+}
+
+async function del(id){
+  var s = LIST.find(function(x){ return x.id===id; }); if(!s) return;
+  if(!confirm('Remove '+s.name+' from the broadcast?\n\nTo pause a sponsor instead, use the eye button — that keeps the logo for later.')) return;
+  try{
+    var d = await db.from('sponsors').delete().eq('id', id).select('id');
+    if(d.error) throw d.error;
+    if(!d.data || !d.data.length) throw new Error('the database removed 0 rows');
+    // Storage delete can be blocked by policy; the row is what drives the
+    // overlay, so an orphaned image is harmless.
+    try{ await db.storage.from(BUCKET).remove([s.image_path]); }catch(_){}
+    msg('ok','Sponsor removed ✓');
+    await load();
+  }catch(err){ msg('err','Couldn\'t remove: '+(err.message||err)); }
+}
+
+function render(){
+  var g = document.getElementById('grid');
+  document.getElementById('count').textContent =
+    LIST.length ? (LIST.filter(function(s){return s.active;}).length + ' live · ' + LIST.length + ' total') : '';
+  if(!LIST.length){ g.innerHTML = '<div class="empty">No sponsors yet — add your first logo above.</div>'; return; }
+  g.innerHTML = LIST.map(function(s, i){
+    return '<div class="card'+(s.active?'':' off')+'">'
+      + '<div class="plate"><img src="'+pubUrl(s.image_path)+'" alt="'+esc(s.name)+'" loading="lazy"/></div>'
+      + '<div class="cbody">'
+      +   '<div class="cname">'+esc(s.name)+'</div>'
+      +   '<div class="cacts">'
+      +     '<button class="icon" onclick="move(\''+s.id+'\',-1)"'+(i===0?' disabled':'')+' title="Move earlier">↑</button>'
+      +     '<button class="icon" onclick="move(\''+s.id+'\',1)"'+(i===LIST.length-1?' disabled':'')+' title="Move later">↓</button>'
+      +     '<button class="icon'+(s.active?' on':'')+'" onclick="toggleActive(\''+s.id+'\')" title="'+(s.active?'Showing on the broadcast — tap to pause':'Paused — tap to show')+'">'+(s.active?'◉':'○')+'</button>'
+      +     '<button class="icon del" onclick="del(\''+s.id+'\')" title="Remove" style="margin-left:auto;">✕</button>'
+      +   '</div>'
+      + '</div></div>';
+  }).join('');
+}
+
+async function load(){
+  try{
+    var r = await db.from('sponsors').select('*').order('sort_order').order('name');
+    if(r.error) throw r.error;
+    LIST = r.data || [];
+    render();
+  }catch(e){
+    document.getElementById('grid').innerHTML = '<div class="empty">Couldn\'t load sponsors: '+esc(e.message||e)+'</div>';
+  }
+}
+load();
+</script>
+</body>
+</html>

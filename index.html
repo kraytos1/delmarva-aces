@@ -489,6 +489,17 @@
     </div>
   </section>
 
+  <!-- Sponsor wall. Same rows that drive the broadcast overlay, so a logo
+       uploaded once appears both places. Hidden entirely when there are none. -->
+  <section class="section" id="sponsor-section" style="display:none">
+    <div class="section-header">
+      <h2 class="section-title">Our Sponsors</h2>
+      <div class="section-rule"></div>
+      <div class="section-sub">Local businesses backing this team</div>
+    </div>
+    <div id="sponsor-wall" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(132px,1fr));gap:12px;"></div>
+  </section>
+
   <footer>
     <div class="footer-brand">Delmarva <span>Aces</span> · 13U East · 2026</div>
     <div class="footer-links"><a class="footer-link" href="/#schedule">Schedule</a><a class="footer-link" href="/highlights.html">Highlights</a></div>
@@ -1883,9 +1894,39 @@ function filterMonth(m, btn) {
 }
 
 // ─────────────────────────────────────────────────────────
+// SPONSOR WALL — same rows the broadcast overlay rotates.
+// Logos are transparent PNGs meant for a light plate, so each sits on white.
+// ─────────────────────────────────────────────────────────
+function spEsc(s){ return String(s==null?'':s).replace(/[&<>"']/g,function(c){
+  return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c] }) }
+async function loadSponsorWall(){
+  var sec = document.getElementById('sponsor-section')
+  var wall = document.getElementById('sponsor-wall')
+  if(!sec || !wall || !db) return
+  try{
+    var r = await db.from('sponsors').select('name,image_path,website_url')
+      .eq('active', true).order('sort_order').order('name')
+    if(r.error || !r.data || !r.data.length) return
+    var base = ACES_CONFIG.supabaseUrl + '/storage/v1/object/public/sponsors/'
+    wall.innerHTML = r.data.map(function(s){
+      var img = '<img src="'+base+s.image_path+'" alt="'+spEsc(s.name)+'" loading="lazy" '+
+        'style="max-width:100%;max-height:100%;object-fit:contain;"/>'
+      var box = '<div style="background:#fff;border-radius:10px;height:82px;display:flex;'+
+        'align-items:center;justify-content:center;padding:12px;">'+img+'</div>'
+      return s.website_url
+        ? '<a href="'+spEsc(s.website_url)+'" target="_blank" rel="noopener noreferrer" title="'+spEsc(s.name)+'">'+box+'</a>'
+        : box
+    }).join('')
+    sec.style.display = ''
+  }catch(e){}
+}
+
+// ─────────────────────────────────────────────────────────
 // GO
 // ─────────────────────────────────────────────────────────
-init()
+// init() is async and creates the Supabase client, so wait for it to settle
+// either way before the wall queries — otherwise db is still null.
+Promise.resolve(init()).then(loadSponsorWall, loadSponsorWall)
 // Deep-link support: /#schedule, /#roster (used by cross-page nav + footer links)
 ;(function(){var h=(location.hash||'').replace('#','');if(h&&document.getElementById('page-'+h))showPage(h,true)})()
 window.addEventListener('hashchange',function(){var h=(location.hash||'').replace('#','');if(h&&document.getElementById('page-'+h))showPage(h,true)})

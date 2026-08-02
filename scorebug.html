@@ -18,14 +18,45 @@
   body{ font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
     overflow:hidden; -webkit-font-smoothing:antialiased; }
 
-  .bug{ position:fixed; z-index:10; display:none; flex-direction:column; min-width:322px;
+  /* The wrap owns screen position so a sponsor plate can dock beside the bug
+     (matching the treatment sponsors bought last year). Corner decides which
+     side it docks on, so the pair always grows toward the middle of frame. */
+  .bug-wrap{ position:fixed; z-index:10; display:none; align-items:flex-end; gap:11px; }
+  .bug-wrap.show{ display:flex; }
+  .bug-wrap.pos-bl{ left:26px; bottom:26px; }
+  .bug-wrap.pos-br{ right:26px; bottom:26px; flex-direction:row-reverse; }
+  .bug-wrap.pos-tl{ left:26px; top:26px; align-items:flex-start; }
+  .bug-wrap.pos-tr{ right:26px; top:26px; align-items:flex-start; flex-direction:row-reverse; }
+
+  .bug{ display:flex; flex-direction:column; min-width:322px;
     background:linear-gradient(180deg,#12161c,#0c0f14); border:1px solid var(--line); border-radius:12px;
     overflow:hidden; box-shadow:0 12px 34px rgba(0,0,0,.6); font-variant-numeric:tabular-nums; }
-  .bug.show{ display:flex; }
-  .bug.pos-bl{ left:26px; bottom:26px; }
-  .bug.pos-br{ right:26px; bottom:26px; }
-  .bug.pos-tl{ left:26px; top:26px; }
-  .bug.pos-tr{ right:26px; top:26px; }
+
+  /* ── Sponsors ──────────────────────────────────────────────
+     Logos are supplied as transparent PNGs, and most local-business marks are
+     dark ink on nothing — so every logo sits on a white plate. That reads on
+     any camera feed and matches how these looked on the old broadcast. */
+  .sp-dock{ display:none; align-items:center; justify-content:center;
+    width:190px; height:76px; padding:9px 13px; background:#fff; border-radius:12px;
+    box-shadow:0 12px 34px rgba(0,0,0,.55); flex-shrink:0; }
+  .sp-dock.show{ display:flex; }
+  .sp-dock img{ max-width:100%; max-height:100%; object-fit:contain;
+    opacity:0; transition:opacity .5s ease; }
+  .sp-dock img.in{ opacity:1; }
+
+  /* Between-innings card: bigger, centred low, still not a full takeover —
+     the game stays visible underneath because we're covering, not cutting. */
+  .sp-break{ position:fixed; z-index:11; left:50%; bottom:12%; transform:translate(-50%,14px);
+    display:none; flex-direction:column; align-items:center; gap:9px;
+    opacity:0; transition:opacity .6s ease, transform .6s ease; }
+  .sp-break.show{ display:flex; }
+  .sp-break.in{ opacity:1; transform:translate(-50%,0); }
+  .sp-break .plate{ display:flex; align-items:center; justify-content:center;
+    width:430px; height:180px; padding:26px 34px; background:#fff; border-radius:18px;
+    box-shadow:0 20px 60px rgba(0,0,0,.65); }
+  .sp-break .plate img{ max-width:100%; max-height:100%; object-fit:contain; }
+  .sp-break .cap{ font-size:11px; letter-spacing:.22em; text-transform:uppercase; font-weight:700;
+    color:#fff; text-shadow:0 2px 10px rgba(0,0,0,.9); }
 
   /* preview-only standby chip (never shows on the live overlay) */
   .standby{ position:fixed; left:26px; bottom:26px; z-index:9; display:none; align-items:center; gap:9px;
@@ -95,7 +126,8 @@
 </head>
 <body>
 
-<div class="bug pos-bl" id="bug">
+<div class="bug-wrap pos-bl" id="bugwrap">
+<div class="bug" id="bug">
   <div class="bug-top">
     <div class="mod teams">
       <div class="trow aces" id="rowAces">
@@ -130,6 +162,13 @@
     </div>
   </div>
 </div>
+  <div class="sp-dock" id="spDock"><img id="spDockImg" alt=""/></div>
+</div>
+
+<div class="sp-break" id="spBreak">
+  <div class="plate"><img id="spBreakImg" alt=""/></div>
+  <div class="cap" id="spBreakCap">Proud sponsor of the Delmarva Aces</div>
+</div>
 
 <div class="standby" id="standby"><span class="d"></span>Scorebug ready — waiting for a live game</div>
 
@@ -141,6 +180,8 @@ var db = supabase.createClient(ACES_CONFIG.supabaseUrl, ACES_CONFIG.supabaseKey)
 // ?pitching=off  hide the pitching line     ?atbat=off  hide the at-bat line
 // ?matchup=off   hide both (scoreline only)  ?bases=off  hide the base diamond
 // ?pos=bl|br|tl|tr   corner (default bl)     ?debug=1    show even with no live game
+// ?sponsors=off  kill both sponsor placements   ?sponsordock=off / ?sponsorbreak=off
+// ?sponsorsecs=N dock rotation seconds (default 40)
 // The pitching and at-bat lines can each be flipped live from overlay.html via
 // the game's bug_show_pitching / bug_show_atbat flags. A URL "off" is a hard
 // override (always hidden); otherwise the live flag decides.
@@ -159,8 +200,11 @@ function applyTiers(pitOn, abOn){
 
 (function initToggles(){
   var pos = (Q.get('pos')||'bl').toLowerCase();
-  var bug = document.getElementById('bug');
-  bug.className = 'bug pos-' + (['bl','br','tl','tr'].indexOf(pos)>=0?pos:'bl');
+  // position lives on the wrap now (bug + sponsor plate travel together);
+  // preserve .show since this can run after the first poll
+  var wrap = document.getElementById('bugwrap');
+  var wasShown = wrap.classList.contains('show');
+  wrap.className = 'bug-wrap pos-' + (['bl','br','tl','tr'].indexOf(pos)>=0?pos:'bl') + (wasShown?' show':'');
   if (Q.get('bases')==='off') document.querySelector('.bases').style.display='none';
   applyTiers(true, true); // default until the first poll reads the live flags
 })();
@@ -242,6 +286,7 @@ async function poll(){
 
     render(g, n, isAcesBatting, acesAbs, oppAbs, oppPC, acesPC, lastPitch);
     showBug();
+    spOnState(g);   // half-inning change → sponsor break card
   }catch(e){ /* keep last frame on a hiccup */ }
   finally{ busy = false; }
 }
@@ -316,8 +361,97 @@ function render(g, n, isAcesBatting, acesAbs, oppAbs, oppPC, acesPC, lastPitch){
 function setPips(prefix, n, cls, max){
   for (var k=0;k<max;k++){ document.getElementById(prefix+k).className = 'pip'+(k<n?' '+cls:''); }
 }
-function showBug(){ document.getElementById('bug').classList.add('show'); document.getElementById('standby').classList.remove('show'); }
-function hideBug(){ document.getElementById('bug').classList.remove('show'); }
+function showBug(){ document.getElementById('bugwrap').classList.add('show'); document.getElementById('standby').classList.remove('show'); }
+function hideBug(){ document.getElementById('bugwrap').classList.remove('show'); }
+
+// ── SPONSORS ────────────────────────────────────────────────────────────────
+// Two placements, both automatic:
+//   · dock  — a plate beside the scorebug, rotating throughout play
+//   · break — a larger card on each half-inning change
+// The half flip is the thing a hardware switcher can't know: the scorebug
+// already receives inning/half every poll, so breaks fire on real game state
+// instead of a timer or an operator remembering.
+// Switches: ?sponsors=off (all)  ?sponsordock=off  ?sponsorbreak=off
+//           ?sponsorsecs=N (dock rotation, default 40)
+var SP = {
+  list: [], i: 0, loadedAt: 0,
+  dockOn:  Q.get('sponsors')!=='off' && Q.get('sponsordock')!=='off',
+  breakOn: Q.get('sponsors')!=='off' && Q.get('sponsorbreak')!=='off',
+  everySec: Math.max(8, parseInt(Q.get('sponsorsecs')||'40', 10) || 40),
+  lastHalfKey: null, breakTimer: null, breakBusy: false
+};
+function spUrl(path){
+  return ACES_CONFIG.supabaseUrl + '/storage/v1/object/public/sponsors/' + path;
+}
+async function loadSponsors(){
+  // refresh hourly so a sponsor added mid-season appears without a restart
+  if (SP.list.length && Date.now() - SP.loadedAt < 3600000) return;
+  try{
+    var r = await db.from('sponsors').select('name,image_path,sort_order')
+      .eq('active', true).order('sort_order').order('name');
+    if (r.error || !r.data) return;
+    SP.list = r.data; SP.loadedAt = Date.now();
+    // warm the cache so the first fade doesn't show an empty plate
+    SP.list.forEach(function(s){ var im = new Image(); im.src = spUrl(s.image_path); });
+  }catch(e){}
+}
+function spNext(){
+  if (!SP.list.length) return null;
+  var s = SP.list[SP.i % SP.list.length];
+  SP.i++;
+  return s;
+}
+// Dock rotation runs on its own clock, independent of the 2.5s poll.
+function spinDock(){
+  if (!SP.dockOn) return;
+  var dock = document.getElementById('spDock'), img = document.getElementById('spDockImg');
+  if (!SP.list.length || !document.getElementById('bugwrap').classList.contains('show')){
+    dock.classList.remove('show'); return;
+  }
+  var s = spNext(); if (!s) return;
+  img.classList.remove('in');                       // fade out
+  setTimeout(function(){
+    img.onload = function(){ img.classList.add('in'); };
+    img.src = spUrl(s.image_path); img.alt = s.name;
+    dock.classList.add('show');
+    if (img.complete) img.classList.add('in');      // cached: onload may not fire
+  }, 500);
+}
+// Break card: 3 sponsors, ~5s each, then out. Skipped if one is already
+// running (a fast half change shouldn't stack cards on top of each other).
+function playBreak(){
+  if (!SP.breakOn || SP.breakBusy || !SP.list.length) return;
+  var el = document.getElementById('spBreak'), img = document.getElementById('spBreakImg');
+  SP.breakBusy = true;
+  var shown = 0, count = Math.min(3, SP.list.length);
+  el.classList.add('show');
+  var step = function(){
+    if (shown >= count){
+      el.classList.remove('in');
+      setTimeout(function(){ el.classList.remove('show'); SP.breakBusy = false; }, 650);
+      return;
+    }
+    var s = spNext(); shown++;
+    el.classList.remove('in');
+    setTimeout(function(){
+      img.onload = function(){ el.classList.add('in'); };
+      img.src = spUrl(s.image_path); img.alt = s.name;
+      if (img.complete) el.classList.add('in');
+      SP.breakTimer = setTimeout(step, 5000);
+    }, shown === 1 ? 0 : 600);
+  };
+  step();
+}
+// Called from poll() with the live row: fire on a real half-inning change.
+function spOnState(g){
+  var key = (g.inning||1) + ':' + (g.half||'top');
+  if (SP.lastHalfKey === null){ SP.lastHalfKey = key; return; }  // first sight isn't a change
+  if (key !== SP.lastHalfKey){ SP.lastHalfKey = key; playBreak(); }
+}
+
+loadSponsors();
+setInterval(loadSponsors, 600000);
+setTimeout(function(){ spinDock(); setInterval(spinDock, SP.everySec*1000); }, 1500);
 
 poll();
 setInterval(poll, 2500);
