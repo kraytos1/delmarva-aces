@@ -252,6 +252,7 @@ function parseNotes(raw){
 var busy = false;
 async function poll(){
   if (busy) return; busy = true;
+  loadCfg();   // fire-and-forget; own 4s throttle
   try{
     // 1) the game row (live state lives here: score, count, bases, inning, half)
     var gq = db.from('games').select('*,opponents(name)');
@@ -373,13 +374,56 @@ function hideBug(){ document.getElementById('bugwrap').classList.remove('show');
 // instead of a timer or an operator remembering.
 // Switches: ?sponsors=off (all)  ?sponsordock=off  ?sponsorbreak=off
 //           ?sponsorsecs=N (dock rotation, default 40)
+// A URL switch is a HARD override (set once in the YoloBox, always wins).
+// Anything not pinned by URL follows app_settings, so controls.html can flip
+// it mid-game from a phone.
+var urlDockOff  = Q.get('sponsors')==='off' || Q.get('sponsordock')==='off';
+var urlBreakOff = Q.get('sponsors')==='off' || Q.get('sponsorbreak')==='off';
+var urlSecs     = Q.get('sponsorsecs') ? Math.max(8, parseInt(Q.get('sponsorsecs'),10)||40) : null;
+var urlBasesOff = Q.get('bases')==='off';
+var urlPos      = Q.get('pos') ? (Q.get('pos')||'').toLowerCase() : null;
 var SP = {
   list: [], i: 0, loadedAt: 0,
-  dockOn:  Q.get('sponsors')!=='off' && Q.get('sponsordock')!=='off',
-  breakOn: Q.get('sponsors')!=='off' && Q.get('sponsorbreak')!=='off',
-  everySec: Math.max(8, parseInt(Q.get('sponsorsecs')||'40', 10) || 40),
+  dockOn:  !urlDockOff,
+  breakOn: !urlBreakOff,
+  everySec: urlSecs || 40,
   lastHalfKey: null, breakTimer: null, breakBusy: false
 };
+
+// ── Live settings (controls.html) ───────────────────────────────────────────
+var CFG = null, _cfgAt = 0;
+async function loadCfg(){
+  if (Date.now() - _cfgAt < 4000) return;          // the poll runs every 2.5s
+  _cfgAt = Date.now();
+  try{
+    var r = await db.from('app_settings').select('*').eq('id',1).single();
+    if (r.error || !r.data) return;
+    CFG = r.data;
+    applyCfg();
+  }catch(e){}
+}
+function applyCfg(){
+  if (!CFG) return;
+  if (!urlDockOff)  SP.dockOn  = CFG.sponsor_dock !== false;
+  if (!urlBreakOff) SP.breakOn = CFG.sponsor_break !== false;
+  if (!urlSecs && CFG.sponsor_secs && CFG.sponsor_secs !== SP.everySec){
+    SP.everySec = Math.max(8, CFG.sponsor_secs);
+    if (_dockTimer){ clearInterval(_dockTimer); _dockTimer = setInterval(spinDock, SP.everySec*1000); }
+  }
+  if (!SP.dockOn) document.getElementById('spDock').classList.remove('show');
+  if (!urlBasesOff){
+    var bs = document.querySelector('.bases');
+    if (bs) bs.style.display = (CFG.bug_show_bases === false) ? 'none' : '';
+  }
+  if (!urlPos && CFG.bug_pos){
+    var want = ['bl','br','tl','tr'].indexOf(CFG.bug_pos) >= 0 ? CFG.bug_pos : 'bl';
+    var wrap = document.getElementById('bugwrap');
+    if (wrap.className.indexOf('pos-'+want) < 0){
+      var shown = wrap.classList.contains('show');
+      wrap.className = 'bug-wrap pos-' + want + (shown ? ' show' : '');
+    }
+  }
+}
 function spUrl(path){
   return ACES_CONFIG.supabaseUrl + '/storage/v1/object/public/sponsors/' + path;
 }
@@ -449,10 +493,12 @@ function spOnState(g){
   if (key !== SP.lastHalfKey){ SP.lastHalfKey = key; playBreak(); }
 }
 
+var _dockTimer = null;
 loadSponsors();
 setInterval(loadSponsors, 600000);
-setTimeout(function(){ spinDock(); setInterval(spinDock, SP.everySec*1000); }, 1500);
+setTimeout(function(){ spinDock(); _dockTimer = setInterval(spinDock, SP.everySec*1000); }, 1500);
 
+loadCfg();
 poll();
 setInterval(poll, 2500);
 </script>

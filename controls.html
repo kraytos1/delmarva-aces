@@ -1,0 +1,308 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<link rel="icon" href="/icon-192.png"/>
+<meta name="theme-color" content="#E8530A"/>
+<title>Controls · Delmarva Aces</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="config.js"></script>
+<script src="/pin.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Oswald:wght@400;600;700&family=Inter:wght@400;500;600&family=Roboto+Mono:wght@400;500&display=swap');
+:root{--orange:#E8530A;--black:#0A0C0E;--dark:#111418;--dark2:#181C22;--dark3:#1F242C;
+  --bdr:rgba(255,255,255,.08);--bdr-a:rgba(232,83,10,.35);--text:#F0EDE8;--muted:#7A8290;
+  --green:#3DDC6A;--amber:#F59E0B;--red:#ef4444;
+  --mono:'Roboto Mono',monospace;--display:'Oswald',sans-serif;--body:'Inter',sans-serif;}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+body{background:var(--black);color:var(--text);font-family:var(--body);line-height:1.6;}
+.wrap{max-width:760px;margin:0 auto;padding:24px 16px 90px;}
+.head{display:flex;align-items:center;gap:12px;}
+.head img{width:38px;height:38px;object-fit:contain;filter:drop-shadow(0 0 12px rgba(232,83,10,.4));}
+h1{font-family:var(--display);font-size:28px;font-weight:700;letter-spacing:.5px;}
+h1 span{color:var(--orange);}
+.sub{color:var(--muted);font-size:13px;margin-bottom:6px;}
+.back{font-family:var(--mono);font-size:11px;color:var(--muted);text-decoration:none;}
+.back:hover{color:var(--orange);}
+.savebar{font-family:var(--mono);font-size:11px;color:var(--muted);height:18px;margin-bottom:16px;}
+.savebar.ok{color:var(--green);}
+.savebar.err{color:#fca5a5;}
+
+.sec{background:var(--dark2);border:1px solid var(--bdr);border-radius:12px;margin-bottom:16px;overflow:hidden;}
+.sec-h{padding:13px 16px;border-bottom:1px solid var(--bdr);}
+.sec-t{font-family:var(--mono);font-size:10.5px;letter-spacing:2px;text-transform:uppercase;color:var(--orange);}
+.sec-d{font-size:12.5px;color:var(--muted);margin-top:3px;line-height:1.5;}
+
+.row{display:flex;align-items:center;gap:14px;padding:13px 16px;border-bottom:1px solid rgba(255,255,255,.04);}
+.row:last-child{border-bottom:none;}
+.row-txt{flex:1;min-width:0;}
+.row-n{font-size:14.5px;font-weight:500;}
+.row-s{font-size:12px;color:var(--muted);line-height:1.45;margin-top:2px;}
+
+/* switch */
+.sw{position:relative;width:50px;height:29px;border-radius:99px;background:var(--dark3);
+  border:1px solid var(--bdr);cursor:pointer;flex-shrink:0;transition:background .16s,border-color .16s;}
+.sw::after{content:'';position:absolute;top:3px;left:3px;width:21px;height:21px;border-radius:50%;
+  background:#8b93a1;transition:transform .16s,background .16s;}
+.sw.on{background:rgba(232,83,10,.22);border-color:var(--orange);}
+.sw.on::after{transform:translateX(21px);background:var(--orange);}
+.sw.busy{opacity:.5;pointer-events:none;}
+.sw.dis{opacity:.3;pointer-events:none;}
+
+/* segmented + number */
+.segs{display:flex;gap:5px;flex-shrink:0;}
+.seg{background:var(--dark3);border:1px solid var(--bdr);color:var(--muted);border-radius:7px;
+  padding:7px 10px;font-family:var(--mono);font-size:11px;cursor:pointer;}
+.seg.on{border-color:var(--orange);color:var(--orange);background:rgba(232,83,10,.12);}
+.num{display:flex;align-items:center;gap:7px;flex-shrink:0;}
+.num button{background:var(--dark3);border:1px solid var(--bdr);color:var(--text);border-radius:7px;
+  width:32px;height:32px;font-size:16px;cursor:pointer;line-height:1;}
+.num span{font-family:var(--mono);font-size:13px;min-width:46px;text-align:center;}
+
+.note{font-family:var(--mono);font-size:10.5px;color:var(--muted);line-height:1.7;padding:12px 16px;
+  background:rgba(255,255,255,.02);border-top:1px solid var(--bdr);}
+.note b{color:var(--text);}
+.linkrow{display:flex;gap:9px;flex-wrap:wrap;padding:13px 16px;}
+.linkrow a{font-size:12.5px;color:var(--muted);text-decoration:none;background:var(--dark3);
+  border:1px solid var(--bdr);border-radius:20px;padding:7px 13px;}
+.linkrow a:hover{color:var(--text);border-color:var(--orange);}
+.pill{font-family:var(--mono);font-size:9px;letter-spacing:.5px;text-transform:uppercase;
+  padding:2px 7px;border-radius:20px;border:1px solid var(--bdr);color:var(--muted);margin-left:8px;}
+.pill.live{border-color:rgba(61,220,106,.45);color:var(--green);}
+.pill.no{border-color:rgba(255,255,255,.12);color:var(--muted);}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="head">
+    <img src="/logo.png" alt=""/>
+    <h1>Con<span>trols</span></h1>
+  </div>
+  <div class="sub">
+    Every switch in one place. Changes save instantly and reach the broadcast within a few seconds.
+    <a class="back" href="/tools.html">← Coach HQ</a>
+  </div>
+  <div class="savebar" id="savebar"></div>
+
+  <!-- BROADCAST -->
+  <div class="sec">
+    <div class="sec-h">
+      <div class="sec-t">🎬 Broadcast overlay</div>
+      <div class="sec-d">Applies to the live scorebug within about three seconds — no need to touch the YoloBox.</div>
+    </div>
+    <div class="row">
+      <div class="row-txt"><div class="row-n">Sponsor logo beside the bug</div>
+        <div class="row-s">Rotates through your active sponsors during play.</div></div>
+      <div class="sw" id="sw-sponsor_dock" onclick="flip('sponsor_dock')"></div>
+    </div>
+    <div class="row">
+      <div class="row-txt"><div class="row-n">Sponsor card between innings</div>
+        <div class="row-s">Plays three sponsors on every half-inning change.</div></div>
+      <div class="sw" id="sw-sponsor_break" onclick="flip('sponsor_break')"></div>
+    </div>
+    <div class="row">
+      <div class="row-txt"><div class="row-n">Logo rotation speed</div>
+        <div class="row-s">How long each sponsor holds beside the bug.</div></div>
+      <div class="num"><button onclick="bump('sponsor_secs',-10)">−</button>
+        <span id="v-sponsor_secs">40s</span>
+        <button onclick="bump('sponsor_secs',10)">+</button></div>
+    </div>
+    <div class="row">
+      <div class="row-txt"><div class="row-n">Base diamond</div>
+        <div class="row-s">The runners-on graphic in the scorebug.</div></div>
+      <div class="sw" id="sw-bug_show_bases" onclick="flip('bug_show_bases')"></div>
+    </div>
+    <div class="row">
+      <div class="row-txt"><div class="row-n">Screen corner</div>
+        <div class="row-s">Where the bug and sponsor plate sit in frame.</div></div>
+      <div class="segs" id="segs-pos">
+        <button class="seg" data-v="tl" onclick="setPos('tl')">↖</button>
+        <button class="seg" data-v="tr" onclick="setPos('tr')">↗</button>
+        <button class="seg" data-v="bl" onclick="setPos('bl')">↙</button>
+        <button class="seg" data-v="br" onclick="setPos('br')">↘</button>
+      </div>
+    </div>
+    <div class="note">A URL switch on the scorebug (like <b>?sponsors=off</b>) is a hard override and still beats these.</div>
+  </div>
+
+  <!-- THIS GAME -->
+  <div class="sec">
+    <div class="sec-h">
+      <div class="sec-t">⚾ This game <span class="pill no" id="game-pill">no live game</span></div>
+      <div class="sec-d">Saved on the game itself, so they only apply while one is being scored.</div>
+    </div>
+    <div class="row">
+      <div class="row-txt"><div class="row-n">Pitching line</div>
+        <div class="row-s">Pitcher name, pitch count and last velocity.</div></div>
+      <div class="sw dis" id="sw-bug_show_pitching" onclick="flipGame('bug_show_pitching')"></div>
+    </div>
+    <div class="row">
+      <div class="row-txt"><div class="row-n">At-bat line</div>
+        <div class="row-s">Current batter and their line for the day.</div></div>
+      <div class="sw dis" id="sw-bug_show_atbat" onclick="flipGame('bug_show_atbat')"></div>
+    </div>
+  </div>
+
+  <!-- SCORER -->
+  <div class="sec">
+    <div class="sec-h">
+      <div class="sec-t">📋 Scorer prompts</div>
+      <div class="sec-d">All four are optional already — ignoring one costs nothing. Turn a prompt off to stop it appearing at all. Takes effect on the next game you start.</div>
+    </div>
+    <div class="row">
+      <div class="row-txt"><div class="row-n">Base check</div>
+        <div class="row-s">Confirms where runners ended up after a ball in play. Fixing it corrects the player's RBI, not just the scoreboard.</div></div>
+      <div class="sw" id="sw-chip_base_check" onclick="flip('chip_base_check')"></div>
+    </div>
+    <div class="row">
+      <div class="row-txt"><div class="row-n">Fielder tag</div>
+        <div class="row-s">Credit the defence on an out — this is what creates highlight clips for glove-first kids.</div></div>
+      <div class="sw" id="sw-chip_fielder_tag" onclick="flip('chip_fielder_tag')"></div>
+    </div>
+    <div class="row">
+      <div class="row-txt"><div class="row-n">Spray capture</div>
+        <div class="row-s">Tap where the ball landed. Builds spray charts on player pages.</div></div>
+      <div class="sw" id="sw-chip_spray" onclick="flip('chip_spray')"></div>
+    </div>
+    <div class="row">
+      <div class="row-txt"><div class="row-n">Dropped third strike</div>
+        <div class="row-s">Offers to convert a strikeout when the catcher didn't hold it.</div></div>
+      <div class="sw" id="sw-chip_d3k" onclick="flip('chip_d3k')"></div>
+    </div>
+  </div>
+
+  <!-- SITE -->
+  <div class="sec">
+    <div class="sec-h">
+      <div class="sec-t">🌐 Public site</div>
+    </div>
+    <div class="row">
+      <div class="row-txt"><div class="row-n">"The Squad" section on the home page</div>
+        <div class="row-s">Named player cards under the hero. Off by default because the hero already shows the same twelve faces.</div></div>
+      <div class="sw" id="sw-show_home_squad" onclick="flip('show_home_squad')"></div>
+    </div>
+    <div class="note">
+      <b>Season</b> (currently <span id="season-now">—</span>) is still set in <b>config.js</b> — it decides what the whole site treats as current, so it stays a deliberate code change.
+    </div>
+  </div>
+
+  <!-- ELSEWHERE -->
+  <div class="sec">
+    <div class="sec-h">
+      <div class="sec-t">↗ Lives on another page</div>
+    </div>
+    <div class="linkrow">
+      <a href="/sponsors.html">Sponsor logos &amp; order →</a>
+      <a href="/lineup.html">Lineup &amp; home/away →</a>
+      <a href="/admin.html">Reset or delete a game →</a>
+    </div>
+    <div class="note">
+      Per-device settings can't be switched from here — each person controls their own: the <b>🔔 bell</b> in the nav,
+      the <b>★ my player</b> star, <b>add to home screen</b>, and the season toggle on the home page.
+    </div>
+  </div>
+</div>
+
+<script>
+var db = supabase.createClient(ACES_CONFIG.supabaseUrl, ACES_CONFIG.supabaseKey);
+var S = null, LIVE = null, busy = false;
+var BOOLS = ['sponsor_dock','sponsor_break','bug_show_bases','chip_base_check',
+             'chip_fielder_tag','chip_spray','chip_d3k','show_home_squad'];
+
+function say(kind, text){
+  var b = document.getElementById('savebar');
+  b.className = 'savebar ' + (kind||'');
+  b.textContent = text || '';
+  if(kind === 'ok') setTimeout(function(){ if(b.textContent===text){ b.className='savebar'; b.textContent=''; } }, 2200);
+}
+function paint(){
+  if(!S) return;
+  BOOLS.forEach(function(k){
+    var el = document.getElementById('sw-'+k); if(el) el.classList.toggle('on', !!S[k]);
+  });
+  document.getElementById('v-sponsor_secs').textContent = S.sponsor_secs + 's';
+  Array.prototype.forEach.call(document.querySelectorAll('#segs-pos .seg'), function(b){
+    b.classList.toggle('on', b.dataset.v === S.bug_pos);
+  });
+  // per-game switches only make sense while a game is live
+  ['bug_show_pitching','bug_show_atbat'].forEach(function(k){
+    var el = document.getElementById('sw-'+k); if(!el) return;
+    el.classList.toggle('dis', !LIVE);
+    el.classList.toggle('on', !!(LIVE && LIVE[k] !== false));
+  });
+  var pill = document.getElementById('game-pill');
+  pill.textContent = LIVE ? 'live now' : 'no live game';
+  pill.className = 'pill ' + (LIVE ? 'live' : 'no');
+}
+
+async function save(patch){
+  if(busy) return;
+  busy = true; say('', 'Saving…');
+  var prev = {}; Object.keys(patch).forEach(function(k){ prev[k] = S[k]; });
+  Object.assign(S, patch); paint();                    // optimistic
+  try{
+    var r = await db.from('app_settings').update(patch).eq('id', 1).select('id');
+    if(r.error || !(r.data && r.data.length)) throw new Error('not saved');
+    say('ok', 'Saved ✓');
+  }catch(e){
+    Object.assign(S, prev); paint();                   // roll back so the UI never lies
+    say('err', 'Couldn\'t save — check your connection.');
+  }
+  busy = false;
+}
+function flip(key){ if(S) save(defineOne(key, !S[key])); }
+function setPos(v){ if(S && S.bug_pos !== v) save({bug_pos: v}); }
+function bump(key, by){
+  if(!S) return;
+  var v = Math.max(8, Math.min(180, (S[key]||40) + by));
+  if(v !== S[key]) save(defineOne(key, v));
+}
+function defineOne(k, v){ var o = {}; o[k] = v; return o; }
+
+async function flipGame(key){
+  if(!LIVE || busy) return;
+  busy = true; say('', 'Saving…');
+  var next = !(LIVE[key] !== false);
+  var prev = LIVE[key];
+  LIVE[key] = next; paint();
+  try{
+    var r = await db.from('games').update(defineOne(key, next)).eq('id', LIVE.id).select('id');
+    if(r.error || !(r.data && r.data.length)) throw new Error('not saved');
+    say('ok', 'Saved ✓');
+  }catch(e){
+    LIVE[key] = prev; paint();
+    say('err', 'Couldn\'t save — check your connection.');
+  }
+  busy = false;
+}
+
+async function load(){
+  try{
+    var r = await db.from('app_settings').select('*').eq('id',1).single();
+    if(r.error) throw r.error;
+    S = r.data;
+  }catch(e){ say('err','Couldn\'t load settings: '+(e.message||e)); return; }
+  try{
+    var g = await db.from('games').select('id,bug_show_pitching,bug_show_atbat')
+      .eq('status','live').limit(1).maybeSingle();
+    LIVE = g.data || null;
+  }catch(e){ LIVE = null; }
+  document.getElementById('season-now').textContent = ACES_CONFIG.activeSeason || '—';
+  paint();
+}
+load();
+// keep the live-game pill honest if a game starts while this page is open
+setInterval(async function(){
+  if(busy) return;
+  try{
+    var g = await db.from('games').select('id,bug_show_pitching,bug_show_atbat')
+      .eq('status','live').limit(1).maybeSingle();
+    var was = LIVE && LIVE.id;
+    LIVE = g.data || null;
+    if((LIVE && LIVE.id) !== was) paint();
+  }catch(e){}
+}, 15000);
+</script>
+</body>
+</html>

@@ -938,6 +938,19 @@ async function init() {
   setBtn(); sel.addEventListener('change', setBtn)
 }
 
+// ── LIVE SETTINGS (controls.html) ────────────────────────────
+// Which post-play prompts are offered. All four are optional by design; this
+// switches the offer off entirely for a coach who doesn't want the chip at
+// all. Read once at Start Scoring — mid-game changes apply next game, which
+// is deliberate: prompts shouldn't vanish under your thumb mid-inning.
+var CFG = { chip_base_check:true, chip_fielder_tag:true, chip_spray:true, chip_d3k:true }
+async function loadCfg(){
+  try{
+    var r = await db.from('app_settings').select('*').eq('id',1).single()
+    if(!r.error && r.data) CFG = r.data
+  }catch(e){}   // defaults keep every prompt on
+}
+
 // ── GAMEDAY QoL ──────────────────────────────────────────────
 // Screen wake lock: the phone dimming/locking between innings means
 // re-unlock + re-focus before the next pitch. Hold the screen awake for the
@@ -1069,6 +1082,7 @@ async function startScoring() {
     }
   }
 
+  await loadCfg()   // which post-play prompts this game will offer
   S.gameId=gid; S.game=g
   // Side from the schedule (lineup.html's Home/Away radio); the HOME/AWAY
   // chip in the count bar swaps it if the plate-meeting coin flip went the
@@ -1948,6 +1962,7 @@ function showToast(msg){
 // a 7s chip offers to convert the play. Any other action dismisses it.
 var _d3k = null, _d3kTimer = null
 function offerD3K(){
+  if(CFG.chip_d3k === false) return
   if(!HISTORY.length) return
   _d3k = { entry: HISTORY[HISTORY.length-1], isTop: S.isTop, inning: S.inning }
   document.getElementById('d3k-chip').style.display = 'flex'
@@ -2021,6 +2036,7 @@ function bcSummary(bases, runs){
   return (on.length ? on.join('·') : 'bases empty') + (runs>0 ? ' · '+runs+' in' : '')
 }
 function offerBaseCheck(result, label, runs){
+  if(CFG.chip_base_check === false) return
   if(!HISTORY.length) return
   var lastFeed = RECENT[RECENT.length-1] || {}
   _baseCheck = { entry: HISTORY[HISTORY.length-1], isTop: S.isTop, inning: S.inning,
@@ -2120,6 +2136,7 @@ var _fldTag = null, _ftTimer = null, _fldSel = []
 var FT_RESULTS = /^(groundout|flyout|lineout|popout|double_play|sac_fly|sac_bunt|fielders_choice|dropped_third_k|caught_stealing|pickoff_1b|pickoff_2b|pickoff_3b|out_advancing)$/
 
 function offerFielderTag(result, label, entry){
+  if(CFG.chip_fielder_tag === false) return
   entry = entry || (HISTORY.length ? HISTORY[HISTORY.length-1] : null)
   if(!entry) return
   var kids = (S.acesLineup||[]).filter(function(e){ return e.playerId && e.playerName })
@@ -2217,6 +2234,7 @@ var SPRAY_TYPE = { groundout:'ground', double_play:'ground', fielders_choice:'gr
                    flyout:'fly', sac_fly:'fly', popout:'fly', home_run:'fly', lineout:'line' }
 
 function armSpray(result, entry){
+  if(CFG.chip_spray === false) return
   entry = entry || (HISTORY.length ? HISTORY[HISTORY.length-1] : null)
   if(!entry) return
   _spray = { entry: entry, result: result, phase: 'aim' }

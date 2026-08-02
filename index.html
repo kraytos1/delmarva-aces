@@ -1926,7 +1926,19 @@ async function loadSponsorWall(){
 // ─────────────────────────────────────────────────────────
 // init() is async and creates the Supabase client, so wait for it to settle
 // either way before the wall queries — otherwise db is still null.
-Promise.resolve(init()).then(loadSponsorWall, loadSponsorWall)
+Promise.resolve(init()).then(afterInit, afterInit)
+async function afterInit(){
+  loadSponsorWall()
+  // controls.html can flip the squad section without a deploy; the code
+  // default above still applies if the settings row can't be read.
+  try{
+    var r = await db.from('app_settings').select('show_home_squad').eq('id',1).single()
+    if(!r.error && r.data && r.data.show_home_squad !== SHOW_HOME_SQUAD){
+      SHOW_HOME_SQUAD = r.data.show_home_squad
+      renderSquad()
+    }
+  }catch(e){}
+}
 // Deep-link support: /#schedule, /#roster (used by cross-page nav + footer links)
 ;(function(){var h=(location.hash||'').replace('#','');if(h&&document.getElementById('page-'+h))showPage(h,true)})()
 window.addEventListener('hashchange',function(){var h=(location.hash||'').replace('#','');if(h&&document.getElementById('page-'+h))showPage(h,true)})
