@@ -622,6 +622,7 @@ var S = {
   currentBatterIdx:0,   // which spot in the order we're on
   currentPitcherId:null,// our pitcher's player ID
   currentPitcherName:'',
+  currentPitcherNum:null,
   oppPitcher:'',
   oppLineup:[],
   currentOppBatterIdx:0,
@@ -844,7 +845,11 @@ function logSub(type, info){
 }
 
 async function saveNotes(){
-  var payload={ aces_lineup:S.acesLineup, aces_pitcher_id:S.currentPitcherId||null, opp_pitcher:S.oppPitcher||'', opp_lineup:S.oppLineup||[], subs_log:S.subsLog||[], scoring_start_utc:S.scoringStartUtc||null }
+  // NOTE: this rebuilds the whole notes payload — any new persistent field
+  // must be listed here or the next sub silently drops it.
+  var payload={ aces_lineup:S.acesLineup, aces_pitcher_id:S.currentPitcherId||null,
+    aces_pitcher_name:S.currentPitcherName||null, aces_pitcher_num:S.currentPitcherNum||null,
+    opp_pitcher:S.oppPitcher||'', opp_lineup:S.oppLineup||[], subs_log:S.subsLog||[], scoring_start_utc:S.scoringStartUtc||null }
   try{
     if(S.game) S.game.notes = JSON.stringify(payload)
     await db.from('games').update({notes: JSON.stringify(payload)}).eq('id',S.gameId)
@@ -853,7 +858,7 @@ async function saveNotes(){
 
 async function applyAcePitch(playerId){
   var p=(S.roster||[]).find(function(r){return r.id===playerId}); if(!p) return
-  S.currentPitcherId=p.id; S.currentPitcherName=p.first_name+' '+p.last_name
+  S.currentPitcherId=p.id; S.currentPitcherName=p.first_name+' '+p.last_name; S.currentPitcherNum=p.jersey_num
   var li=S.acesLineup.find(function(e){return e.playerId===p.id}); if(li) li.position='P'
   try{ var {count}=await db.from('pitches').select('id',{count:'exact',head:true}).eq('game_id',S.gameId).eq('pitcher_id',p.id); S.acesPitchCount=count||0 }catch(e){}
   logSub('pitching-change',{jerseyNum:p.jersey_num, playerName:S.currentPitcherName})
@@ -1182,10 +1187,14 @@ async function startScoring() {
       S.oppLineup  = saved.opp_lineup  || []
       S.subsLog    = saved.subs_log    || []
 
-      // Find pitcher name
-      if(S.currentPitcherId && S.acesLineup.length) {
+      // Pitcher name: prefer what lineup.html saved (the pitcher is chosen
+      // from the whole roster and often isn't in the batting order), then the
+      // order, then the roster once it loads below.
+      S.currentPitcherName = saved.aces_pitcher_name || ''
+      S.currentPitcherNum  = saved.aces_pitcher_num || null
+      if(!S.currentPitcherName && S.currentPitcherId && S.acesLineup.length) {
         var pitcherEntry = S.acesLineup.find(function(e){return e.playerId===S.currentPitcherId})
-        S.currentPitcherName = pitcherEntry ? pitcherEntry.playerName : ''
+        if(pitcherEntry){ S.currentPitcherName = pitcherEntry.playerName; S.currentPitcherNum = pitcherEntry.jerseyNum }
       }
 
       // Figure out where in the order we are based on at_bats already logged
@@ -1224,6 +1233,12 @@ async function startScoring() {
     var {data:rr}=await db.from('players').select('id,jersey_num,first_name,last_name,positions').order('jersey_num')
     S.roster = rr || []
   } catch(e){ S.roster = [] }
+  // Last resort for the pitcher's name: the roster. Covers games saved before
+  // lineup.html started storing the name, and any pitcher outside the order.
+  if(!S.currentPitcherName && S.currentPitcherId){
+    var pr = (S.roster||[]).find(function(r){ return r.id === S.currentPitcherId })
+    if(pr){ S.currentPitcherName = pr.first_name+' '+pr.last_name; S.currentPitcherNum = pr.jersey_num }
+  }
 
   // Preload each Aces batter's game line so a mid-game reload keeps it
   try {

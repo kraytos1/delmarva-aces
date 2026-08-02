@@ -633,9 +633,18 @@ function renderSubsLog() {
 async function saveLineup() {
   if(!gameId){showToast('Select a game first');return}
 
+  // The pitcher is picked from the WHOLE roster, so he often isn't in the
+  // batting order — every viewer used to resolve his name by searching the
+  // order and came up blank. Save the name alongside the id so nobody has to
+  // look it up.
+  var pid = document.getElementById('starter-pitcher').value || null
+  var prec = pid ? roster.find(function(p){ return p.id === pid }) : null
+
   var payload = {
     aces_lineup: acesLineup,
-    aces_pitcher_id: document.getElementById('starter-pitcher').value||null,
+    aces_pitcher_id: pid,
+    aces_pitcher_name: prec ? (prec.first_name+' '+prec.last_name) : null,
+    aces_pitcher_num:  prec ? prec.jersey_num : null,
     opp_lineup: oppLineup,
     opp_pitcher: document.getElementById('opp-pitcher').value,
     subs_log: subsLog

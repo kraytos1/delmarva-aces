@@ -778,12 +778,39 @@ function updateFieldOverlays(lineup, acesBat) {
   }
 }
 
+// Lazily fetched player map, only needed when a game predates lineup.html
+// storing the pitcher's name.
+var GC_ROSTER = null
+async function loadGcRoster(){
+  if (GC_ROSTER || !db) return
+  try {
+    var r = await db.from('players').select('id,first_name,last_name,jersey_num')
+    GC_ROSTER = {}
+    ;(r.data||[]).forEach(function(p){
+      GC_ROSTER[p.id] = { name: p.first_name+' '+p.last_name, num: p.jersey_num }
+    })
+    if (liveGame && liveGame.notes) {
+      try { updatePlayerCards(JSON.parse(liveGame.notes), acesBatting()) } catch(e){}
+    }
+  } catch(e) { GC_ROSTER = {} }
+}
+
 function updatePlayerCards(lineup, acesBat) {
   var oppPitcherName = lineup.opp_pitcher || 'Opp. Pitcher'
   var ourPitcherName = '—', ourPitcherNum = 'P'
-  if (lineup.aces_pitcher_id && lineup.aces_lineup) {
+  // The pitcher is picked from the whole roster and is frequently NOT in the
+  // batting order, so the order lookup alone left this blank. Prefer the name
+  // lineup.html stores, then the order, then the roster.
+  if (lineup.aces_pitcher_name) {
+    ourPitcherName = lineup.aces_pitcher_name
+    if (lineup.aces_pitcher_num != null) ourPitcherNum = '#'+lineup.aces_pitcher_num
+  } else if (lineup.aces_pitcher_id && lineup.aces_lineup) {
     var pe = lineup.aces_lineup.find(function(e){return e.playerId===lineup.aces_pitcher_id&&e.playerName})
     if (pe) { ourPitcherName=pe.playerName; ourPitcherNum='#'+pe.jerseyNum }
+    else if (GC_ROSTER && GC_ROSTER[lineup.aces_pitcher_id]) {
+      ourPitcherName = GC_ROSTER[lineup.aces_pitcher_id].name
+      ourPitcherNum  = '#'+GC_ROSTER[lineup.aces_pitcher_id].num
+    } else { loadGcRoster() }   // fills in on the next render
   }
 
   if (acesBat) {

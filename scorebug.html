@@ -243,6 +243,7 @@ function parseNotes(raw){
     var s = JSON.parse(raw||'{}');
     notesCache.lineup       = s.aces_lineup   || [];
     notesCache.acesPitcherId= s.aces_pitcher_id || null;
+    notesCache.acesPitcherName = s.aces_pitcher_name || '';
     notesCache.oppPitcher   = s.opp_pitcher   || '';
     notesCache.oppLineup    = s.opp_lineup    || [];
   }catch(e){}
@@ -292,9 +293,26 @@ async function poll(){
   finally{ busy = false; }
 }
 
+// The pitcher is chosen from the whole roster and is often NOT in the batting
+// order, so searching the order alone left this blank and the bug fell back to
+// "Aces pitcher". Prefer the name lineup.html now stores, then the order, then
+// the roster (fetched once, lazily).
+var ROSTER = null;
+async function loadRoster(){
+  if (ROSTER) return;
+  try{
+    var r = await db.from('players').select('id,first_name,last_name,jersey_num');
+    ROSTER = {};
+    (r.data||[]).forEach(function(p){ ROSTER[p.id] = p.first_name+' '+p.last_name; });
+  }catch(e){ ROSTER = {}; }
+}
 function acesPitcherName(n){
+  if (n.acesPitcherName) return n.acesPitcherName;
   var e = (n.lineup||[]).filter(function(x){return x.playerName;}).find(function(x){return x.playerId===n.acesPitcherId;});
-  return e ? e.playerName : '';
+  if (e) return e.playerName;
+  if (ROSTER && n.acesPitcherId && ROSTER[n.acesPitcherId]) return ROSTER[n.acesPitcherId];
+  if (n.acesPitcherId) loadRoster();   // fills in on the next poll
+  return '';
 }
 function currentAcesBatter(n, acesAbs){
   // Mirror the scorer: the order is the NAMED slots only. lineup.html saves
