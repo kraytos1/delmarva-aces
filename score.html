@@ -127,7 +127,12 @@ body{background:var(--black);color:var(--text);font-family:var(--body);min-heigh
 .bot-btn:active{opacity:.8;}
 .bot-btn.danger{border-color:#e74c3c;color:#e74c3c;}
 .bot-btn.end{border-color:var(--orange);color:var(--orange);}
-.bot-btn.next{background:var(--orange);color:white;border-color:var(--orange);font-weight:600;}
+/* Deliberately NOT the primary button. The order advances by itself after
+   every outcome, so this one only ever SKIPS a hitter — making it the big
+   orange CTA invited exactly the mis-tap it causes. */
+.bot-btn.next{color:var(--text);}
+.bot-btn .btn-sub{display:block;font-size:9px;font-weight:400;opacity:.7;max-width:110px;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin:1px auto 0;}
 
 /* recent plays — desktop mistake-catcher (hidden on phones) */
 .recent-feed{display:none;}
@@ -521,7 +526,7 @@ html,body{overscroll-behavior-y:none;}
 
   <!-- Bottom bar -->
   <div class="bot-bar">
-    <button class="bot-btn next" onclick="newBatter()">Next batter</button>
+    <button class="bot-btn next" id="skip-btn" onclick="skipBatter()">Skip batter</button>
     <button class="bot-btn" onclick="newHalf()">End half</button>
     <button class="bot-btn danger" id="undo-btn" onclick="undoLast()">Undo</button>
     <button class="bot-btn end" onclick="endGame()">Final</button>
@@ -1275,6 +1280,13 @@ function updateBatterDisplay() {
   var pitcherName = acesUp() ? (S.oppPitcher||'Opp. Pitcher') : (S.currentPitcherName||'—')
   setText('ab-pitcher', pitcherName)
   renderPC()
+  // Name the hitter the Skip button would drop, so it can't be tapped blind.
+  var skipBtn = document.getElementById('skip-btn')
+  if (skipBtn) {
+    var so = acesOrder()
+    var sName = (acesUp() && so.length) ? (so[S.currentBatterIdx % so.length].playerName||'').split(' ').pop() : ''
+    skipBtn.innerHTML = 'Skip batter' + (sName ? '<span class="btn-sub">'+sName.replace(/[&<>]/g,'')+'</span>' : '')
+  }
   // Due-up preview while the Aces are in the field — who needs a helmet on.
   // Mirrors the batter pointer's math over the named lineup entries.
   var due = document.getElementById('ab-dueup')
@@ -1826,18 +1838,37 @@ function mc(t,i){
 function adjInn(d){S.inning=Math.max(1,S.inning+d);renderCount();pushState()}
 function adjScore(t,d){S.scores[t]=Math.max(0,S.scores[t]+d);renderCount();pushState()}
 
-function newBatter(){
+// SKIP the current hitter. The order advances by itself after every outcome,
+// so this is only for when reality skipped someone (courtesy runner shuffle,
+// order confusion). Tapping it because a new batter walked up — the obvious
+// reading of the old "Next batter" label — silently dropped a kid from the
+// order, which is exactly how Wiltbank vanished at an inning change.
+function skipBatter(){
+  var order = acesOrder()
+  if(!acesUp() || !order.length){
+    // Opponent's half: nothing to skip, just clear the count.
+    S.balls=0;S.strikes=0;S.pitchCount=0;S.velo=null
+    document.getElementById('velo-val').textContent='—'
+    renderCount()
+    return
+  }
+  var from = order[S.currentBatterIdx % order.length]
+  var fromName = (from && from.playerName || '').split(' ').pop()
+  // A fresh batter who hasn't seen a pitch is almost always a mis-tap.
+  if(S.pitchCount===0 && S.balls===0 && S.strikes===0){
+    if(!confirm('Skip '+ (fromName||'this batter') +'?\n\nThe order already moves on its own after each play — you only need this if '+(fromName||'he')+' genuinely did not bat.')) return
+  }
   S.balls=0;S.strikes=0;S.pitchCount=0;S.velo=null
   document.getElementById('velo-val').textContent='—'
   renderCount()
-  // Note: batter auto-advances after logAB. This button is for manual skip/sub only.
-  // Manually advance if needed:
-  var _o = acesOrder()
-  if(acesUp() && _o.length){
-    S.currentBatterIdx=(S.currentBatterIdx+1)%_o.length
-    updateBatterDisplay()
-  }
+  S.currentBatterIdx=(S.currentBatterIdx+1)%order.length
+  updateBatterDisplay()
+  var to = order[S.currentBatterIdx % order.length]
+  var toName = (to && to.playerName || '').split(' ').pop()
+  showToast('Skipped '+fromName+' — '+toName+' up (tap the name to undo)')
 }
+// kept so any older call site / muscle memory still works
+function newBatter(){ skipBatter() }
 // The plate-meeting coin flip: swap which side the Aces are. The half of the
 // inning doesn't move — only which team it belongs to. Past plays keep the
 // half they were scored in (if any were scored on the wrong side, Undo them).
@@ -2429,7 +2460,7 @@ var KEY_ACTIONS = {
   'k': function(){ openModal('outk') },
   'r': function(){ openModal('base') },
   'u': function(){ undoLast() },
-  'n': function(){ newBatter() },
+  'n': function(){ skipBatter() },
   'e': function(){ newHalf() }
 }
 function overlayOpen(){
