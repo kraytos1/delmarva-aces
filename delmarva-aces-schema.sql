@@ -130,6 +130,18 @@ create table at_bats (
   hit_y         real,            -- in the scorer field's 200x200 viewBox
                                  -- (plate at 0.5,0.925); added 2026-08-02
   hit_type      text,            -- 'ground' | 'line' | 'fly' (null = untyped)
+
+  -- SITUATIONAL CONTEXT (added 2026-08-02) — the state the hitter walked
+  -- into, stamped at logAB time BEFORE any mutation. Powers RISP / two-out /
+  -- leverage / order-spot splits. NOT reconstructable after the fact: any
+  -- game scored without these loses the splits permanently.
+  outs_before       smallint,
+  on_1b_before      boolean,
+  on_2b_before      boolean,
+  on_3b_before      boolean,
+  score_us_before   smallint,
+  score_them_before smallint,
+  lineup_slot       smallint,    -- batting-order spot 1-9, Aces half only
   created_at    timestamptz default now()
 );
 

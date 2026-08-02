@@ -1398,7 +1398,19 @@ async function logAB(result, label, skipPitchLog, fromAuto, runnerId) {
   if(!fromAuto) saveSnapshot(null, null)
 
   S.abNum++
-  var basesBefore=S.bases.slice()   // for the post-play base check offer
+  // SITUATIONAL CONTEXT — captured BEFORE any mutation, and written onto the
+  // at-bat row. This is the game state the hitter actually walked into, which
+  // is what every split is built from (RISP, two-out production, count/score
+  // leverage, order-spot performance). It CANNOT be reconstructed after the
+  // fact from the play sequence, so it has to be recorded as it happens.
+  var basesBefore=S.bases.slice()   // also feeds the post-play base check offer
+  var outsBefore=S.outs
+  var scoreUsBefore=S.scores.us, scoreThemBefore=S.scores.them
+  // Batting-order spot (1-9) — Aces half only; the opponent has no slot here.
+  var lineupSlot=null
+  if(acesUp() && S.acesLineup.length){
+    lineupSlot=(S.currentBatterIdx % S.acesLineup.length)+1
+  }
   var runs=applyBaserunners(result)
   var isOut=/(strikeout|groundout|flyout|lineout|popout|sac_fly|sac_bunt|double_play|caught_stealing|pickoff|out_advancing|dropped_third_k|fielders_choice)/i.test(result)
   var isHit=/(single|double|triple|home_run|walk|hbp|intentional_walk|error|fielders_choice|dropped_third$)/i.test(result)
@@ -1427,6 +1439,10 @@ async function logAB(result, label, skipPitchLog, fromAuto, runnerId) {
     aces_pitcher_id: !acesUp() ? S.currentPitcherId : null,  // our pitcher only when the Aces field
     runner_id: (acesUp() && runnerId) ? runnerId : null,  // the kid who stole/was picked off (SB/CS credit)
     inning:S.inning,half:S.isTop?'top':'bottom',
+    outs_before:outsBefore,
+    on_1b_before:basesBefore[0], on_2b_before:basesBefore[1], on_3b_before:basesBefore[2],
+    score_us_before:scoreUsBefore, score_them_before:scoreThemBefore,
+    lineup_slot:lineupSlot,
     ab_num:S.abNum,result:result,rbi:rbi,runs_scored:runs,notes:label,
     yt_offset_sec:offset,clip_status:CLIP.includes(result)?'queued':'none'
   }
