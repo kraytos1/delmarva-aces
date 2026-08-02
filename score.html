@@ -201,6 +201,18 @@ body{background:var(--black);color:var(--text);font-family:var(--body);min-heigh
 #d3k-chip .d3k-safe{border-color:#27ae60;color:#3DDC6A;}
 #d3k-chip .d3k-out{border-color:#555;color:#999;}
 
+/* post-play base check chip + fix sheet */
+#bc-chip{position:fixed;bottom:76px;left:50%;transform:translateX(-50%);background:var(--dark2);border:1px solid var(--bdr-a);
+  border-radius:14px;padding:10px 12px;z-index:290;display:none;align-items:center;gap:8px;box-shadow:0 10px 26px rgba(0,0,0,.5);}
+#bc-chip .bc-q{font-family:var(--mono);font-size:11px;color:var(--muted);white-space:nowrap;}
+#bc-chip button{border:1px solid var(--bdr);border-radius:8px;background:var(--dark3);color:var(--text);
+  font-size:12px;padding:8px 10px;cursor:pointer;white-space:nowrap;}
+#bc-chip .bc-ok{border-color:#27ae60;color:#3DDC6A;}
+#bc-chip .bc-fix{border-color:var(--orange);color:var(--orange);}
+.bc-base-btn{border:1px solid var(--bdr);border-radius:8px;background:var(--dark3);color:var(--muted);font-family:var(--mono);font-size:13px;padding:12px 0;cursor:pointer;flex:1;}
+.bc-base-btn.on{border-color:var(--orange);color:var(--orange);background:var(--og);}
+.bc-runs-btn{border:1px solid var(--bdr);border-radius:8px;background:var(--dark3);color:var(--text);font-size:18px;width:42px;height:42px;cursor:pointer;}
+
 /* subs button + sheet */
 .subs-btn{background:var(--dark3);border:1px solid var(--bdr-a);color:var(--orange);border-radius:8px;padding:7px 11px;font-family:var(--mono);font-size:11px;font-weight:500;cursor:pointer;white-space:nowrap;}
 .subs-btn:active{opacity:.8;}
@@ -516,6 +528,13 @@ body{background:var(--black);color:var(--text);font-family:var(--body);min-heigh
   <span class="d3k-q">Dropped 3rd?</span>
   <button class="d3k-safe" onclick="convertD3K(true)">Safe at 1st</button>
   <button class="d3k-out" onclick="convertD3K(false)">Out at 1st</button>
+</div>
+
+<!-- Post-play base check: confirm where the runners actually ended up -->
+<div id="bc-chip">
+  <span class="bc-q" id="bc-q"></span>
+  <button class="bc-ok" onclick="hideBaseCheck()">✓ Right</button>
+  <button class="bc-fix" onclick="openBaseFix()">Fix</button>
 </div>
 
 <div class="toast" id="toast"></div>
@@ -1217,7 +1236,7 @@ setInterval(function(){
 
 /* ── PITCH LOGGING ── */
 async function quickLog(result) {
-  if (!IN_LOGAB) hideD3K()   // a new pitch invalidates a pending dropped-3rd offer
+  if (!IN_LOGAB){ hideD3K(); hideBaseCheck() }   // a new pitch invalidates pending offers
   // Save state before this pitch for undo — unless we're inside logAB, whose
   // own pre-mutation snapshot already owns this action's history entry
   if (!IN_LOGAB) saveSnapshot(null, null)
@@ -1325,7 +1344,7 @@ async function logAB(result, label, skipPitchLog, fromAuto, runnerId) {
   var _dtNow = Date.now()
   if(!fromAuto && _dtNow - (window._lastLogAB||0) < 450) return
   window._lastLogAB = _dtNow
-  hideD3K()   // any new action invalidates a pending dropped-3rd offer
+  hideD3K(); hideBaseCheck()   // any new action invalidates pending offers
   // Baserunner-only events happen mid at-bat: the batter currently up stays
   // up. They should not advance the lineup, not reset the batter's own
   // ball/strike count, and not consume the next spot in the batting order.
@@ -1337,6 +1356,7 @@ async function logAB(result, label, skipPitchLog, fromAuto, runnerId) {
   if(!fromAuto) saveSnapshot(null, null)
 
   S.abNum++
+  var basesBefore=S.bases.slice()   // for the post-play base check offer
   var runs=applyBaserunners(result)
   var isOut=/(strikeout|groundout|flyout|lineout|popout|sac_fly|sac_bunt|double_play|caught_stealing|pickoff|out_advancing|dropped_third_k|fielders_choice)/i.test(result)
   var isHit=/(single|double|triple|home_run|walk|hbp|intentional_walk|error|fielders_choice|dropped_third$)/i.test(result)
@@ -1415,6 +1435,10 @@ async function logAB(result, label, skipPitchLog, fromAuto, runnerId) {
   }
   if(S.outs>=3){setTimeout(function(){if(confirm('3 outs — end half?'))newHalf()},300)}
   await pushState(); renderAll()
+  // Runners were on before a ball in play — the by-the-book advance may not
+  // match the field. Offer the check while the play is fresh (skip on the 3rd
+  // out: the half-end flow makes any correction stale immediately).
+  if(BC_RESULTS.test(result) && basesBefore.some(Boolean) && S.outs<3) offerBaseCheck(result, label, runs)
 }
 
 function applyBaserunners(r) {
@@ -1642,7 +1666,7 @@ async function swapSides(){
 }
 
 function newHalf(){
-  hideD3K()
+  hideD3K(); hideBaseCheck()
   S.balls=0;S.strikes=0;S.outs=0;S.bases=[false,false,false];S.pitchCount=0;S.velo=null
   // NOTE: acesPitchCount/oppPitchCount are per-pitcher game totals and are NOT
   // reset on a half change — each side's counter keeps accumulating across the
@@ -1659,6 +1683,7 @@ function newHalf(){
   pushState();renderAll();showToast((S.isTop?'Top':'Bot')+' '+S.inning+' — batter up!')
 }
 async function undoLast(){
+  hideBaseCheck()   // the play being undone is the one the chip would patch
   if(!HISTORY.length){showToast('Nothing to undo');return}
   var last = HISTORY.pop()
   if(last.tally) tallyAtBat(last.tally.bid, last.tally.result, -1)
@@ -1819,6 +1844,110 @@ async function convertD3K(safe){
   await pushState()
   renderAll()
   showToast(safe ? '✓ Batter safe at 1st' : '✓ Out at 1st recorded')
+}
+
+// ── POST-PLAY BASE CHECK ─────────────────────────────────────
+// applyBaserunners() moves runners by the book: single = one base, double =
+// two. Real 13U runners take extra bases (or get thrown out trying) all the
+// time, and when they do, the missing run is silently wrong everywhere until
+// someone notices. Mirrors the D3K chip: the play logs instantly, then a chip
+// shows the assumed base state — confirming costs zero taps (any next action
+// dismisses it), while Fix updates the live bases/score AND the recorded
+// at-bat row (runs_scored + RBI), so player stats stay true, not just the
+// scoreboard. Only offered when runners were on before the play — that's
+// where the by-the-book assumption can be wrong.
+var _baseCheck = null, _bcTimer = null, _bcDraft = null
+var BC_RESULTS = /^(single|double|triple|error|fielders_choice|sac_fly|sac_bunt|double_play|groundout|flyout|lineout|popout|dropped_third)$/
+
+function bcSummary(bases, runs){
+  var on = []
+  if(bases[0]) on.push('1st'); if(bases[1]) on.push('2nd'); if(bases[2]) on.push('3rd')
+  return (on.length ? on.join('·') : 'bases empty') + (runs>0 ? ' · '+runs+' in' : '')
+}
+function offerBaseCheck(result, label, runs){
+  if(!HISTORY.length) return
+  var lastFeed = RECENT[RECENT.length-1] || {}
+  _baseCheck = { entry: HISTORY[HISTORY.length-1], isTop: S.isTop, inning: S.inning,
+                 result: result, runs: runs, feed: {d: lastFeed.d, m: lastFeed.m} }
+  document.getElementById('bc-q').textContent = 'Bases: '+bcSummary(S.bases, runs)
+  document.getElementById('bc-chip').style.display = 'flex'
+  clearTimeout(_bcTimer)
+  _bcTimer = setTimeout(hideBaseCheck, 15000)
+}
+function hideBaseCheck(){
+  _baseCheck = null
+  clearTimeout(_bcTimer)
+  var el = document.getElementById('bc-chip')
+  if(el) el.style.display = 'none'
+}
+function openBaseFix(){
+  var bc = _baseCheck
+  clearTimeout(_bcTimer)
+  document.getElementById('bc-chip').style.display = 'none'
+  if(!bc) return
+  // keep the ctx alive for the sheet (hideBaseCheck would clear it)
+  _baseCheck = bc
+  _bcDraft = { bases: S.bases.slice(), runs: bc.runs }
+  renderBaseFix()
+  document.getElementById('modal-overlay').style.display = 'flex'
+}
+function renderBaseFix(){
+  if(!_bcDraft) return
+  document.getElementById('modal-title').textContent = 'What does the field look like?'
+  var b = _bcDraft.bases
+  var html = '<div style="display:flex;gap:8px;margin-bottom:14px;">'+
+    [0,1,2].map(function(i){
+      return '<button class="bc-base-btn'+(b[i]?' on':'')+'" onclick="bcToggle('+i+')">'+['1st','2nd','3rd'][i]+(b[i]?' ●':'')+'</button>'
+    }).join('')+'</div>'+
+    '<div style="display:flex;align-items:center;gap:14px;justify-content:center;margin-bottom:14px;">'+
+      '<button class="bc-runs-btn" onclick="bcRuns(-1)">−</button>'+
+      '<span style="font-family:var(--mono);font-size:13px;">Runs on the play: <b>'+_bcDraft.runs+'</b></span>'+
+      '<button class="bc-runs-btn" onclick="bcRuns(1)">+</button></div>'+
+    '<div style="font-family:var(--mono);font-size:10px;color:var(--muted);margin-bottom:12px;">Outs wrong too? Fix the O pips on the count bar after saving.</div>'+
+    '<button class="oc-btn oc-hit" style="width:100%;" onclick="saveBaseFix()">Save correction</button>'
+  document.getElementById('modal-body').innerHTML = html
+}
+function bcToggle(i){ if(_bcDraft){ _bcDraft.bases[i]=!_bcDraft.bases[i]; renderBaseFix() } }
+function bcRuns(d){ if(_bcDraft){ _bcDraft.runs=Math.max(0,_bcDraft.runs+d); renderBaseFix() } }
+async function saveBaseFix(){
+  var bc = _baseCheck, draft = _bcDraft
+  hideBaseCheck(); _bcDraft = null
+  document.getElementById('modal-overlay').style.display = 'none'
+  if(!bc || !draft) return
+  // Same staleness guard as convertD3K: only while this play is still the
+  // last action and the half hasn't changed — otherwise state math corrupts.
+  if(!HISTORY.length || HISTORY[HISTORY.length-1] !== bc.entry ||
+     S.isTop !== bc.isTop || S.inning !== bc.inning){
+    showToast('Too late to fix — use Undo or tap the base pips'); return
+  }
+  var newRuns = draft.runs, delta = newRuns - bc.runs
+  S.bases = draft.bases.slice()
+  if(delta){
+    var t = acesUp() ? 'us' : 'them'
+    S.scores[t] = Math.max(0, S.scores[t] + delta)
+  }
+  // Same RBI rule as logAB: no credit on errors/double plays
+  var noRbi = /(error|double_play|wp_advance|pb_advance|balk|stolen_base|caught_stealing|pickoff|out_advancing)/i.test(bc.result)
+  var patch = { runs_scored: newRuns, rbi: (newRuns>0 && !noRbi) ? newRuns : 0 }
+  var entry = bc.entry
+  if(entry.atBatId){
+    // .select() so a blocked write can't silently no-op (the Undo trap)
+    try {
+      var up = await db.from('at_bats').update(patch).eq('id', entry.atBatId).select('id')
+      if(up.error || !(up.data && up.data.length)) showToast('⚠ Fixed here, not in the DB')
+    } catch(e){ showToast('⚠ Fixed here, not in the DB') }
+  } else if(entry.localAbId){
+    var q = getQueue()
+    q.forEach(function(it){ if(it.id === entry.localAbId) Object.assign(it.data, patch) })
+    saveQueue(q)
+  }
+  // keep the feed truthful about what the play now is (net-zero on entry.recent)
+  if(bc.feed && bc.feed.m){
+    popRecent()
+    pushRecent(bc.feed.d || 'inplay', bc.feed.m, newRuns>0 ? (newRuns+' run'+(newRuns>1?'s':'')) : '')
+  }
+  await pushState(); renderAll()
+  showToast('Play corrected — '+bcSummary(S.bases, newRuns)+' ✓')
 }
 
 // ── GAME CLOCK (tap to set a tournament time limit) ──────────
