@@ -297,13 +297,12 @@ function acesPitcherName(n){
   return e ? e.playerName : '';
 }
 function currentAcesBatter(n, acesAbs){
-  var full = n.lineup || [];
-  var valid = full.filter(function(x){return x.playerName;});
+  // Mirror the scorer: the order is the NAMED slots only. lineup.html saves
+  // nine slots whether filled or not, and walking the empty ones desynced this
+  // from the scorer as soon as a lineup was short.
+  var valid = (n.lineup || []).filter(function(x){return x.playerName;});
   if (!valid.length) return null;
-  // Mirror the scorer: the order pointer advances over the FULL lineup (one step
-  // per completed Aces at-bat), and the display maps that onto the named players.
-  var idx = full.length ? (acesAbs.length % full.length) : 0;
-  return valid[idx % valid.length];
+  return valid[acesAbs.length % valid.length];
 }
 function batterTodayLine(batterId, acesAbs){
   var mine = acesAbs.filter(function(a){return a.batter_id===batterId;});

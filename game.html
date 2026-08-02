@@ -616,14 +616,13 @@ async function refreshCurrentBatter() {
   if (!acesBatting()) return  // opponent batting — that card is handled elsewhere
   try {
     var lineup = JSON.parse(liveGame.notes)
-    var full = lineup.aces_lineup || []
-    var valid = full.filter(function(e){return e.playerName})
+    // Named slots only — the same order the scorer walks (empty slots aren't batters)
+    var valid = (lineup.aces_lineup || []).filter(function(e){return e.playerName})
     if (!valid.length) return
     var BR = /(stolen_base|wp_advance|pb_advance|balk|caught_stealing|pickoff|out_advancing)/i
     var {data:abs} = await db.from('at_bats').select('half,result').eq('game_id', liveGame.id)
     var acesAbs = (abs||[]).filter(function(a){ return a.half===acesHalfG() && !BR.test(a.result||''); })
-    var idx = full.length ? (acesAbs.length % full.length) : 0
-    var b = valid[idx % valid.length]
+    var b = valid[acesAbs.length % valid.length]
     if (b) {
       setText('b-name', b.playerName)
       setText('b-avatar', b.jerseyNum ? '#'+b.jerseyNum : 'B')
