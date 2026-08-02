@@ -734,7 +734,7 @@ function logSub(type, info){
 }
 
 async function saveNotes(){
-  var payload={ aces_lineup:S.acesLineup, aces_pitcher_id:S.currentPitcherId||null, opp_pitcher:S.oppPitcher||'', opp_lineup:S.oppLineup||[], subs_log:S.subsLog||[] }
+  var payload={ aces_lineup:S.acesLineup, aces_pitcher_id:S.currentPitcherId||null, opp_pitcher:S.oppPitcher||'', opp_lineup:S.oppLineup||[], subs_log:S.subsLog||[], scoring_start_utc:S.scoringStartUtc||null }
   try{
     if(S.game) S.game.notes = JSON.stringify(payload)
     await db.from('games').update({notes: JSON.stringify(payload)}).eq('id',S.gameId)
@@ -836,11 +836,45 @@ async function init() {
 }
 
 // ── Stream video → clip timing ──────────────────────────────
-// We embed the game's YouTube stream/VOD and stamp each play with the video's
-// actual current time (getCurrentTime). Exact + pause/rewind-safe, and works for
-// a live stream too (currentTime = live edge). Falls back to wall-clock if the
-// player isn't up (preserves the old behavior when no video is set).
+// Two clocks can stamp a play, and picking the wrong one is the clip-drift bug:
+//  · the embedded player's clock (getCurrentTime) — exact for VOD/scrubbing,
+//    but on a LIVE stream the embed shows a picture 10-30s behind the field,
+//    so a scorer tapping while watching the FIELD stamps early by the latency.
+//  · wall clock minus the broadcast's REAL start (actualStartTime from the
+//    YouTube Data API) — no playback involved, so no latency term; this is
+//    how GameChanger-style apps line clips up. Only trustworthy once the API
+//    has confirmed the start, hence streamMode below.
 var ytPlayer=null, _ytApiReady=false, _ytPending=null;
+// streamMode: 'live' = broadcast confirmed live via the API (wall clock wins);
+// 'vod' = ended broadcast or plain upload (player clock wins); 'unknown' = no
+// API verdict yet (offline, quota, stream not started) — keep the old
+// player-clock-first behavior and quietly re-check.
+var streamMode='unknown', _streamMetaAt=0;
+async function fetchStreamMeta(videoId){
+  if(!videoId || !ACES_CONFIG.ytApiKey) return null;
+  _streamMetaAt=Date.now();
+  try{
+    var r=await fetch('https://www.googleapis.com/youtube/v3/videos?part=liveStreamingDetails&id='+encodeURIComponent(videoId)+'&key='+ACES_CONFIG.ytApiKey);
+    var j=await r.json();
+    if(!j.items || !j.items.length) return null;               // bad id / not visible yet
+    var d=j.items[0].liveStreamingDetails;
+    if(!d) return {mode:'vod', actualStart:null};              // plain upload — player clock is the truth
+    if(!d.actualStartTime) return null;                        // scheduled broadcast, not live yet — re-check later
+    return {mode: d.actualEndTime ? 'vod' : 'live', actualStart: d.actualStartTime};
+  }catch(e){ return null; }
+}
+async function syncStreamMeta(videoId){
+  var meta=await fetchStreamMeta(videoId);
+  if(!meta) return;
+  streamMode=meta.mode;
+  // The broadcast's actual start is the authoritative stream_start_utc — the
+  // Start-Scoring tap time already written there is wrong by however early
+  // the camera started rolling.
+  if(meta.actualStart && S.game && meta.actualStart!==S.game.stream_start_utc){
+    S.game.stream_start_utc=meta.actualStart;
+    try{ await db.from('games').update({stream_start_utc:meta.actualStart}).eq('id',S.gameId) }catch(e){}
+  }
+}
 window.onYouTubeIframeAPIReady=function(){ _ytApiReady=true; if(_ytPending){ var v=_ytPending; _ytPending=null; createYtPlayer(v); } };
 function _loadYtApi(){ if(document.getElementById('yt-iframe-api')) return; var s=document.createElement('script'); s.id='yt-iframe-api'; s.src='https://www.youtube.com/iframe_api'; document.head.appendChild(s); }
 function extractVideoId(s){
@@ -858,8 +892,21 @@ function createYtPlayer(videoId){
   ytPlayer=new YT.Player('yt-player',{ videoId:videoId, playerVars:{playsinline:1, rel:0, modestbranding:1}, events:{} });
 }
 function currentClipOffset(){
-  try{ if(ytPlayer && ytPlayer.getCurrentTime){ var t=ytPlayer.getCurrentTime(); if(typeof t==='number' && t>0) return Math.floor(t); } }catch(e){}
-  return (S.game && S.game.stream_start_utc) ? Math.floor((Date.now()-new Date(S.game.stream_start_utc))/1000) : null;
+  // Self-heal: no API verdict yet (e.g. scoring started before the YoloBox
+  // went live) — re-ask every 2 min. Async on purpose; this stamp proceeds
+  // with the old behavior and later stamps get the corrected clock.
+  if(streamMode==='unknown' && S.game && S.game.youtube_stream_id && Date.now()-_streamMetaAt>120000){
+    syncStreamMeta(S.game.youtube_stream_id);
+  }
+  var player=null;
+  try{ if(ytPlayer && ytPlayer.getCurrentTime){ var t=ytPlayer.getCurrentTime(); if(typeof t==='number' && t>0) player=Math.floor(t); } }catch(e){}
+  var wall=(S.game && S.game.stream_start_utc) ? Math.floor((Date.now()-new Date(S.game.stream_start_utc))/1000) : null;
+  // LIVE: the embed is behind the field, so its clock stamps early — trust
+  // wall clock vs the API-verified broadcast start instead.
+  if(streamMode==='live') return wall!=null ? wall : player;
+  // VOD (or no verdict): the scorer is watching the only picture there is —
+  // the player clock is exact and pause/rewind-safe.
+  return player!=null ? player : wall;
 }
 
 async function startScoring() {
@@ -898,6 +945,11 @@ async function startScoring() {
   // clock (and the wall-clock clip-offset fallback) with nothing to measure from.
   var startedAt = g.stream_start_utc || new Date().toISOString()
   S.game.stream_start_utc = startedAt
+  // The game clock runs from when scoring started, NOT from stream_start_utc —
+  // syncStreamMeta may rewind that to the broadcast's actual start, and the
+  // camera often rolls well before first pitch. Notes may hold the persisted
+  // value from a previous session (restored in LOAD LINEUP below).
+  S.scoringStartUtc = startedAt
   await db.from('games').update({status:'live',stream_start_utc:startedAt}).eq('id',gid)
   // Ping subscribed families exactly once per game — only on the FIRST
   // transition to live (a mid-game reload must not re-notify; the server
@@ -917,7 +969,9 @@ async function startScoring() {
   var ytId = extractVideoId(document.getElementById('yt-id').value) || (g.youtube_stream_id || '')
   if(ytId){
     if(ytId !== g.youtube_stream_id) await db.from('games').update({youtube_stream_id:ytId}).eq('id',gid)
+    S.game.youtube_stream_id = ytId
     createYtPlayer(ytId)
+    syncStreamMeta(ytId)  // async — don't hold up scoring on the Google API
   }
   try{
     var {data:last}=await db.from('at_bats').select('ab_num').eq('game_id',gid).order('ab_num',{ascending:false}).limit(1)
@@ -941,6 +995,7 @@ async function startScoring() {
   if(g.notes) {
     try {
       var saved = JSON.parse(g.notes)
+      if(saved.scoring_start_utc) S.scoringStartUtc = saved.scoring_start_utc
       S.acesLineup = saved.aces_lineup || []
       S.currentPitcherId = saved.aces_pitcher_id || null
       S.oppPitcher = saved.opp_pitcher || ''
@@ -962,6 +1017,14 @@ async function startScoring() {
       }
     } catch(e) { console.log('Lineup parse error:', e) }
   }
+  // First start: persist the scoring start now, before syncStreamMeta can
+  // rewind stream_start_utc — otherwise a mid-game reload with no sub logged
+  // would restart the game clock from the (earlier) broadcast start.
+  try{
+    var hadScoringStart = false
+    try{ hadScoringStart = !!JSON.parse(g.notes||'{}').scoring_start_utc }catch(e){}
+    if(!hadScoringStart) saveNotes()
+  }catch(e){}
 
   // Initialize per-pitcher pitch counts from the DB (correct on resume / reload).
   try {
@@ -1728,7 +1791,9 @@ async function convertD3K(safe){
 var _timeLimitMin = null
 function renderClock(){
   var el = document.getElementById('game-clock'); if(!el) return
-  var st = S.game && S.game.stream_start_utc
+  // Scoring start, not stream start — stream_start_utc is the broadcast's
+  // actual start (API-corrected), which can run long before first pitch.
+  var st = S.scoringStartUtc || (S.game && S.game.stream_start_utc)
   if(!S.gameId || !st){ el.textContent = ''; return }
   var sec = Math.max(0, Math.floor((Date.now() - new Date(st)) / 1000))
   var h = Math.floor(sec/3600), m = Math.floor((sec%3600)/60)
