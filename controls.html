@@ -102,6 +102,11 @@ h1 span{color:var(--orange);}
       <div class="sw" id="sw-sponsor_break" onclick="flip('sponsor_break')"></div>
     </div>
     <div class="row">
+      <div class="row-txt"><div class="row-n">"Due up" card after the sponsors</div>
+        <div class="row-s">Closes the between-innings break with the next three hitters, so the broadcast hands viewers back into the game.</div></div>
+      <div class="sw" id="sw-break_dueup" onclick="flip('break_dueup')"></div>
+    </div>
+    <div class="row">
       <div class="row-txt"><div class="row-n">Logo rotation speed</div>
         <div class="row-s">How long each sponsor holds beside the bug.</div></div>
       <div class="num"><button onclick="bump('sponsor_secs',-10)">−</button>
@@ -207,7 +212,7 @@ h1 span{color:var(--orange);}
 <script>
 var db = supabase.createClient(ACES_CONFIG.supabaseUrl, ACES_CONFIG.supabaseKey);
 var S = null, LIVE = null, busy = false;
-var BOOLS = ['sponsor_dock','sponsor_break','bug_show_bases','chip_base_check',
+var BOOLS = ['sponsor_dock','sponsor_break','break_dueup','bug_show_bases','chip_base_check',
              'chip_fielder_tag','chip_spray','chip_d3k','show_home_squad'];
 
 function say(kind, text){

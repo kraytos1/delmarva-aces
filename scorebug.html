@@ -57,6 +57,27 @@
   .sp-break .plate img{ max-width:100%; max-height:100%; object-fit:contain; }
   .sp-break .cap{ font-size:11px; letter-spacing:.22em; text-transform:uppercase; font-weight:700;
     color:#fff; text-shadow:0 2px 10px rgba(0,0,0,.9); }
+  /* the sponsor plate and the due-up panel share the break slot */
+  .sp-break .plate.hide, .sp-break .cap.hide, .sp-break .due.hide{ display:none; }
+
+  /* Due up — closes the between-innings break by handing the viewer straight
+     back into the game. Themed like the bug, not like a sponsor plate. */
+  .due{ min-width:430px; background:linear-gradient(180deg,#12161c,#0c0f14);
+    border:1px solid var(--line); border-radius:16px; overflow:hidden;
+    box-shadow:0 20px 60px rgba(0,0,0,.65); }
+  .due-h{ display:flex; align-items:baseline; gap:10px; padding:12px 20px 10px;
+    border-bottom:1px solid var(--line); }
+  .due-h .t{ font-size:13px; font-weight:800; letter-spacing:.2em; text-transform:uppercase; color:var(--orange); }
+  .due-h .team{ font-size:13px; font-weight:700; color:var(--cream); margin-left:auto;
+    max-width:230px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .due-row{ display:flex; align-items:center; gap:13px; padding:11px 20px; }
+  .due-row + .due-row{ border-top:1px solid rgba(255,255,255,.05); }
+  .due-ord{ font-family:ui-monospace,monospace; font-size:12px; color:var(--muted); width:16px; }
+  .due-num{ font-family:ui-monospace,monospace; font-size:15px; font-weight:800; color:var(--orange2);
+    min-width:34px; }
+  .due-name{ font-size:17px; font-weight:700; color:var(--cream); letter-spacing:.01em;
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .due-pos{ margin-left:auto; font-family:ui-monospace,monospace; font-size:11px; color:var(--muted); }
 
   /* preview-only standby chip (never shows on the live overlay) */
   .standby{ position:fixed; left:26px; bottom:26px; z-index:9; display:none; align-items:center; gap:9px;
@@ -166,8 +187,12 @@
 </div>
 
 <div class="sp-break" id="spBreak">
-  <div class="plate"><img id="spBreakImg" alt=""/></div>
+  <div class="plate" id="spPlate"><img id="spBreakImg" alt=""/></div>
   <div class="cap" id="spBreakCap">Proud sponsor of the Delmarva Aces</div>
+  <div class="due hide" id="dueCard">
+    <div class="due-h"><span class="t">Due Up</span><span class="team" id="dueTeam"></span></div>
+    <div id="dueRows"></div>
+  </div>
 </div>
 
 <div class="standby" id="standby"><span class="d"></span>Scorebug ready — waiting for a live game</div>
@@ -182,6 +207,7 @@ var db = supabase.createClient(ACES_CONFIG.supabaseUrl, ACES_CONFIG.supabaseKey)
 // ?pos=bl|br|tl|tr   corner (default bl)     ?debug=1    show even with no live game
 // ?sponsors=off  kill both sponsor placements   ?sponsordock=off / ?sponsorbreak=off
 // ?sponsorsecs=N dock rotation seconds (default 40)
+// ?dueup=off     no due-up card between innings ?dueupsecs=N (default 9)
 // The pitching and at-bat lines can each be flipped live from overlay.html via
 // the game's bug_show_pitching / bug_show_atbat flags. A URL "off" is a hard
 // override (always hidden); otherwise the live flag decides.
@@ -288,7 +314,8 @@ async function poll(){
 
     render(g, n, isAcesBatting, acesAbs, oppAbs, oppPC, acesPC, lastPitch);
     showBug();
-    spOnState(g);   // half-inning change → sponsor break card
+    // half change → sponsors, then due up (oppName is render-scoped, so derive it here)
+    spOnState(g, n, isAcesBatting, acesAbs, oppAbs, (g.opponents && g.opponents.name) || 'Opponent');
   }catch(e){ /* keep last frame on a hiccup */ }
   finally{ busy = false; }
 }
@@ -399,11 +426,15 @@ var urlBreakOff = Q.get('sponsors')==='off' || Q.get('sponsorbreak')==='off';
 var urlSecs     = Q.get('sponsorsecs') ? Math.max(8, parseInt(Q.get('sponsorsecs'),10)||40) : null;
 var urlBasesOff = Q.get('bases')==='off';
 var urlPos      = Q.get('pos') ? (Q.get('pos')||'').toLowerCase() : null;
+var urlDueOff   = Q.get('dueup')==='off';
+var urlDueSecs  = Q.get('dueupsecs') ? Math.max(3, parseInt(Q.get('dueupsecs'),10)||9) : null;
 var SP = {
   list: [], i: 0, loadedAt: 0,
   dockOn:  !urlDockOff,
   breakOn: !urlBreakOff,
+  dueOn:   !urlDueOff,
   everySec: urlSecs || 40,
+  dueSec:  urlDueSecs || 9,
   lastHalfKey: null, breakTimer: null, breakBusy: false
 };
 
@@ -423,6 +454,8 @@ function applyCfg(){
   if (!CFG) return;
   if (!urlDockOff)  SP.dockOn  = CFG.sponsor_dock !== false;
   if (!urlBreakOff) SP.breakOn = CFG.sponsor_break !== false;
+  if (!urlDueOff)   SP.dueOn   = CFG.break_dueup !== false;
+  if (!urlDueSecs && CFG.dueup_secs) SP.dueSec = Math.max(3, CFG.dueup_secs);
   if (!urlSecs && CFG.sponsor_secs && CFG.sponsor_secs !== SP.everySec){
     SP.everySec = Math.max(8, CFG.sponsor_secs);
     if (_dockTimer){ clearInterval(_dockTimer); _dockTimer = setInterval(spinDock, SP.everySec*1000); }
@@ -480,18 +513,84 @@ function spinDock(){
 }
 // Break card: 3 sponsors, ~5s each, then out. Skipped if one is already
 // running (a fast half change shouldn't stack cards on top of each other).
-function playBreak(){
-  if (!SP.breakOn || SP.breakBusy || !SP.list.length) return;
-  var el = document.getElementById('spBreak'), img = document.getElementById('spBreakImg');
+// ── Between-innings break ───────────────────────────────────────────────────
+// Sponsors first, then DUE UP — so the break ends by handing the viewer back
+// into the game knowing who is coming to the plate. Either half can be turned
+// off independently and the other still plays.
+function dueRowsHtml(list){
+  return list.map(function(b, i){
+    return '<div class="due-row">'
+      + '<span class="due-ord">'+(i+1)+'</span>'
+      + '<span class="due-num">'+(b.num!=null && b.num!=='' ? '#'+esc(b.num) : '')+'</span>'
+      + '<span class="due-name">'+esc(b.name)+'</span>'
+      + (b.pos ? '<span class="due-pos">'+esc(b.pos)+'</span>' : '')
+      + '</div>';
+  }).join('');
+}
+function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,function(c){
+  return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+
+// Who leads off the half that just started. Counts are as of the end of the
+// previous half, which is exactly the right basis for "next up".
+function computeDueUp(n, isAcesBatting, acesAbs, oppAbs, oppName){
+  if (isAcesBatting){
+    var valid = (n.lineup||[]).filter(function(x){return x.playerName;});
+    if (!valid.length) return null;
+    var start = acesAbs.length % valid.length;
+    return { team: 'Delmarva Aces', list: [0,1,2].slice(0, Math.min(3, valid.length)).map(function(k){
+      var b = valid[(start+k) % valid.length];
+      return { num: b.jerseyNum, name: b.playerName, pos: b.position };
+    })};
+  }
+  var opp = (n.oppLineup||[]).filter(function(x){return x.name;});
+  if (!opp.length) return null;              // no opponent order entered — skip
+  var s2 = oppAbs.length % opp.length;
+  return { team: oppName || 'Opponent', list: [0,1,2].slice(0, Math.min(3, opp.length)).map(function(k){
+    var b = opp[(s2+k) % opp.length];
+    var m = String(b.name).match(/^#?(\d+)\s*(.*)$/);   // "12 Smith" / "#12" / "Smith"
+    return m && m[2] ? { num: m[1], name: m[2], pos: b.position }
+                     : { num: (m ? m[1] : ''), name: (m && !m[2] ? '' : b.name), pos: b.position };
+  })};
+}
+
+function playBreak(dueUp){
+  if (SP.breakBusy) return;
+  var wantSponsors = SP.breakOn && SP.list.length > 0;
+  var wantDue      = SP.dueOn && dueUp && dueUp.list.length > 0;
+  if (!wantSponsors && !wantDue) return;
+
+  var el   = document.getElementById('spBreak');
+  var img  = document.getElementById('spBreakImg');
+  var plate= document.getElementById('spPlate');
+  var cap  = document.getElementById('spBreakCap');
+  var due  = document.getElementById('dueCard');
+
   SP.breakBusy = true;
-  var shown = 0, count = Math.min(3, SP.list.length);
   el.classList.add('show');
+  var shown = 0, count = wantSponsors ? Math.min(3, SP.list.length) : 0;
+
+  var finish = function(){
+    el.classList.remove('in');
+    setTimeout(function(){
+      el.classList.remove('show');
+      plate.classList.remove('hide'); cap.classList.remove('hide'); due.classList.add('hide');
+      SP.breakBusy = false;
+    }, 650);
+  };
+  var showDue = function(){
+    if (!wantDue) return finish();
+    el.classList.remove('in');
+    setTimeout(function(){
+      plate.classList.add('hide'); cap.classList.add('hide');
+      document.getElementById('dueTeam').textContent = dueUp.team;
+      document.getElementById('dueRows').innerHTML = dueRowsHtml(dueUp.list);
+      due.classList.remove('hide');
+      el.classList.add('in');
+      SP.breakTimer = setTimeout(finish, SP.dueSec * 1000);
+    }, shown ? 600 : 0);
+  };
   var step = function(){
-    if (shown >= count){
-      el.classList.remove('in');
-      setTimeout(function(){ el.classList.remove('show'); SP.breakBusy = false; }, 650);
-      return;
-    }
+    if (shown >= count) return showDue();
     var s = spNext(); shown++;
     el.classList.remove('in');
     setTimeout(function(){
@@ -504,10 +603,13 @@ function playBreak(){
   step();
 }
 // Called from poll() with the live row: fire on a real half-inning change.
-function spOnState(g){
+function spOnState(g, n, isAcesBatting, acesAbs, oppAbs, oppName){
   var key = (g.inning||1) + ':' + (g.half||'top');
   if (SP.lastHalfKey === null){ SP.lastHalfKey = key; return; }  // first sight isn't a change
-  if (key !== SP.lastHalfKey){ SP.lastHalfKey = key; playBreak(); }
+  if (key !== SP.lastHalfKey){
+    SP.lastHalfKey = key;
+    playBreak(computeDueUp(n, isAcesBatting, acesAbs, oppAbs, oppName));
+  }
 }
 
 var _dockTimer = null;
