@@ -193,6 +193,11 @@ body{background:var(--black);color:var(--text);font-family:var(--body);min-heigh
 #game-clock.tl-warn{color:#F59E0B;font-weight:600;}
 #game-clock.tl-over{color:#ef4444;font-weight:700;animation:blink 1.2s infinite;}
 #game-clock + .inning-lbl{margin-left:10px;}
+/* test-game marker: a coloured rail down the whole scorer plus a badge, so a
+   dry run can never be mistaken for a real game */
+.test-badge{display:inline-block;background:#7C3AED;color:#fff;font-family:var(--mono);font-size:9px;
+  letter-spacing:1px;padding:2px 6px;border-radius:4px;margin-right:7px;vertical-align:middle;}
+body.is-test .top-bar{box-shadow:inset 4px 0 0 #7C3AED;}
 #side-chip{margin-left:10px;background:none;border:1px solid var(--bdr);color:var(--muted);border-radius:4px;height:22px;padding:0 7px;cursor:pointer;font-family:var(--mono);font-size:10px;letter-spacing:.5px;}
 #side-chip.home{color:var(--orange);border-color:var(--orange);}
 /* gameday QoL: no pull-to-refresh / rubber-band mid-game */
@@ -924,7 +929,8 @@ async function init() {
     var opp=g.opponents?.name||'Opponent'
     var d=new Date(g.game_date)
     var ds=d.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric',timeZone:'UTC'})
-    return '<option value="'+g.id+'">'+ds+' vs '+opp+(g.status==='live'?' · LIVE':'')+'</option>'
+    var tags=(g.season==='__test__'?' · TEST':'')+(g.status==='live'?' · LIVE':'')
+    return '<option value="'+g.id+'">'+ds+' vs '+opp+tags+'</option>'
   }).join('')
   // Post-crash recovery with zero thinking: a live game means someone was
   // mid-scoring — pre-select it and make the button say what it will do.
@@ -944,6 +950,9 @@ async function init() {
 // all. Read once at Start Scoring — mid-game changes apply next game, which
 // is deliberate: prompts shouldn't vanish under your thumb mid-inning.
 var CFG = { chip_base_check:true, chip_fielder_tag:true, chip_spray:true, chip_d3k:true }
+// Practice/dry-run game (season '__test__'): invisible to the public site and
+// never announced. api/notify enforces this server-side too.
+var IS_TEST = false
 async function loadCfg(){
   try{
     var r = await db.from('app_settings').select('*').eq('id',1).single()
@@ -1083,6 +1092,7 @@ async function startScoring() {
   }
 
   await loadCfg()   // which post-play prompts this game will offer
+  IS_TEST = (g.season === '__test__')
   S.gameId=gid; S.game=g
   // Side from the schedule (lineup.html's Home/Away radio); the HOME/AWAY
   // chip in the count bar swaps it if the plate-meeting coin flip went the
@@ -1112,7 +1122,7 @@ async function startScoring() {
   // Ping subscribed families exactly once per game — only on the FIRST
   // transition to live (a mid-game reload must not re-notify; the server
   // also dedupes via games.push_sent_live). Fire-and-forget.
-  if (!wasLive) {
+  if (!wasLive && !IS_TEST) {
     try {
       fetch('/api/notify', {method:'POST', headers:{'Content-Type':'application/json'},
         body: JSON.stringify({type:'live', gameId:gid})}).catch(function(){})
@@ -1213,6 +1223,12 @@ async function startScoring() {
   document.getElementById('scorer').style.display='flex'
   var opp=g.opponents?.name||'Opponent'
   document.getElementById('top-game').textContent='Aces vs '+opp
+  // Unmissable while scoring: a test game touches no stats and pings nobody.
+  if(IS_TEST){
+    var tg=document.getElementById('top-game')
+    tg.insertAdjacentHTML('afterbegin','<span class="test-badge">TEST</span>')
+    document.body.classList.add('is-test')
+  }
   try { _timeLimitMin = parseInt(localStorage.getItem('aces_timelimit_'+gid)) || null } catch(e){}
   renderAll()
   updateBatterDisplay()
@@ -1905,10 +1921,12 @@ async function endGame(){
   if(!confirm('End game? Final: Aces '+S.scores.us+' – '+S.scores.them))return
   await db.from('games').update({status:'final',our_score:S.scores.us,opp_score:S.scores.them}).eq('id',S.gameId)
   // Final-score ping (server dedupes via games.push_sent_final)
-  try {
-    fetch('/api/notify', {method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({type:'final', gameId:S.gameId})}).catch(function(){})
-  } catch(e) {}
+  if (!IS_TEST) {
+    try {
+      fetch('/api/notify', {method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({type:'final', gameId:S.gameId})}).catch(function(){})
+    } catch(e) {}
+  }
   showToast('Game final! ✓')
   GAME_OVER=true   // let the redirect below leave without the unload prompt
   setTimeout(function(){window.location="/index.html"},2000)

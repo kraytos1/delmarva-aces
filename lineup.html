@@ -142,6 +142,16 @@ nav{background:#0d1420;border-bottom:1px solid var(--bdr);display:flex;align-ite
           <input type="radio" name="ng-homeway" value="away" style="accent-color:var(--orange);"/> Away
         </label>
       </div>
+      <label style="display:flex;align-items:flex-start;gap:10px;cursor:pointer;background:var(--dark3);border:1px solid var(--bdr);border-radius:8px;padding:11px 12px;">
+        <input type="checkbox" id="ng-test" style="accent-color:var(--orange);margin-top:3px;flex-shrink:0;"/>
+        <span style="font-size:13px;line-height:1.45;">
+          <b>Practice / test game</b>
+          <span style="display:block;color:var(--muted);font-size:12px;margin-top:2px;">
+            Kept out of season stats, the schedule and the home page — and no notifications are sent to families.
+            Use this for a dry run.
+          </span>
+        </span>
+      </label>
       <button onclick="createGame()" style="background:var(--orange);color:white;border:none;border-radius:10px;padding:14px;font-family:var(--display);font-size:16px;font-weight:600;cursor:pointer;letter-spacing:.5px;text-transform:uppercase;">
         ⚾ Create Game
       </button>
@@ -270,7 +280,7 @@ async function refreshGamesList() {
       var opp = oppMap[g.opponent_id] || 'Opponent'
       var d = new Date(g.game_date)
       var ds = d.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric',timeZone:'UTC'})
-      return '<option value="'+g.id+'">'+ds+' vs '+opp+'</option>'
+      return '<option value="'+g.id+'">'+ds+' vs '+opp+(g.season==='__test__'?' · TEST':'')+'</option>'
     }).join('')
   if (cur) sel.value = cur
 }
@@ -314,6 +324,7 @@ async function createGame() {
   var tournament = document.getElementById('ng-tournament').value.trim()
   var location   = document.getElementById('ng-location').value.trim()
   var isHome     = document.querySelector('input[name="ng-homeway"]:checked').value === 'home'
+  var isTest     = !!(document.getElementById('ng-test') || {}).checked
 
   if (!oppName) { showToast('Enter opponent name'); return }
   if (!gameDate) { showToast('Pick a date'); return }
@@ -343,7 +354,11 @@ async function createGame() {
       team_id:     ACES_CONFIG.teamId,
       opponent_id: oppId,
       game_date:   gameDate,
-      season:      (typeof ACES_CONFIG!=='undefined' && ACES_CONFIG.activeSeason) || 'fall2026',
+      // '__test__' is the sentinel every page filters on: a test game is
+      // invisible to stats, the schedule and the home page, and api/notify
+      // refuses to announce it.
+      season:      isTest ? '__test__'
+                          : ((typeof ACES_CONFIG!=='undefined' && ACES_CONFIG.activeSeason) || 'fall2026'),
       status:      'scheduled',
       our_score:   0,
       opp_score:   0,

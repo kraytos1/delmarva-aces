@@ -32,6 +32,7 @@ h1{font-family:var(--display);font-size:22px;font-weight:700;}
 .b-scheduled{background:rgba(122,130,144,.15);color:var(--muted);border:1px solid var(--bdr);}
 .b-live{background:rgba(231,76,60,.15);color:var(--red);border:1px solid rgba(231,76,60,.4);}
 .b-final{background:rgba(61,220,106,.12);color:var(--green);border:1px solid rgba(61,220,106,.3);}
+.b-test{background:rgba(124,58,237,.18);color:#c4a3ff;border:1px solid rgba(124,58,237,.45);vertical-align:middle;}
 .plays{font-family:var(--mono);font-size:11px;color:var(--muted);margin-bottom:12px;}
 .plays b{color:var(--orange);}
 .plays.clean{color:#4a7a5a;}
@@ -105,7 +106,7 @@ async function load(){
     return ''+
     '<div class="card" id="card-'+g.id+'">'+
       '<div class="card-top">'+
-        '<div><div class="g-name">Aces vs '+esc(opp)+'</div>'+
+        '<div><div class="g-name">'+(g.season==='__test__'?'<span class="badge b-test">TEST</span> ':'')+'Aces vs '+esc(opp)+'</div>'+
         '<div class="g-meta">'+ds+'</div></div>'+
         '<span class="badge b-'+st+'">'+st+'</span>'+
       '</div>'+

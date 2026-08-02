@@ -113,10 +113,13 @@ module.exports = async (req, res) => {
 
   // Verify the game really is in the claimed state — the endpoint is public,
   // so the DB is the authority on whether there is anything to announce.
-  const gRes = await sb(`games?id=eq.${encodeURIComponent(gameId)}&select=id,status,our_score,opp_score,push_sent_live,push_sent_final,opponents(name)`);
+  const gRes = await sb(`games?id=eq.${encodeURIComponent(gameId)}&select=id,status,season,our_score,opp_score,push_sent_live,push_sent_final,opponents(name)`);
   const games = await gRes.json();
   const g = Array.isArray(games) && games[0];
   if (!g) return res.status(404).json({ error: 'game not found' });
+  // Practice games never reach families. The scorer already skips the call —
+  // this is the backstop, because a stray announcement can't be taken back.
+  if (g.season === '__test__') return res.status(200).json({ skipped: 'test game' });
   if (type === 'live' && g.status !== 'live') return res.status(409).json({ error: 'game is not live' });
   if (type === 'final' && g.status !== 'final') return res.status(409).json({ error: 'game is not final' });
 
