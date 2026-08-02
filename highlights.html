@@ -64,6 +64,7 @@
   .b-k{background:rgba(122,130,144,.14);color:#c3cad6;border:1px solid var(--bdr);}
   .b-ob{background:rgba(72,149,239,.14);color:#7db1f5;border:1px solid rgba(72,149,239,.3);}
   .b-pitch{background:rgba(147,51,234,.16);color:#c084fc;border:1px solid rgba(147,51,234,.35);}
+  .b-def{background:rgba(45,212,191,.14);color:#5eead4;border:1px solid rgba(45,212,191,.3);}
   .rbi{font-family:var(--mono);font-size:10px;color:var(--orange);letter-spacing:.5px;}
   .clip-batter{font-family:var(--display);font-size:19px;font-weight:600;letter-spacing:.3px;}
   .clip-batter em{color:var(--muted);font-style:normal;font-weight:400;font-size:14px;margin-right:5px;}
@@ -109,6 +110,7 @@
     <button class="filter-btn" data-type="hit" onclick="setType('hit',this)">Hits</button>
     <button class="filter-btn" data-type="ob" onclick="setType('ob',this)">On-Base</button>
     <button class="filter-btn" data-type="k" onclick="setType('k',this)">Strikeouts</button>
+    <button class="filter-btn" data-type="def" onclick="setType('def',this)">Defense</button>
     <select id="playerSel" onchange="render()"><option value="">All players</option></select>
     <div class="spacer"></div>
     <span class="count-tag" id="countTag"></span>
@@ -135,14 +137,24 @@ var RESULT = {
   hbp:{label:'HBP', cls:'b-ob', grp:'ob'},
   double_play:{label:'Double Play', cls:'b-k', grp:'k'}
 };
-// which result-groups each filter shows
+// which result-groups each filter shows (defense clips are matched by _kind
+// in render(), not by result group — their results overlap batting outs)
 var TYPE_MATCH = {
   all:function(){return true;},
   hr:function(g){return g==='hr';},
   xbh:function(g){return g==='hr'||g==='xbh';},
   hit:function(g){return g==='hr'||g==='xbh'||g==='hit';},
   ob:function(g){return g==='ob';},
-  k:function(g){return g==='k';}
+  k:function(g){return g==='k';},
+  def:function(){return false;}
+};
+// labels for defensive plays (result strings shared with batting outs)
+var DEF_LABEL = {
+  groundout:'Ground Out', flyout:'Fly Out', lineout:'Line Out', popout:'Pop Out',
+  double_play:'Double Play', sac_fly:'Sac Fly', sac_bunt:'Sac Bunt',
+  fielders_choice:"Fielder's Choice", dropped_third_k:'D3K — Out at 1st',
+  caught_stealing:'Caught Stealing', pickoff_1b:'Pickoff 1B', pickoff_2b:'Pickoff 2B',
+  pickoff_3b:'Pickoff 3B', out_advancing:'Runner Cut Down'
 };
 
 function pName(ab){
@@ -201,6 +213,14 @@ function setType(t, btn){
 function render(){
   state.player = document.getElementById('playerSel').value;
   var rows = CLIPS.filter(function(ab){
+    if(ab._kind==='defense'){
+      // matched by kind, not result group — a defensive "groundout" must not
+      // leak into the batting filters (and vice versa)
+      if(state.type!=='all' && state.type!=='def') return false;
+      if(state.player && !(ab._fielders||[]).some(function(f){return f.key===state.player})) return false;
+      return true;
+    }
+    if(state.type==='def') return false;
     var info = RESULT[ab.result] || {grp:'hit'};
     if(!TYPE_MATCH[state.type](info.grp)) return false;
     if(state.player){
@@ -213,10 +233,23 @@ function render(){
   var c = document.getElementById('content');
   if(!rows.length){ c.innerHTML = '<div class="load-note">No clips match this filter.</div>'; return; }
   c.innerHTML = '<div class="grid">' + rows.map(function(ab){
-    var info = RESULT[ab.result] || {label:ab.result, cls:'b-hit'};
-    var pl = pName(ab);
-    var rbi = (ab.rbi>0) ? '<span class="rbi">'+ab.rbi+' RBI</span>' : '';
+    var isDef = ab._kind==='defense';
+    var info = isDef ? {label:DEF_LABEL[ab.result]||ab.result, cls:'b-def'}
+                     : (RESULT[ab.result] || {label:ab.result, cls:'b-hit'});
     var g = ab.games || {};
+    var who;
+    if(isDef){
+      // the play chain in tag order — "#23 Coulbourne → #5 Pegelow"
+      who = (ab._fielders||[]).map(function(f){
+        return (f.num!=null?'<em>#'+f.num+'</em>':'')+f.name;
+      }).join(' <span style="color:var(--muted);">→</span> ') || 'Aces defense';
+    } else {
+      var pl = pName(ab);
+      who = pl.num!=null
+        ? '<a href="/player/'+pl.num+'" title="View '+pl.name+'’s page"><em>#'+pl.num+'</em>'+pl.name+'</a>'
+        : pl.name;
+    }
+    var rbi = (!isDef && ab.rbi>0) ? '<span class="rbi">'+ab.rbi+' RBI</span>' : '';
     return '<div class="clip" id="clip-'+ab.id+'">'
       + '<div class="clip-vid" data-embed="'+ytEmbed(g.youtube_stream_id, ab.yt_offset_sec)+'" onclick="playClip(this)">'
       +   '<img loading="lazy" src="'+ytThumb(g.youtube_stream_id)+'" alt="'+info.label+'"/>'
@@ -224,11 +257,10 @@ function render(){
       + '</div>'
       + '<div class="clip-body">'
       + '<div class="clip-top"><span class="badge '+info.cls+'">'+info.label+'</span>'
-        + (ab._kind==='pitching' ? '<span class="badge b-pitch">⚾ Pitching</span>' : rbi)
+        + (ab._kind==='pitching' ? '<span class="badge b-pitch">⚾ Pitching</span>'
+           : isDef ? '<span class="badge b-def">🧤 Defense</span>' : rbi)
         + '<button class="clip-share" onclick="shareClip(this,\''+ab.id+'\')" title="Share this clip">🔗</button></div>'
-      + '<div class="clip-batter">'+(pl.num!=null
-          ? '<a href="/player/'+pl.num+'" title="View '+pl.name+'’s page"><em>#'+pl.num+'</em>'+pl.name+'</a>'
-          : pl.name)+'</div>'
+      + '<div class="clip-batter">'+who+'</div>'
       + '<div class="clip-meta">'+meta(ab)+'</div>'
       + '</div></div>';
   }).join('') + '</div>';
@@ -237,6 +269,12 @@ function render(){
 function buildPlayerFilter(){
   var seen = {}, opts = [];
   CLIPS.forEach(function(ab){
+    if(ab._kind==='defense'){
+      (ab._fielders||[]).forEach(function(f){
+        if(!seen[f.key]){ seen[f.key]=1; opts.push({key:f.key, label:(f.num!=null?'#'+f.num+' ':'')+f.name}); }
+      });
+      return;
+    }
     var p = ab.players||{};
     var key = String(p.jersey_num||'')+((p.first_name||'')+(p.last_name||''));
     if(!seen[key]){ seen[key]=1; opts.push({key:key, label:(p.jersey_num!=null?'#'+p.jersey_num+' ':'')+pName(ab).name}); }
@@ -320,7 +358,31 @@ async function init(){
     var pitching = (pitRes.data || []).filter(function(ab){ return ab.games && ab.games.youtube_stream_id; });
     pitching.forEach(function(ab){ ab._kind = 'pitching'; });
 
-    CLIPS = hitting.concat(pitching).sort(function(a,b){ return (b.created_at||'').localeCompare(a.created_at||''); });
+    // Defensive highlights — outs where the scorer tagged the fielders.
+    // fielder_ids is an array (no FK join), so names resolve via the roster.
+    var defense = [];
+    try {
+      var defRes = await db.from('at_bats')
+        .select('id,result,fielder_ids,inning,half,yt_offset_sec,created_at, games(game_date, youtube_stream_id, opponents(name))')
+        .not('fielder_ids','is',null).not('yt_offset_sec','is',null)
+        .order('created_at',{ascending:false});
+      var defRows = (defRes.data || []).filter(function(ab){ return ab.games && ab.games.youtube_stream_id && (ab.fielder_ids||[]).length; });
+      if(defRows.length){
+        var ros = await db.from('players').select('id,first_name,last_name,jersey_num');
+        var byId = {};
+        (ros.data||[]).forEach(function(p){
+          byId[p.id] = {num:p.jersey_num, name:((p.first_name||'')+' '+(p.last_name||'')).trim(),
+                        key:String(p.jersey_num||'')+((p.first_name||'')+(p.last_name||''))};
+        });
+        defRows.forEach(function(ab){
+          ab._kind = 'defense';
+          ab._fielders = (ab.fielder_ids||[]).map(function(id){ return byId[id]; }).filter(Boolean);
+        });
+        defense = defRows;
+      }
+    } catch(e){}
+
+    CLIPS = hitting.concat(pitching, defense).sort(function(a,b){ return (b.created_at||'').localeCompare(a.created_at||''); });
 
     if(!CLIPS.length){
       var q = await db.from('at_bats').select('id',{count:'exact',head:true}).neq('clip_status','none');

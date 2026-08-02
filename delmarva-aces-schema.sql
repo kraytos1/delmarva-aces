@@ -122,6 +122,10 @@ create table at_bats (
   clip_url      text,            -- Cloudflare R2 URL after processing
   clip_status   text default 'none',
   -- clip_status: 'none' | 'queued' | 'ready'
+  fielder_ids   uuid[],          -- Aces fielders tagged on a defensive out
+                                 -- (tap order = the play chain, e.g. 6-4-3);
+                                 -- added 2026-08-02, tagging also sets
+                                 -- clip_status='queued' so the play clips
   created_at    timestamptz default now()
 );
 

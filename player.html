@@ -139,6 +139,7 @@ nav{background:rgba(10,12,14,.95);border-bottom:1px solid var(--bdr);display:fle
 .pclip-top{display:flex;align-items:center;gap:7px;margin-bottom:5px;flex-wrap:wrap;}
 .pclip-badge{font-family:var(--mono);font-size:9px;letter-spacing:.5px;text-transform:uppercase;padding:2px 8px;border-radius:4px;background:var(--og);color:var(--orange);border:1px solid var(--bdr-a);}
 .pclip-badge-p{background:rgba(147,51,234,.16);color:#c084fc;border:1px solid rgba(147,51,234,.35);}
+.pclip-badge-d{background:rgba(45,212,191,.14);color:#5eead4;border:1px solid rgba(45,212,191,.3);}
 .pclip-rbi{font-family:var(--mono);font-size:9px;color:var(--orange);}
 .pclip-meta{font-family:var(--mono);font-size:10px;color:var(--muted);}
 .clips-all{text-align:center;margin-top:16px;}
@@ -469,6 +470,14 @@ var CLIP_LABEL = {
   strikeout_swinging:'Strikeout', strikeout_looking:'Strikeout (looking)',
   walk:'Walk', hbp:'HBP', double_play:'Double Play'
 }
+// labels for defensive plays (this kid tagged as a fielder on the out)
+var DEF_LABEL = {
+  groundout:'Ground Out', flyout:'Fly Out', lineout:'Line Out', popout:'Pop Out',
+  double_play:'Double Play', sac_fly:'Sac Fly', sac_bunt:'Sac Bunt',
+  fielders_choice:"Fielder's Choice", dropped_third_k:'D3K — Out at 1st',
+  caught_stealing:'Caught Stealing', pickoff_1b:'Pickoff 1B', pickoff_2b:'Pickoff 2B',
+  pickoff_3b:'Pickoff 3B', out_advancing:'Runner Cut Down'
+}
 // Path A: a clip is a YouTube deep-link into the game's live-stream VOD.
 // ytEmbed / ytThumb / playClip live in /clips.js — shared with highlights.html
 // so the clip window and the stop-at-the-end behaviour stay identical on both.
@@ -518,7 +527,17 @@ async function loadPlayerClips(playerId) {
     if (pit.error) throw pit.error
     var pitching = (pit.data || []).filter(function(ab){ return ab.games && ab.games.youtube_stream_id })
     pitching.forEach(function(ab){ ab._kind = 'pitching' })
-    var clips = hitting.concat(pitching).sort(function(a,b){ return (b.created_at||'').localeCompare(a.created_at||'') })
+    // Defensive clips — plays where this kid was tagged as one of the fielders
+    var defense = []
+    try {
+      var dfr = await db.from('at_bats')
+        .select('id,result,fielder_ids,inning,half,yt_offset_sec,created_at, games(game_date, youtube_stream_id, opponents(name))')
+        .contains('fielder_ids', [playerId]).not('yt_offset_sec', 'is', null)
+        .order('created_at', { ascending: false })
+      defense = (dfr.data || []).filter(function(ab){ return ab.games && ab.games.youtube_stream_id })
+      defense.forEach(function(ab){ ab._kind = 'defense' })
+    } catch(e) {}
+    var clips = hitting.concat(pitching, defense).sort(function(a,b){ return (b.created_at||'').localeCompare(a.created_at||'') })
     if (!clips.length) { section.insertAdjacentHTML('beforeend', backLink); return }
     var cards = clips.map(function(ab) {
       var g = ab.games || {}
@@ -526,8 +545,10 @@ async function loadPlayerClips(playerId) {
       var dt = g.game_date ? new Date(g.game_date).toLocaleDateString('en-US', {month:'short',day:'numeric',timeZone:'UTC'}) : ''
       var badge = ab._kind === 'pitching'
         ? '<span class="pclip-badge pclip-badge-p">'+(CLIP_LABEL[ab.result]||ab.result)+' · P</span>'
+        : ab._kind === 'defense'
+        ? '<span class="pclip-badge pclip-badge-d">🧤 '+(DEF_LABEL[ab.result]||ab.result)+'</span>'
         : '<span class="pclip-badge">'+(CLIP_LABEL[ab.result]||ab.result)+'</span>'
-      var rbi = (ab._kind !== 'pitching' && ab.rbi > 0) ? '<span class="pclip-rbi">'+ab.rbi+' RBI</span>' : ''
+      var rbi = (ab._kind !== 'pitching' && ab._kind !== 'defense' && ab.rbi > 0) ? '<span class="pclip-rbi">'+ab.rbi+' RBI</span>' : ''
       var half = ab.half === 'top' ? 'Top' : 'Bot'
       return '<div class="pclip">'
         + '<div class="pclip-vid" data-embed="'+ytEmbed(g.youtube_stream_id, ab.yt_offset_sec)+'" onclick="playClip(this)">'

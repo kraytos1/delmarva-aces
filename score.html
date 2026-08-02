@@ -213,6 +213,20 @@ body{background:var(--black);color:var(--text);font-family:var(--body);min-heigh
 .bc-base-btn.on{border-color:var(--orange);color:var(--orange);background:var(--og);}
 .bc-runs-btn{border:1px solid var(--bdr);border-radius:8px;background:var(--dark3);color:var(--text);font-size:18px;width:42px;height:42px;cursor:pointer;}
 
+/* fielder-tag chip + picker */
+#ft-chip{position:fixed;bottom:76px;left:50%;transform:translateX(-50%);background:var(--dark2);border:1px solid var(--bdr-a);
+  border-radius:14px;padding:10px 12px;z-index:289;display:none;align-items:center;gap:8px;box-shadow:0 10px 26px rgba(0,0,0,.5);}
+#ft-chip .ft-q{font-family:var(--mono);font-size:11px;color:var(--muted);white-space:nowrap;max-width:46vw;overflow:hidden;text-overflow:ellipsis;}
+#ft-chip button{border:1px solid var(--bdr);border-radius:8px;background:var(--dark3);color:var(--text);
+  font-size:12px;padding:8px 10px;cursor:pointer;white-space:nowrap;}
+#ft-chip .ft-tag{border-color:var(--orange);color:var(--orange);}
+#ft-chip .ft-skip{border-color:#555;color:#999;}
+.ft-kid{border:1px solid var(--bdr);border-radius:8px;background:var(--dark3);color:var(--text);
+  font-size:13px;padding:12px 6px;cursor:pointer;text-align:center;}
+.ft-kid.on{border-color:var(--orange);color:var(--orange);background:var(--og);}
+.ft-kid .ft-pos{display:block;font-family:var(--mono);font-size:9px;color:var(--muted);margin-top:2px;}
+.ft-kid.on .ft-pos{color:var(--orange);}
+
 /* subs button + sheet */
 .subs-btn{background:var(--dark3);border:1px solid var(--bdr-a);color:var(--orange);border-radius:8px;padding:7px 11px;font-family:var(--mono);font-size:11px;font-weight:500;cursor:pointer;white-space:nowrap;}
 .subs-btn:active{opacity:.8;}
@@ -535,6 +549,13 @@ body{background:var(--black);color:var(--text);font-family:var(--body);min-heigh
   <span class="bc-q" id="bc-q"></span>
   <button class="bc-ok" onclick="hideBaseCheck()">✓ Right</button>
   <button class="bc-fix" onclick="openBaseFix()">Fix</button>
+</div>
+
+<!-- Fielder tag: credit the kids who made a defensive out -->
+<div id="ft-chip">
+  <span class="ft-q" id="ft-q"></span>
+  <button class="ft-tag" onclick="openFielderPick()">🧤 Tag</button>
+  <button class="ft-skip" onclick="hideFielderTag()">✕</button>
 </div>
 
 <div class="toast" id="toast"></div>
@@ -1439,6 +1460,9 @@ async function logAB(result, label, skipPitchLog, fromAuto, runnerId) {
   // match the field. Offer the check while the play is fresh (skip on the 3rd
   // out: the half-end flow makes any correction stale immediately).
   if(BC_RESULTS.test(result) && basesBefore.some(Boolean) && S.outs<3) offerBaseCheck(result, label, runs)
+  // Aces recorded an out in the field — offer defensive credit (fine on the
+  // 3rd out: the tag is a row patch, still valid after the half flips)
+  if(FT_RESULTS.test(result) && !acesUp()) offerFielderTag(result, label)
 }
 
 function applyBaserunners(r) {
@@ -1686,6 +1710,8 @@ async function undoLast(){
   hideBaseCheck()   // the play being undone is the one the chip would patch
   if(!HISTORY.length){showToast('Nothing to undo');return}
   var last = HISTORY.pop()
+  // fielder tag survives other actions, but not the deletion of its own play
+  if(_fldTag && _fldTag.entry === last) hideFielderTag()
   if(last.tally) tallyAtBat(last.tally.bid, last.tally.result, -1)
 
   // If this action is still sitting in the offline queue (never synced),
@@ -1844,6 +1870,8 @@ async function convertD3K(safe){
   await pushState()
   renderAll()
   showToast(safe ? '✓ Batter safe at 1st' : '✓ Out at 1st recorded')
+  // Our catcher threw out their runner at 1st on the dropped 3rd — tag-worthy
+  if(!safe && !acesUp()) offerFielderTag('dropped_third_k', label, entry)
 }
 
 // ── POST-PLAY BASE CHECK ─────────────────────────────────────
@@ -1948,6 +1976,102 @@ async function saveBaseFix(){
   }
   await pushState(); renderAll()
   showToast('Play corrected — '+bcSummary(S.bases, newRuns)+' ✓')
+}
+
+// ── FIELDER TAG (defensive credit) ───────────────────────────
+// Every stat and clip on the site keys off batters and pitchers — a kid who
+// plays great defense but hits .200 gets nothing. When the Aces record an
+// out in the field, this chip offers to tag who made the play (tap order =
+// the chain, 6-4-3 style). Saving stamps fielder_ids on the at-bat row and
+// flags it clip_status='queued', so the play shows up as a defensive
+// highlight on highlights.html and each tagged kid's player page. Patch-only
+// (no game-state math), so unlike the base check it survives the half flip —
+// the 3rd out of an inning is often the best play, and the between-innings
+// lull is exactly when the coach has time to tag it.
+var _fldTag = null, _ftTimer = null, _fldSel = []
+var FT_RESULTS = /^(groundout|flyout|lineout|popout|double_play|sac_fly|sac_bunt|fielders_choice|dropped_third_k|caught_stealing|pickoff_1b|pickoff_2b|pickoff_3b|out_advancing)$/
+
+function offerFielderTag(result, label, entry){
+  entry = entry || (HISTORY.length ? HISTORY[HISTORY.length-1] : null)
+  if(!entry) return
+  var kids = (S.acesLineup||[]).filter(function(e){ return e.playerId && e.playerName })
+  if(!kids.length) return   // emergency no-lineup scoring — nobody to tag
+  _fldTag = { entry: entry, result: result, label: label || result }
+  _fldSel = []
+  document.getElementById('ft-q').textContent = '🧤 '+(_fldTag.label)+' — who made the play?'
+  var chip = document.getElementById('ft-chip')
+  // stack above the base-check chip when both fire on the same play
+  chip.style.bottom = (document.getElementById('bc-chip').style.display === 'flex') ? '132px' : '76px'
+  chip.style.display = 'flex'
+  clearTimeout(_ftTimer)
+  _ftTimer = setTimeout(hideFielderTag, 25000)
+}
+function hideFielderTag(){
+  _fldTag = null; _fldSel = []
+  clearTimeout(_ftTimer)
+  var el = document.getElementById('ft-chip')
+  if(el) el.style.display = 'none'
+}
+function openFielderPick(){
+  if(!_fldTag) return
+  clearTimeout(_ftTimer)   // no timeout while the coach is mid-pick
+  document.getElementById('ft-chip').style.display = 'none'
+  renderFielderPick()
+  document.getElementById('modal-overlay').style.display = 'flex'
+}
+function renderFielderPick(){
+  if(!_fldTag) return
+  document.getElementById('modal-title').textContent = _fldTag.label+' — who made the play?'
+  var order = {}; POS_LIST.forEach(function(p,i){ order[p]=i })
+  var kids = (S.acesLineup||[]).filter(function(e){ return e.playerId && e.playerName })
+    .slice().sort(function(a,b){ return (order[a.position]??99) - (order[b.position]??99) })
+  var html = '<div class="outcome-grid">'
+  kids.forEach(function(e){
+    var sel = _fldSel.indexOf(e.playerId)
+    html += '<button class="ft-kid'+(sel>=0?' on':'')+'" onclick="toggleFielder(\''+e.playerId+'\')">'+
+      (sel>=0 ? (sel+1)+'. ' : '')+(e.jerseyNum?'#'+e.jerseyNum+' ':'')+subEsc(e.playerName.split(' ').pop())+
+      '<span class="ft-pos">'+(e.position||'')+'</span></button>'
+  })
+  html += '</div>'+
+    '<div style="font-family:var(--mono);font-size:10px;color:var(--muted);margin:10px 0;">Tap in play order — 6-4-3 style. Order shows on the highlight.</div>'+
+    '<button class="oc-btn oc-hit" style="width:100%;margin-bottom:8px;" onclick="saveFielderTag()">Save'+(_fldSel.length?' ('+_fldSel.length+')':'')+'</button>'+
+    '<button class="oc-btn oc-out" style="width:100%;" onclick="cancelFielderTag()">Skip — nobody tagged</button>'
+  document.getElementById('modal-body').innerHTML = html
+}
+function toggleFielder(pid){
+  if(!_fldTag) return
+  var i = _fldSel.indexOf(pid)
+  if(i>=0) _fldSel.splice(i,1); else _fldSel.push(pid)
+  renderFielderPick()
+}
+function cancelFielderTag(){
+  document.getElementById('modal-overlay').style.display = 'none'
+  hideFielderTag()
+}
+async function saveFielderTag(){
+  var ctx = _fldTag, sel = _fldSel.slice()
+  document.getElementById('modal-overlay').style.display = 'none'
+  hideFielderTag()
+  if(!ctx || !sel.length) return
+  // Tagging = this play is worth watching: queue the clip too
+  var patch = { fielder_ids: sel, clip_status: 'queued' }
+  var entry = ctx.entry
+  if(entry.atBatId){
+    // .select() so a blocked write (or an undone row) can't silently no-op
+    try {
+      var up = await db.from('at_bats').update(patch).eq('id', entry.atBatId).select('id')
+      if(up.error || !(up.data && up.data.length)){ showToast('⚠ Tag not saved — play may have been undone'); return }
+    } catch(e){ showToast('⚠ Tag not saved — check connection'); return }
+  } else if(entry.localAbId){
+    var q = getQueue()
+    q.forEach(function(it){ if(it.id === entry.localAbId) Object.assign(it.data, patch) })
+    saveQueue(q)
+  } else { showToast('⚠ Tag not saved — play not found'); return }
+  var names = sel.map(function(pid){
+    var e = (S.acesLineup||[]).find(function(x){ return x.playerId === pid })
+    return e ? e.playerName.split(' ').pop() : '?'
+  })
+  showToast('🧤 '+names.join(' → ')+' — great play saved!')
 }
 
 // ── GAME CLOCK (tap to set a tournament time limit) ──────────
