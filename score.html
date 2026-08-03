@@ -19,7 +19,10 @@
   --orange:#E8530A;--og:rgba(232,83,10,.15);--black:#0A0C0E;
   --dark:#111418;--dark2:#181C22;--dark3:#1F242C;
   --bdr:rgba(255,255,255,.08);--bdr-a:rgba(232,83,10,.4);
-  --text:#F0EDE8;--muted:#7A8290;--green:#3DDC6A;
+  /* muted lifted from #7A8290: at a ballfield, screen glare raises the black
+     point and the old value collapsed below readable. #97A1B0 clears AA on
+     every surface it sits on. */
+  --text:#F0EDE8;--muted:#97A1B0;--green:#3DDC6A;
   --mono:'Roboto Mono',monospace;--display:'Oswald',sans-serif;--body:'Inter',sans-serif;
 }
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
@@ -38,6 +41,12 @@ body{background:var(--black);color:var(--text);font-family:var(--body);min-heigh
 .field-inp:focus{border-color:var(--orange);}
 .setup-btn{width:100%;background:var(--orange);color:white;border:none;border-radius:10px;padding:15px;font-family:var(--display);font-size:18px;font-weight:600;letter-spacing:.5px;text-transform:uppercase;cursor:pointer;margin-top:4px;}
 .setup-btn:active{opacity:.85;}
+.setup-btn:disabled{opacity:.55;cursor:default;}
+
+/* Buttons don't inherit font-family — without this, a dozen controls
+   (including Skip batter / End half / Undo / Final) render in the browser's
+   default font instead of the site face. */
+button,select,input,textarea{font-family:var(--body);}
 
 /* ── SCORER LAYOUT ── */
 .scorer{display:none;flex-direction:column;min-height:100vh;}
@@ -55,10 +64,17 @@ body{background:var(--black);color:var(--text);font-family:var(--body);min-heigh
 @keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
 
 /* count bar — sticky below top bar */
-.count-bar{background:var(--dark2);padding:6px 14px;display:flex;align-items:center;border-bottom:1px solid var(--bdr);flex-shrink:0;position:sticky;top:50px;z-index:39;}
+/* Not sticky: its old top:50px never matched the 74px top bar, so scrolling
+   clipped the pips under it. After the mobile fill layout the page rarely
+   scrolls at all, and when it does the count belongs with the content. */
+.count-bar{background:var(--dark2);padding:6px 14px;display:flex;align-items:center;border-bottom:1px solid var(--bdr);flex-shrink:0;}
 .bso-grp{display:flex;align-items:center;gap:5px;margin-right:12px;}
 .bso-lbl{font-family:var(--mono);font-size:11px;color:var(--muted);width:10px;}
-.pip{width:13px;height:13px;border-radius:50%;border:2px solid rgba(255,255,255,.15);background:transparent;cursor:pointer;transition:background .1s;}
+/* Pips are the readout AND the editor — keep them visually small but give a
+   real hit area (::after) and a visible empty state for sunlight. */
+.pip{width:13px;height:13px;border-radius:50%;border:2px solid rgba(255,255,255,.4);background:transparent;cursor:pointer;transition:background .1s;position:relative;}
+.pip::after{content:'';position:absolute;inset:-9px;border-radius:50%;}
+.count-num{font-family:var(--mono);font-size:14px;font-weight:600;color:var(--text);margin-right:12px;min-width:28px;font-variant-numeric:tabular-nums;}
 .pip.b-on{background:#1a7ac4;border-color:#1a7ac4;}
 .pip.s-on{background:#e74c3c;border-color:#e74c3c;}
 .pip.o-on{background:#666;border-color:#555;}
@@ -125,8 +141,10 @@ body{background:var(--black);color:var(--text);font-family:var(--body);min-heigh
 .bot-bar{background:var(--dark2);border-top:1px solid var(--bdr);padding:8px 12px;display:flex;gap:8px;position:sticky;bottom:0;z-index:40;}
 .bot-btn{flex:1;padding:12px 4px;font-size:12px;font-weight:500;border:1px solid var(--bdr);border-radius:8px;background:var(--dark3);color:var(--muted);cursor:pointer;text-align:center;}
 .bot-btn:active{opacity:.8;}
-.bot-btn.danger{border-color:#e74c3c;color:#e74c3c;}
-.bot-btn.end{border-color:var(--orange);color:var(--orange);}
+/* text lifted above the brand hues so 12px labels clear AA on --dark3;
+   borders keep the true brand colors */
+.bot-btn.danger{border-color:#e74c3c;color:#FF7B72;}
+.bot-btn.end{border-color:var(--orange);color:#FF7A33;}
 /* Deliberately NOT the primary button. The order advances by itself after
    every outcome, so this one only ever SKIPS a hitter — making it the big
    orange CTA invited exactly the mis-tap it causes. */
@@ -145,6 +163,45 @@ body{background:var(--black);color:var(--text);font-family:var(--body);min-heigh
 .rf-dot.ball{background:#1a7ac4;}.rf-dot.strike{background:#e74c3c;}.rf-dot.foul{background:#BA7517;}
 .rf-dot.hit{background:var(--green);}.rf-dot.out{background:#7f8894;}.rf-dot.walk{background:#7F77DD;}.rf-dot.inplay{background:#27ae60;}
 .rf-main{color:var(--text);}.rf-meta{margin-left:auto;font-family:var(--mono);font-size:11px;color:var(--muted);}
+
+/* Phone / tablet portrait — fill the viewport. Without this the flex column
+   packed to the top: with the video open the outcome buttons overflowed
+   UNDER the sticky bottom bar (unreachable, no scroll cue), and without it
+   ~185px of dead black sat in the thumb zone. Now the primary buttons absorb
+   the spare height; if content genuinely can't fit (video open on a short
+   phone) the scorer scrolls inside its own box and the bar stays put. */
+@media(max-width:1023px){
+  .scorer{height:100vh;height:100dvh;min-height:0;overflow-y:auto;}
+  /* Explicit floors, not intrinsic ones: Chrome computes the grid's automatic
+     minimum from its fr-resolved size, which froze the whole chain at content
+     height (buttons overflowed under the bar). Pinned minimums let flex
+     compress to exactly these floors, and past that the scorer scrolls with
+     the bar at the true bottom. 414 = mid-row 216 + grid floor 198. */
+  .scorer-body{display:flex;flex-direction:column;flex:1;min-height:414px;}
+  .action-col{display:flex;flex-direction:column;flex:1;min-height:198px;}
+  .mid-row{flex-shrink:0;}
+  /* min-height matches the track minimums (56+62+44 + 16 gap + 20 padding):
+     Chrome computes the grid's automatic minimum from its fr-resolved size,
+     which silently blocked every ancestor from shrinking — this pins the true
+     floor so tight viewports compress the buttons instead of overflowing. */
+  .result-area{flex:1;display:grid;grid-template-rows:minmax(56px,1.15fr) minmax(62px,1fr) minmax(44px,.8fr);min-height:198px;}
+  /* min-height:0 is load-bearing: without it each row's CONTENT size becomes
+     the grid's floor and the minmax() minimums never engage, so short phones
+     overflowed by the difference */
+  .result-area>*{height:100%;min-height:0;}
+  .rb-btn{min-height:0;height:100%;}
+}
+
+/* short phones (SE/667-class): shrink the field diagram so the whole scorer
+   still fits without scrolling */
+@media(max-width:1023px) and (max-height:700px){
+  .field-wrap svg{width:148px;height:148px;}
+}
+
+/* keyboard hints — desk scoring only; pure noise on a touchscreen */
+.rb-btn,.bot-btn{position:relative;}
+.key-hint{position:absolute;top:3px;right:6px;font-family:var(--mono);font-size:9px;opacity:.5;pointer-events:none;}
+@media(pointer:coarse){.key-hint{display:none;}}
 
 /* iPad Pro landscape — two column layout */
 @media(min-width:1024px){
@@ -186,12 +243,19 @@ body{background:var(--black);color:var(--text);font-family:var(--body);min-heigh
 .oc-btn{padding:14px 4px;font-size:13px;font-weight:500;border:1px solid var(--bdr);border-radius:10px;background:var(--dark3);color:var(--text);cursor:pointer;text-align:center;line-height:1.3;}
 .oc-btn:active{opacity:.8;}
 .oc-hit{border-color:#27ae60;color:#3DDC6A;background:rgba(39,174,96,.08);}
-.oc-out{border-color:#555;color:#888;background:rgba(102,102,102,.08);}
+.oc-out{border-color:#555;color:#999;background:rgba(102,102,102,.08);}
 .oc-xb{border-color:#E8530A;color:#f07040;background:rgba(232,83,10,.08);}
+/* outs that can plate a run — visually distinct from plain outs so Sac fly
+   can never be mistaken for Pop out at a glance */
+.oc-sac{border-color:#F59E0B;color:#FACC15;background:rgba(245,158,11,.08);}
 .clip-tag{font-size:9px;color:var(--muted);display:block;margin-top:3px;}
 
 .toast{position:fixed;bottom:90px;left:50%;transform:translateX(-50%);background:#1a2332;border:1px solid var(--orange);color:var(--orange);padding:8px 20px;border-radius:20px;font-family:var(--mono);font-size:12px;opacity:0;transition:opacity .3s;pointer-events:none;z-index:300;white-space:nowrap;}
 .toast.show{opacity:1;}
+/* when a post-play chip is up, the toast moves above it — the two used to
+   share the same 60px band, and "Run scores!" covered the very chip that
+   exists to catch a wrong run */
+.toast.raised{bottom:196px;}
 
 /* game clock (tap to set a time limit) */
 #game-clock{font-family:var(--mono);font-size:11px;color:var(--muted);margin-left:auto;cursor:pointer;padding:2px 6px;border-radius:4px;}
@@ -312,16 +376,18 @@ html,body{overscroll-behavior-y:none;}
     <div class="top-right">
       <button class="subs-btn" onclick="openSubs()">⇄ Subs</button>
       <div class="score-pill">
+        <!-- steppers were 19x13px driving the live broadcast score — grown to
+             a real tap size; corrections are also undoable now (snapManual) -->
         <div style="display:flex;flex-direction:column;align-items:center;gap:0px;">
-          <button onclick="adjScore('us',1)"  style="background:none;border:none;color:var(--orange);font-size:11px;cursor:pointer;line-height:1;padding:1px 4px;">▲</button>
+          <button onclick="adjScore('us',1)"  style="background:none;border:none;color:var(--orange);font-size:13px;cursor:pointer;line-height:1;padding:3px 12px;">▲</button>
           <span class="s-num" id="sc-us">0</span>
-          <button onclick="adjScore('us',-1)" style="background:none;border:none;color:var(--muted);font-size:11px;cursor:pointer;line-height:1;padding:1px 4px;">▼</button>
+          <button onclick="adjScore('us',-1)" style="background:none;border:none;color:var(--muted);font-size:13px;cursor:pointer;line-height:1;padding:3px 12px;">▼</button>
         </div>
         <span class="s-sep">–</span>
         <div style="display:flex;flex-direction:column;align-items:center;gap:0px;">
-          <button onclick="adjScore('them',1)"  style="background:none;border:none;color:var(--orange);font-size:11px;cursor:pointer;line-height:1;padding:1px 4px;">▲</button>
+          <button onclick="adjScore('them',1)"  style="background:none;border:none;color:var(--orange);font-size:13px;cursor:pointer;line-height:1;padding:3px 12px;">▲</button>
           <span class="s-num" id="sc-them">0</span>
-          <button onclick="adjScore('them',-1)" style="background:none;border:none;color:var(--muted);font-size:11px;cursor:pointer;line-height:1;padding:1px 4px;">▼</button>
+          <button onclick="adjScore('them',-1)" style="background:none;border:none;color:var(--muted);font-size:13px;cursor:pointer;line-height:1;padding:3px 12px;">▼</button>
         </div>
       </div>
       <span id="kb-dot" title="Keyboard / Stream Deck input will land here">⌨</span>
@@ -337,7 +403,7 @@ html,body{overscroll-behavior-y:none;}
   <div id="vid-panel" style="display:none;background:#000;border-bottom:1px solid var(--bdr);">
     <div class="vid-wrap"><div id="yt-player"></div></div>
     <div style="text-align:center;padding:2px 0;">
-      <button type="button" onclick="var w=document.querySelector('#vid-panel .vid-wrap');w.style.display=(w.style.display==='none'?'block':'none');" style="background:none;border:none;color:var(--muted);font-family:var(--mono);font-size:10px;cursor:pointer;letter-spacing:.5px;">▾ toggle video</button>
+      <button type="button" id="vid-toggle" onclick="toggleVid()" style="background:none;border:none;color:var(--muted);font-family:var(--mono);font-size:11px;cursor:pointer;letter-spacing:.5px;padding:4px 14px;">▾ hide video</button>
     </div>
   </div>
 
@@ -354,6 +420,8 @@ html,body{overscroll-behavior-y:none;}
       <div class="pip" id="s1" onclick="mc('s',0)"></div>
       <div class="pip" id="s2" onclick="mc('s',1)"></div>
     </div>
+    <!-- numeric count: the pips alone are colour-only and vanish in sunlight -->
+    <span class="count-num" id="count-num">0-0</span>
     <div class="bso-grp">
       <span class="bso-lbl">O</span>
       <div class="pip" id="o1" onclick="setOuts(1)"></div>
@@ -479,37 +547,45 @@ html,body{overscroll-behavior-y:none;}
   <div class="result-area">
     <div class="result-row-top">
       <button class="rb-btn rb-ball" onclick="quickLog('ball')" style="padding:10px 4px;">
+        <span class="key-hint">B</span>
         <div class="rb-icon">B</div>
         <div class="rb-lbl">Ball</div>
       </button>
       <button class="rb-btn rb-strike" onclick="quickLog('strike_called')" style="padding:10px 4px;">
+        <span class="key-hint">C</span>
         <div class="rb-icon">K</div>
         <div class="rb-lbl">Called</div>
       </button>
       <button class="rb-btn rb-strike" onclick="quickLog('strike_swinging')" style="padding:10px 4px;">
+        <span class="key-hint">S</span>
         <div class="rb-icon">K</div>
         <div class="rb-lbl">Swing</div>
       </button>
       <button class="rb-btn rb-foul" onclick="quickLog('foul')" style="padding:10px 4px;">
+        <span class="key-hint">F</span>
         <div class="rb-icon">F</div>
         <div class="rb-lbl">Foul</div>
       </button>
     </div>
     <div class="result-row-bot">
       <button class="rb-btn rb-inplay" onclick="openModal('inplay')" style="padding:14px 8px;">
+        <span class="key-hint">M</span>
         <div class="rb-icon" style="font-size:28px;">⬡</div>
         <div class="rb-lbl" style="font-size:13px;margin-top:4px;">Ball in Play</div>
       </button>
       <button class="rb-btn rb-out" onclick="openModal('outk')" style="padding:14px 8px;">
+        <span class="key-hint">K</span>
         <div class="rb-icon" style="font-size:28px;">✕</div>
         <div class="rb-lbl" style="font-size:13px;margin-top:4px;">Out / K</div>
       </button>
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
       <button class="rb-btn rb-walk" onclick="openModal('walk')" style="padding:10px 4px;">
+        <span class="key-hint">W</span>
         <div class="rb-lbl" style="font-size:12px;">Walk / HBP</div>
       </button>
       <button class="rb-btn rb-base" onclick="openModal('base')" style="padding:10px 4px;">
+        <span class="key-hint">R</span>
         <div class="rb-lbl" style="font-size:12px;">Baserunner</div>
       </button>
     </div>
@@ -527,7 +603,7 @@ html,body{overscroll-behavior-y:none;}
   <!-- Bottom bar -->
   <div class="bot-bar">
     <button class="bot-btn next" id="skip-btn" onclick="skipBatter()">Skip batter</button>
-    <button class="bot-btn" onclick="newHalf()">End half</button>
+    <button class="bot-btn" onclick="newHalf()">End half<span class="key-hint">E</span></button>
     <button class="bot-btn danger" id="undo-btn" onclick="undoLast()">Undo</button>
     <button class="bot-btn end" onclick="endGame()">Final</button>
   </div>
@@ -579,7 +655,8 @@ html,body{overscroll-behavior-y:none;}
   </div>
 </div>
 
-<!-- Dropped-3rd conversion chip: appears for ~7s after a legal-D3K strikeout -->
+<!-- Dropped-3rd conversion chip: appears after a legal-D3K strikeout and
+     stays until the next action (no timer — the coach may be watching) -->
 <div id="d3k-chip">
   <span class="d3k-q">Dropped 3rd?</span>
   <button class="d3k-safe" onclick="convertD3K(true)">Safe at 1st</button>
@@ -686,8 +763,9 @@ function saveSnapshot(pitchId, atBatId) {
     pitchId: pitchId || null,
     atBatId: atBatId || null
   })
-  // Keep last 10 actions
-  if (HISTORY.length > 10) HISTORY.shift()
+  // Keep last 15 actions (manual corrections are undoable now too, so the
+  // window is a little deeper to keep real plays reachable behind them)
+  if (HISTORY.length > 15) HISTORY.shift()
 }
 
 // ── Recent-plays feed (desktop mistake-catcher) ──
@@ -706,9 +784,9 @@ function renderRecent() {
   var ub = document.getElementById('undo-btn')
   if (ub) {
     var lastR = RECENT[RECENT.length-1]
-    ub.innerHTML = lastR
+    ub.innerHTML = (lastR
       ? 'Undo<span class="undo-what">'+String(lastR.m).replace(/[&<>]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;'}[c]})+'</span>'
-      : 'Undo'
+      : 'Undo') + '<span class="key-hint">U</span>'
   }
   var list = document.getElementById('rf-list'); if (!list) return
   if (!RECENT.length) { list.innerHTML = '<div class="rf-empty">Plays appear here as you score</div>'; return }
@@ -905,10 +983,14 @@ var CLIP = ['single','double','triple','home_run','strikeout_looking','strikeout
 var MODALS = {
   inplay:{
     title:'Ball in Play',
+    // Ordered by 13U frequency: most balls in play are outs, and ground out
+    // is the commonest of all — it was second-from-last. Run-scoring outs get
+    // their own amber band (oc-sac) so Sac fly can't be mistaken for Pop out.
     sections:[
-      {lbl:'Hit',cls:'oc-xb',items:[{l:'Home Run',v:'home_run'},{l:'Triple',v:'triple'},{l:'Double',v:'double'},{l:'Single',v:'single'},{l:'Infield single',v:'single'},{l:'Bunt single',v:'single'}]},
-      {lbl:'Reach base',cls:'oc-hit',items:[{l:'Error',v:'error'},{l:"Fielder's choice",v:'fielders_choice'},{l:'Dropped 3rd',v:'dropped_third'}]},
-      {lbl:'Out',cls:'oc-out',items:[{l:'Fly out',v:'flyout'},{l:'Line out',v:'lineout'},{l:'Pop out',v:'popout'},{l:'Sac fly',v:'sac_fly'},{l:'Ground out',v:'groundout'},{l:'Sac bunt',v:'sac_bunt'}]}
+      {lbl:'Out',cls:'oc-out',items:[{l:'Ground out',v:'groundout'},{l:'Fly out',v:'flyout'},{l:'Line out',v:'lineout'},{l:'Pop out',v:'popout'}]},
+      {lbl:'Out — run can score',cls:'oc-sac',items:[{l:'Sac fly +R',v:'sac_fly'},{l:'Sac bunt',v:'sac_bunt'}]},
+      {lbl:'Hit',cls:'oc-xb',items:[{l:'Single',v:'single'},{l:'Double',v:'double'},{l:'Triple',v:'triple'},{l:'Home Run',v:'home_run'},{l:'Infield single',v:'single'},{l:'Bunt single',v:'single'}]},
+      {lbl:'Reach base',cls:'oc-hit',items:[{l:'Error',v:'error'},{l:"Fielder's choice",v:'fielders_choice'},{l:'Dropped 3rd',v:'dropped_third'}]}
     ]
   },
   outk:{
@@ -935,13 +1017,34 @@ var MODALS = {
 
 /* ── SETUP ── */
 async function init() {
-  var today = new Date(); today.setDate(today.getDate()-1)
-  var {data} = await db.from('games').select('*,opponents(name)')
-    .in('status',['scheduled','live'])
-    .gte('game_date', today.toISOString().split('T')[0])
-    .order('game_date').limit(10)
   var sel = document.getElementById('game-sel')
-  if (!data||!data.length){sel.innerHTML='<option>No upcoming games</option>';return}
+  var btn = document.querySelector('.setup-btn')
+  var data = null, offline = false
+  try {
+    var today = new Date(); today.setDate(today.getDate()-1)
+    var r = await db.from('games').select('*,opponents(name)')
+      .in('status',['scheduled','live'])
+      .gte('game_date', today.toISOString().split('T')[0])
+      .order('game_date').limit(10)
+    if (r.error) throw r.error
+    data = r.data
+    // cache so the scorer can still be STARTED offline — it already survives
+    // going offline mid-game, but used to hang on "Loading..." before it
+    try{ localStorage.setItem('aces_games_cache', JSON.stringify(data||[])) }catch(e){}
+  } catch(e) {
+    offline = true
+    try{ data = JSON.parse(localStorage.getItem('aces_games_cache')||'null') }catch(e2){}
+    if (data && data.length) showToast('Offline — showing the last game list')
+  }
+  if (!data || !data.length){
+    // value="" is load-bearing: the old option carried its label as a truthy
+    // value, so the !gid guard never fired and Start Scoring silently did
+    // nothing forever.
+    sel.innerHTML = '<option value="">'+(offline ? 'Offline — couldn\'t load games' : 'No upcoming games')+'</option>'
+    if (btn){ btn.disabled = true; btn.textContent = offline ? '▶ Start Scoring' : 'Add a game in Lineup first →' }
+    return
+  }
+  if (btn){ btn.disabled = false }
   sel.innerHTML = data.map(function(g){
     var opp=g.opponents?.name||'Opponent'
     var d=new Date(g.game_date)
@@ -1063,9 +1166,27 @@ function extractVideoId(s){
   if(/^[A-Za-z0-9_-]{11}$/.test(s)) return s;
   return s;
 }
+// Video visibility: on phones the panel defaults COLLAPSED — live clip timing
+// comes from wall clock now, not the embed, and ~230px of the primary screen
+// is too expensive for a picture of the game you're standing at. The toggle
+// persists the user's choice either way; applying a default does NOT persist.
+function applyVid(open){
+  var w=document.querySelector('#vid-panel .vid-wrap'); if(!w) return
+  w.style.display = open ? 'block' : 'none'
+  var b=document.getElementById('vid-toggle')
+  if(b) b.textContent = open ? '▾ hide video' : '▸ show video'
+}
+function toggleVid(){
+  var w=document.querySelector('#vid-panel .vid-wrap'); if(!w) return
+  var open = w.style.display==='none'
+  applyVid(open)
+  try{ localStorage.setItem('aces_vid_open', open?'1':'0') }catch(e){}
+}
 function createYtPlayer(videoId){
   if(!videoId) return;
   var panel=document.getElementById('vid-panel'); if(panel) panel.style.display='block';
+  var _pref=null; try{ _pref=localStorage.getItem('aces_vid_open') }catch(e){}
+  applyVid(_pref===null ? window.matchMedia('(min-width:768px)').matches : _pref==='1');
   if(!_ytApiReady){ _ytPending=videoId; _loadYtApi(); return; }
   if(ytPlayer && ytPlayer.loadVideoById){ ytPlayer.loadVideoById(videoId); return; }
   ytPlayer=new YT.Player('yt-player',{ videoId:videoId, playerVars:{playsinline:1, rel:0, modestbranding:1}, events:{} });
@@ -1300,7 +1421,7 @@ function updateBatterDisplay() {
   if (skipBtn) {
     var so = acesOrder()
     var sName = (acesUp() && so.length) ? (so[S.currentBatterIdx % so.length].playerName||'').split(' ').pop() : ''
-    skipBtn.innerHTML = 'Skip batter' + (sName ? '<span class="btn-sub">'+sName.replace(/[&<>]/g,'')+'</span>' : '')
+    skipBtn.innerHTML = 'Skip batter' + (sName ? '<span class="btn-sub">'+sName.replace(/[&<>]/g,'')+'</span>' : '') + '<span class="key-hint">N</span>'
   }
   // Due-up preview while the Aces are in the field — who needs a helmet on.
   // Mirrors the batter pointer's math over the named lineup entries.
@@ -1428,7 +1549,17 @@ setInterval(function(){
 }, 30000)
 
 /* ── PITCH LOGGING ── */
+// Same-button guard: two IDENTICAL pitch taps within 300ms is a phone
+// double-tap, not two pitches (at 3-0 it silently walked the batter).
+// Different buttons stay unguarded — fast alternating taps are the
+// legitimate catch-up-after-looking-away workflow.
+var _lastPitchTap = { t: 0, r: '' }
 async function quickLog(result) {
+  if (!IN_LOGAB) {
+    var _pt = Date.now()
+    if (result === _lastPitchTap.r && _pt - _lastPitchTap.t < 300) return
+    _lastPitchTap = { t: _pt, r: result }
+  }
   if (!IN_LOGAB){ hideD3K(); hideBaseCheck() }   // a new pitch invalidates pending offers
   // Save state before this pitch for undo — unless we're inside logAB, whose
   // own pre-mutation snapshot already owns this action's history entry
@@ -1689,8 +1820,11 @@ function applyBaserunners(r) {
     // Runner on 3rd scores, out recorded elsewhere
     runs=b[2]?1:0;if(runs)b[2]=false
   } else if(o==='sac_bunt'){
-    // Advance all runners one base
-    runs=b[2]?1:0;b=[false,b[0],b[1]];if(runs)b[2]=false
+    // Advance all runners one base. The rebuilt array already excludes the
+    // runner who scored from 3rd (new b[2] is the OLD 2nd-base runner) — a
+    // trailing `if(runs)b[2]=false`, copy-pasted from sac_fly where b is NOT
+    // rebuilt, used to erase the runner who had just advanced to third.
+    runs=b[2]?1:0;b=[false,b[0],b[1]]
   } else if(o==='double_play'){
     // Batter + one runner are out (2 outs added by logAB). Model the common
     // force double play: the lead forced runner is removed, and anyone else
@@ -1841,17 +1975,50 @@ function finishRunnerPick(rid){
 }
 
 /* ── CONTROLS ── */
-function toggleBase(b){S.bases[b-1]=!S.bases[b-1];renderBases();pushState()}
+// Manual corrections are real actions now: each takes a pre-mutation snapshot
+// (so Undo covers a fat-fingered stepper or pip) and logs itself to the feed
+// (so the Undo button truthfully names what it will revert). Before this,
+// a mis-tapped 19px score arrow changed the live broadcast with no confirm,
+// no undo, and no trace — and a DELIBERATE adjustment was silently discarded
+// by the next Undo restoring S.scores wholesale from an older snapshot.
+function snapManual(){
+  saveSnapshot(null, null)
+  HISTORY[HISTORY.length-1].recent = 1   // exactly one feed row to pop on undo
+}
+function toggleBase(b){
+  snapManual()
+  S.bases[b-1]=!S.bases[b-1]
+  var on=(S.bases[0]?'1st ':'')+(S.bases[1]?'2nd ':'')+(S.bases[2]?'3rd':'')
+  pushRecent('out','Bases edited',on.trim()||'empty')
+  renderBases();pushState()
+}
 // Manual corrections push to the DB too — otherwise the scorebug/gamecast lag
 // behind a tapped pip or inning arrow until the next scored play.
-function setOuts(n){S.outs=S.outs===n?n-1:n;renderCount();pushState()}
-function mc(t,i){
-  if(t==='b')S.balls=S.balls===i+1?i:i+1
-  else if(t==='s')S.strikes=S.strikes===i+1?i:i+1
+function setOuts(n){
+  snapManual()
+  S.outs=S.outs===n?n-1:n
+  pushRecent('out','Outs set',S.outs+' out'+(S.outs===1?'':'s'))
   renderCount();pushState()
 }
-function adjInn(d){S.inning=Math.max(1,S.inning+d);renderCount();pushState()}
-function adjScore(t,d){S.scores[t]=Math.max(0,S.scores[t]+d);renderCount();pushState()}
+function mc(t,i){
+  snapManual()
+  if(t==='b')S.balls=S.balls===i+1?i:i+1
+  else if(t==='s')S.strikes=S.strikes===i+1?i:i+1
+  pushRecent('out','Count set',S.balls+'-'+S.strikes)
+  renderCount();pushState()
+}
+function adjInn(d){
+  snapManual()
+  S.inning=Math.max(1,S.inning+d)
+  pushRecent('out','Inning set',(S.isTop?'Top ':'Bot ')+S.inning)
+  renderCount();pushState()
+}
+function adjScore(t,d){
+  snapManual()
+  S.scores[t]=Math.max(0,S.scores[t]+d)
+  pushRecent('out','Score adjusted',S.scores.us+'-'+S.scores.them)
+  renderCount();pushState()
+}
 
 // SKIP the current hitter. The order advances by itself after every outcome,
 // so this is only for when reality skipped someone (courtesy runner shuffle,
@@ -2002,6 +2169,7 @@ function renderCount(){
   document.getElementById('sc-us').textContent=S.scores.us
   document.getElementById('sc-them').textContent=S.scores.them
   renderClock()
+  setText('count-num', S.balls+'-'+S.strikes)
   document.getElementById('top-meta').textContent=(S.isTop?'Top':'Bot')+' '+S.inning+' · '+S.outs+' out'+(S.outs===1?'':'s')+' · '+(acesUp()?'Aces up':'Opp up')
   document.getElementById('inn-lbl').textContent=(S.isTop?'▲':'▼')+' '+S.inning
   var sideChip=document.getElementById('side-chip')
@@ -2024,8 +2192,23 @@ function renderBases(){
 function renderAll(){renderCount();renderBases();updateBatterDisplay()}
 function setText(id,val){var el=document.getElementById(id);if(el)el.textContent=val}
 function setSynced(ok){document.getElementById('sync-dot').className='sync-dot'+(ok?'':' err')}
+// The toast and the post-play chips used to share the same 60px band —
+// "Run scores!" covered the very chip that catches a wrong run. When any
+// chip is visible the toast rides above it; and because a chip can appear
+// right AFTER a toast (logAB fires both in one tick), the offers call
+// raiseToastIfShown() to lift an already-visible toast.
+function chipVisible(){
+  return ['bc-chip','ft-chip','d3k-chip'].some(function(id){
+    var el=document.getElementById(id); return el && el.style.display==='flex'
+  })
+}
+function raiseToastIfShown(){
+  var t=document.getElementById('toast')
+  if(t && t.classList.contains('show')) t.classList.add('raised')
+}
 function showToast(msg){
   var t=document.getElementById('toast')
+  t.classList.toggle('raised', chipVisible())
   t.textContent=msg;t.classList.add('show')
   setTimeout(function(){t.classList.remove('show')},2200)
 }
@@ -2041,8 +2224,10 @@ function offerD3K(){
   if(!HISTORY.length) return
   _d3k = { entry: HISTORY[HISTORY.length-1], isTop: S.isTop, inning: S.inning }
   document.getElementById('d3k-chip').style.display = 'flex'
+  // No timer: the coach may be watching the play, not the phone. The chip
+  // dies on the next action anyway (which is exactly when it becomes stale).
   clearTimeout(_d3kTimer)
-  _d3kTimer = setTimeout(hideD3K, 7000)
+  raiseToastIfShown()
 }
 function hideD3K(){
   _d3k = null
@@ -2118,8 +2303,10 @@ function offerBaseCheck(result, label, runs){
                  result: result, runs: runs, feed: {d: lastFeed.d, m: lastFeed.m} }
   document.getElementById('bc-q').textContent = 'Bases: '+bcSummary(S.bases, runs)
   document.getElementById('bc-chip').style.display = 'flex'
+  // No timer — it used to vanish in 15s, exactly the window in which the
+  // coach was watching the runners it asks about. The next action clears it.
   clearTimeout(_bcTimer)
-  _bcTimer = setTimeout(hideBaseCheck, 15000)
+  raiseToastIfShown()
 }
 function hideBaseCheck(){
   _baseCheck = null
@@ -2223,8 +2410,10 @@ function offerFielderTag(result, label, entry){
   // stack above the base-check chip when both fire on the same play
   chip.style.bottom = (document.getElementById('bc-chip').style.display === 'flex') ? '132px' : '76px'
   chip.style.display = 'flex'
+  // No timer: tagging often happens during the between-innings lull. The chip
+  // yields to the next tag-worthy play, a save/skip, or undo of its play.
   clearTimeout(_ftTimer)
-  _ftTimer = setTimeout(hideFielderTag, 25000)
+  raiseToastIfShown()
 }
 function hideFielderTag(){
   _fldTag = null; _fldSel = []
@@ -2318,7 +2507,9 @@ function armSpray(result, entry){
   document.getElementById('spray-type').style.display = 'none'
   var w = document.querySelector('.field-wrap'); if(w) w.classList.add('spray-armed')
   document.getElementById('spray-hint').style.display = 'block'
-  _sprayTimer = setTimeout(disarmSpray, 12000)
+  // Spray keeps a timer (extended 12→18s) unlike the chips, because its
+  // armed layer sits over the base toggles — it must give the field back.
+  _sprayTimer = setTimeout(disarmSpray, 18000)
 }
 function disarmSpray(){
   _spray = null
