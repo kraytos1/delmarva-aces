@@ -17,6 +17,7 @@
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Inter:wght@300;400;500;600&family=Roboto+Mono:wght@400;500&display=swap');
 :root{
+  color-scheme:dark;
   --orange:#E8530A;--og:rgba(232,83,10,.18);
   --black:#0A0C0E;--dark:#111418;--dark2:#181C22;--dark3:#1F242C;
   --bdr:rgba(255,255,255,.08);--bdr-a:rgba(232,83,10,.35);
@@ -73,12 +74,35 @@ nav{background:rgba(10,12,14,.95);border-bottom:1px solid var(--bdr);display:fle
 /* PERSPECTIVE FIELD */
 .field-section{background:#0A0C0E;border-top:1px solid var(--bdr);position:relative;}
 
+/* PLAY FX — pitch flash, hit arc, result banner */
+.fx-banner{position:absolute;top:12px;left:50%;transform:translate(-50%,-8px);background:rgba(10,12,14,.92);border:1px solid var(--bdr-a);border-radius:8px;padding:8px 18px;text-align:center;opacity:0;pointer-events:none;transition:opacity .25s,transform .25s;z-index:5;min-width:150px;box-shadow:0 8px 24px rgba(0,0,0,.5);}
+.fx-banner.show{opacity:1;transform:translate(-50%,0);}
+.fx-banner.pos-mid{top:42%;}
+.fx-banner.pos-low{top:auto;bottom:10px;}
+.fx-banner .fxb-title{font-family:var(--display);font-size:20px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--text);line-height:1.1;}
+.fx-banner.hit .fxb-title{color:var(--green);}
+.fx-banner.out .fxb-title{color:#aab2bd;}
+.fx-banner.score .fxb-title{color:var(--orange);}
+.fx-banner .fxb-sub{font-family:var(--mono);font-size:10px;color:var(--muted);margin-top:2px;letter-spacing:1px;text-transform:uppercase;}
+.fx-banner .fxb-sub:empty{display:none;}
+#fx-call{font-family:var(--display);font-weight:700;opacity:0;transform-box:fill-box;transform-origin:center;pointer-events:none;}
+#fx-call.pop{animation:fxpop 1.1s ease-out;}
+@keyframes fxpop{0%{opacity:0;transform:scale(.5);}15%{opacity:1;transform:scale(1.15);}30%{transform:scale(1);}70%{opacity:1;}100%{opacity:0;transform:scale(1);}}
+#fx-landing{transition:opacity 1.2s;}
+@media (prefers-reduced-motion: reduce){
+  #fx-call.pop{animation:none;opacity:0;}
+  .fx-banner{transition:none;}
+  .play-item.live-ab .play-result::before{animation:none;}
+  .pulse{animation:none;}
+}
+
 /* PITCHER + BATTER CARDS */
 .player-cards{display:grid;grid-template-columns:1fr 1fr;border-top:1px solid var(--bdr);}
 .pc-card{padding:10px 14px;display:flex;align-items:center;gap:10px;}
 .pc-card.pitcher{background:#1a2332;border-right:1px solid var(--bdr);}
 .pc-card.batter{background:var(--dark2);}
-.pc-avatar{width:42px;height:42px;border-radius:50%;background:var(--dark3);display:flex;align-items:center;justify-content:center;font-family:var(--display);font-size:16px;font-weight:700;color:var(--orange);flex-shrink:0;border:1.5px solid var(--bdr-a);}
+.pc-avatar{width:42px;height:42px;border-radius:50%;background:var(--dark3);display:flex;align-items:center;justify-content:center;font-family:var(--display);font-size:16px;font-weight:700;color:var(--orange);flex-shrink:0;border:1.5px solid var(--bdr-a);overflow:hidden;}
+.pc-avatar img{width:100%;height:100%;object-fit:cover;border-radius:50%;}
 .pc-label{font-family:var(--mono);font-size:9px;color:var(--orange);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:2px;}
 .pc-name{font-size:14px;font-weight:500;color:var(--text);}
 .pc-meta{font-size:11px;color:var(--muted);margin-top:1px;}
@@ -87,33 +111,23 @@ nav{background:rgba(10,12,14,.95);border-bottom:1px solid var(--bdr);display:fle
 
 /* RIGHT COL */
 .right-col{border-left:1px solid var(--bdr);display:flex;flex-direction:column;background:var(--dark);}
+/* desktop: pin the feed below the nav so it stays visible while the left
+   column (video + field) scrolls; the feed then scrolls internally */
+@media(min-width:769px){
+  .right-col{position:sticky;top:52px;height:calc(100vh - 52px);align-self:start;overflow:hidden;}
+}
 .col-header{padding:8px 14px;border-bottom:1px solid var(--bdr);background:var(--dark2);display:flex;align-items:center;justify-content:space-between;}
 .col-title{font-family:var(--mono);font-size:10px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;}
-.col-count{font-family:var(--display);font-size:15px;font-weight:700;color:var(--orange);}
 
-/* PITCH LOG */
-.pitch-log{overflow-y:auto;flex:1 1 42%;min-height:140px;}
-.pitch-item{padding:7px 14px;border-bottom:1px solid rgba(255,255,255,.04);display:grid;grid-template-columns:20px 44px 1fr auto;gap:8px;align-items:center;}
-.pitch-item.new-pitch{animation:flashin .5s ease-out;}
 @keyframes flashin{0%{background:rgba(232,83,10,.2)}100%{background:transparent}}
-.pi-num{font-family:var(--mono);font-size:10px;color:var(--muted);text-align:center;}
-.pi-velo{font-family:var(--display);font-size:16px;font-weight:700;color:var(--text);}
-.pi-velo.no-v{font-family:var(--mono);font-size:11px;color:var(--muted);}
-.pi-type{font-family:var(--mono);font-size:10px;padding:2px 5px;border-radius:3px;font-weight:500;}
-.pt-fb{background:#E6F1FB;color:#185FA5;}
-.pt-cb{background:#EAF3DE;color:#3B6D11;}
-.pt-sl{background:#FAEEDA;color:#854f0b;}
-.pt-ch{background:#FBEAF0;color:#993556;}
-.pi-result{font-family:var(--mono);font-size:10px;text-align:right;}
-.pr-ball{color:#4da8e8;}
-.pr-strike{color:#e74c3c;}
-.pr-foul{color:#d4a042;}
-.pr-inplay{color:var(--green);}
 
-/* PLAY FEED */
-.play-feed{border-top:1px solid var(--bdr);flex:1 1 58%;display:flex;flex-direction:column;min-height:160px;}
+/* PLAY FEED (unified: at-bats with their pitch sequence inline) */
+.play-feed{flex:1;display:flex;flex-direction:column;min-height:160px;}
 .play-items{overflow-y:auto;flex:1;}
-.play-item{padding:7px 14px;border-bottom:1px solid rgba(255,255,255,.04);}
+.play-item{padding:7px 14px;border-bottom:1px solid rgba(255,255,255,.04);display:flex;gap:9px;align-items:flex-start;}
+.pb-avatar{width:28px;height:28px;border-radius:50%;background:var(--dark3);border:1px solid var(--bdr-a);display:flex;align-items:center;justify-content:center;font-family:var(--display);font-size:9px;font-weight:700;color:var(--orange);flex-shrink:0;overflow:hidden;margin-top:2px;}
+.pb-avatar img{width:100%;height:100%;object-fit:cover;}
+.pb-body{flex:1;min-width:0;}
 .play-item.new-play{animation:flashin .5s ease-out;}
 .play-inn{font-family:var(--mono);font-size:9px;color:var(--muted);margin-bottom:2px;}
 .play-result{font-size:12px;font-weight:500;color:var(--text);}
@@ -121,6 +135,16 @@ nav{background:rgba(10,12,14,.95);border-bottom:1px solid var(--bdr);display:fle
 .play-result.out{color:var(--muted);}
 .play-result.score{color:var(--orange);}
 .play-detail{font-family:var(--mono);font-size:10px;color:var(--muted);margin-top:1px;}
+.play-pitches{display:flex;flex-wrap:wrap;gap:4px;margin-top:5px;}
+.play-pitches:empty{display:none;}
+.pchip{font-family:var(--mono);font-size:9px;padding:1px 5px;border-radius:4px;border:1px solid;line-height:1.5;}
+.pchip.b{color:#4da8e8;border-color:rgba(77,168,232,.45);}
+.pchip.s{color:#e74c3c;border-color:rgba(231,76,60,.45);}
+.pchip.f{color:#d4a042;border-color:rgba(212,160,66,.45);}
+.pchip.x{color:var(--green);border-color:rgba(61,220,106,.45);}
+.play-item.live-ab{background:rgba(232,83,10,.05);}
+.play-item.live-ab .play-result{color:var(--muted);font-style:italic;}
+.play-item.live-ab .play-result::before{content:'';display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--orange);margin-right:6px;vertical-align:1px;animation:blink 1.2s infinite;}
 
 /* PREGAME */
 .pregame{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px 20px;text-align:center;flex:1;}
@@ -140,9 +164,8 @@ nav{background:rgba(10,12,14,.95);border-bottom:1px solid var(--bdr);display:fle
 @media(max-width:768px){
   .main{grid-template-columns:1fr;}
   .right-col{border-left:none;border-top:1px solid var(--bdr);}
-  .pitch-log{flex:none;max-height:200px;min-height:0;}
   .play-feed{flex:none;min-height:0;}
-  .play-items{flex:none;max-height:220px;}
+  .play-items{flex:none;max-height:340px;}
 }
 </style>
 </head>
@@ -220,6 +243,12 @@ nav{background:rgba(10,12,14,.95);border-bottom:1px solid var(--bdr);display:fle
     <!-- PERSPECTIVE FIELD -->
     <div class="field-section">
       <svg id="field-svg" viewBox="0 0 680 460" width="100%" style="display:block;background:#060c04;">
+        <defs>
+          <!-- circular crops for runner headshots on the bases -->
+          <clipPath id="rclip-0"><circle cx="510" cy="240" r="13"/></clipPath>
+          <clipPath id="rclip-1"><circle cx="340" cy="85"  r="13"/></clipPath>
+          <clipPath id="rclip-2"><circle cx="170" cy="240" r="13"/></clipPath>
+        </defs>
 
         <!-- OUTFIELD GRASS -->
         <rect width="680" height="460" fill="#1a4a0d"/>
@@ -349,6 +378,14 @@ nav{background:rgba(10,12,14,.95);border-bottom:1px solid var(--bdr);display:fle
           <text id="name-c" x="0" y="4" text-anchor="middle" font-family="'Inter',sans-serif" font-size="9.5" font-weight="500" fill="#e8e4de" letter-spacing=".3"></text>
         </g>
 
+        <!-- SCORE PLATE top left (mirrors the main scoreboard — never computed independently) -->
+        <rect x="8" y="8" width="150" height="66" rx="6" fill="rgba(10,12,14,.82)" stroke="rgba(255,255,255,.1)" stroke-width=".5"/>
+        <text id="ovs-away"   x="18"  y="27" font-family="'Roboto Mono',monospace" font-size="11" fill="#F0EDE8" letter-spacing=".5"></text>
+        <text id="ovs-away-n" x="146" y="28" text-anchor="end" font-family="'Oswald',sans-serif" font-size="16" font-weight="700" fill="#F0EDE8">0</text>
+        <text id="ovs-home"   x="18"  y="47" font-family="'Roboto Mono',monospace" font-size="11" fill="#7A8290" letter-spacing=".5"></text>
+        <text id="ovs-home-n" x="146" y="48" text-anchor="end" font-family="'Oswald',sans-serif" font-size="16" font-weight="700" fill="#7A8290">0</text>
+        <text id="ovs-inn"    x="83"  y="63" text-anchor="middle" font-family="'Roboto Mono',monospace" font-size="9" fill="#7A8290" letter-spacing="1"></text>
+
         <!-- BSO OVERLAY top right -->
         <rect x="594" y="8" width="78" height="66" rx="6" fill="rgba(10,12,14,.82)" stroke="rgba(255,255,255,.1)" stroke-width=".5"/>
         <text x="602" y="25" font-family="'Roboto Mono',monospace" font-size="10" fill="#5a6270">B</text>
@@ -369,7 +406,13 @@ nav{background:rgba(10,12,14,.95);border-bottom:1px solid var(--bdr);display:fle
 
         <!-- BATTER name at home -->
         <text id="ov-batter" x="340" y="457" text-anchor="middle" font-family="'Inter',sans-serif" font-size="10" font-weight="600" fill="#E8530A" opacity=".95"></text>
+
+        <!-- PLAY FX: landing dot, animated ball, pitch-call flash (kept last = on top) -->
+        <circle id="fx-landing" r="6" cx="0" cy="0" fill="#3DDC6A" stroke="#0A0C0E" stroke-width="1.5" opacity="0" style="pointer-events:none;"/>
+        <circle id="fx-ball" r="5" cx="0" cy="0" fill="#ffffff" stroke="#c8c8c8" stroke-width="1" opacity="0" style="pointer-events:none;"/>
+        <text id="fx-call" x="340" y="352" text-anchor="middle" font-size="26" fill="#e74c3c" stroke="#0A0C0E" stroke-width="4" paint-order="stroke" stroke-linejoin="round"></text>
       </svg>
+      <div class="fx-banner" id="fx-banner" role="status" aria-live="polite"><div class="fxb-title" id="fxb-title"></div><div class="fxb-sub" id="fxb-sub"></div></div>
     </div>
 
     <!-- PITCHER + BATTER CARDS -->
@@ -404,20 +447,12 @@ nav{background:rgba(10,12,14,.95);border-bottom:1px solid var(--bdr);display:fle
 
   <!-- RIGHT COL -->
   <div class="right-col">
-    <div class="col-header">
-      <span class="col-title">Pitch log</span>
-      <span class="col-count" id="total-pitches">0 pitches</span>
-    </div>
-    <div class="pitch-log" id="pitch-log">
-      <div style="padding:24px 14px;text-align:center;font-family:var(--mono);font-size:11px;color:var(--muted);">Pitches will appear here live</div>
-    </div>
-
     <div class="play-feed">
       <div class="col-header">
         <span class="col-title">Play by play</span>
         <span style="font-family:var(--mono);font-size:10px;color:var(--muted);" id="play-count">0 plays</span>
       </div>
-      <div class="play-items" id="play-log">
+      <div class="play-items" id="play-log" aria-label="Play by play">
         <div style="padding:20px 14px;text-align:center;font-family:var(--mono);font-size:11px;color:var(--muted);">Play-by-play will appear here</div>
       </div>
     </div>
@@ -447,9 +482,18 @@ var SUPABASE_ANON_KEY = ACES_CONFIG.supabaseKey
 var YT_CHANNEL_ID     = ACES_CONFIG.ytChannelId
 var YT_API_KEY        = ACES_CONFIG.ytApiKey
 
+// ?demo=1 — scripted FX preview: no DB reads/writes, the bottom demo driver owns the page
+var DEMO = new URLSearchParams(location.search).has('demo')
+window.DEMO = DEMO
+
 var db = null
 var liveGame = null
 var bases = [false,false,false]
+// Who we THINK is on each base ({id,name,num,photo} or null). The scorer only
+// stores booleans (per-runner tracking is parked), so identity is viewer-side
+// inference from the play sequence — any base whose boolean says occupied but
+// whose identity is unknown renders the plain dot instead of a wrong face.
+var runners = [null,null,null]
 var totalPitches = 0
 var acesPitches = 0   // Aces pitcher's pitches this game
 var oppPitches = 0    // opponent pitcher's pitches this game (pitcher_id is null)
@@ -463,7 +507,48 @@ function acesBatting(half){
 // current pitcher = the side NOT batting: Aces batting => opponent pitching.
 function pcForHalf(){ return acesBatting() ? oppPitches : acesPitches }
 
+// baserunning events (no batter at the plate for these rows)
+var BR_RE = /(stolen_base|wp_advance|pb_advance|balk|caught_stealing|pickoff|out_advancing)/i
+
+// Resolve the player behind an at_bats row: {name, num, photo}. Aces rows
+// carry batter_id (named lineup slot) or lineup_slot (Aces half only — schema
+// comment); baserunning rows carry runner_id; the opponent has none of these,
+// so their rows resolve to null by design.
+function abBatterInfo(ab) {
+  if (ab._batterName) return { id: ab._batterId || null, name: ab._batterName, num: ab._num, photo: ab._photo || null }   // demo
+  var lu = null
+  try { lu = (liveGame && liveGame.notes) ? JSON.parse(liveGame.notes) : null } catch(e) {}
+  if (ab.batter_id) {
+    var ro = GC_ROSTER && GC_ROSTER[ab.batter_id]
+    var e = lu && lu.aces_lineup && lu.aces_lineup.find(function(x){ return x.playerId === ab.batter_id })
+    if (e && e.playerName) return { id: ab.batter_id, name: e.playerName, num: e.jerseyNum, photo: ro ? ro.photo : null }
+    if (ro) return { id: ab.batter_id, name: ro.name, num: ro.num, photo: ro.photo }
+    loadGcRoster()   // fills in for later rows
+    return null
+  }
+  if (ab.runner_id) {   // SB/CS/pickoff — credit the runner
+    var rr = GC_ROSTER && GC_ROSTER[ab.runner_id]
+    if (rr) return { id: ab.runner_id, name: rr.name, num: rr.num, photo: rr.photo }
+    loadGcRoster()
+    return null
+  }
+  if (ab.lineup_slot && lu && lu.aces_lineup) {
+    var valid = lu.aces_lineup.filter(function(x){ return x.playerName })
+    var v = valid.length ? valid[(ab.lineup_slot - 1) % valid.length] : null
+    if (v) {
+      var vr = GC_ROSTER && GC_ROSTER[v.playerId]
+      return { id: v.playerId || null, name: v.playerName, num: v.jerseyNum, photo: vr ? vr.photo : null }
+    }
+  }
+  return null
+}
+function abBatterName(ab) {
+  var i = abBatterInfo(ab)
+  return (i && i.name) || ''
+}
+
 async function init() {
+  if (DEMO) { setBadge('live', 'DEMO · animation preview'); return }
   if (ACES_CONFIG.supabaseUrl && ACES_CONFIG.supabaseKey) {
     db = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
     await loadLiveGame()
@@ -538,16 +623,31 @@ async function loadLiveGame() {
       try { await refreshCurrentBatter() } catch(e) {}
     }
 
+    // Replay pitches + at-bats as ONE chronological timeline through the same
+    // addPitch/addPlay path the live feed uses (pitches have no at_bat_id, so
+    // grouping is by order: a result row closes whatever pitches preceded it).
     try {
       var {data:pitches} = await db.from('pitches').select('*')
-        .eq('game_id', game.id).order('created_at',{ascending:false}).limit(30)
-      if (pitches && pitches.length) pitches.reverse().forEach(function(p){addPitch(p,false)})
-    } catch(e) {}
-
-    try {
+        .eq('game_id', game.id).order('created_at',{ascending:false}).limit(150)
       var {data:plays} = await db.from('at_bats').select('*')
-        .eq('game_id', game.id).order('created_at',{ascending:false}).limit(20)
-      if (plays && plays.length) plays.reverse().forEach(function(ab){addPlay(ab,false)})
+        .eq('game_id', game.id).order('created_at',{ascending:false}).limit(30)
+      var tl = []
+      ;(pitches||[]).forEach(function(p){ tl.push({t:p.created_at, k:'p', d:p}) })
+      ;(plays||[]).forEach(function(a){ tl.push({t:a.created_at, k:'a', d:a}) })
+      tl.sort(function(a,b){ return new Date(a.t) - new Date(b.t) })
+      try { await loadGcRoster() } catch(e) {}   // names/photos for the replay
+      var lastH = null
+      tl.forEach(function(e){
+        if (e.k === 'p') { addPitch(e.d,false); return }
+        if (lastH && e.d.half !== lastH) { bases=[false,false,false]; runners=[null,null,null] }
+        lastH = e.d.half
+        addPlay(e.d,false)
+        try { applyViewerBases(e.d.result, abBatterInfo(e.d), e.d.runner_id) } catch(err) {}
+      })
+      // the replay's base model is inference — the games row stays authoritative
+      bases = [!!game.base_1b, !!game.base_2b, !!game.base_3b]
+      for (var rz2=0; rz2<3; rz2++) if (!bases[rz2]) runners[rz2] = null
+      renderBases()
     } catch(e) {}
 
     // Win-probability history: pull every at-bat (light columns) for the curve
@@ -574,7 +674,7 @@ function loadLineupIntoCards(lineup, game) {
     var first = lineup.aces_lineup.find(function(e){return e.playerName})
     if (first) {
       setText('b-name', first.playerName)
-      setText('b-avatar', '#'+first.jerseyNum)
+      setCardAvatar('b-avatar', first.playerId, '#'+first.jerseyNum)
     }
   }
 }
@@ -597,7 +697,7 @@ function updateBatterCard(ab) {
         var nextBatter = validLineup[(validIdx + 1) % validLineup.length]
         if (nextBatter) {
           setText('b-name', nextBatter.playerName)
-          setText('b-avatar', '#'+nextBatter.jerseyNum)
+          setCardAvatar('b-avatar', nextBatter.playerId, '#'+nextBatter.jerseyNum)
           // Update batter on field
           var fldEl = document.getElementById('ov-batter')
           if (fldEl) fldEl.textContent = nextBatter.playerName.split(' ').pop()
@@ -625,9 +725,11 @@ async function refreshCurrentBatter() {
     var b = valid[acesAbs.length % valid.length]
     if (b) {
       setText('b-name', b.playerName)
-      setText('b-avatar', b.jerseyNum ? '#'+b.jerseyNum : 'B')
+      setCardAvatar('b-avatar', b.playerId, b.jerseyNum ? '#'+b.jerseyNum : 'B')
       var fld = document.getElementById('ov-batter')
       if (fld) fld.textContent = b.playerName.split(' ').pop()
+      // the live at-bat card in the feed shows the same batter
+      if (curAB) curAB.el.querySelector('.play-inn').textContent = curAB.inn + ' · ' + b.playerName
     }
   } catch(e) {}
 }
@@ -686,10 +788,31 @@ function subscribeToGame(gameId) {
     .on('postgres_changes',{event:'INSERT',schema:'public',table:'at_bats',filter:'game_id=eq.'+gameId},
       function(p){
         addPlay(p.new,true)
-        applyViewerBases(p.new.result)
+        applyViewerBases(p.new.result, abBatterInfo(p.new), p.new.runner_id)
         updateBatterCard(p.new)
         setText('p-count', pcForHalf())
         try { (window._wpAtBats = window._wpAtBats || []).push(p.new); updateWP() } catch(e) {}
+      })
+    // spray tap lands seconds AFTER the play as an UPDATE (hit_x/hit_y) — that's
+    // what triggers the ball-flight animation; fxSpray de-dupes by at-bat id.
+    .on('postgres_changes',{event:'UPDATE',schema:'public',table:'at_bats',filter:'game_id=eq.'+gameId},
+      function(p){
+        if (p.new && p.new.hit_x != null && window.fxSpray) try { fxSpray(p.new) } catch(e) {}
+      })
+    .subscribe()
+
+  // Undo in the scorer DELETEs rows — pull them from the feed so viewers don't
+  // keep a ghost play. No game_id filter: DELETE events only carry the PK.
+  db.channel('del:'+gameId)
+    .on('postgres_changes',{event:'DELETE',schema:'public',table:'at_bats'},
+      function(p){
+        var el = document.querySelector('#play-log [data-abid="'+p.old.id+'"]')
+        if (el){ el.remove(); updateFeedCounts() }
+      })
+    .on('postgres_changes',{event:'DELETE',schema:'public',table:'pitches'},
+      function(p){
+        var c = document.querySelector('#play-log [data-pid="'+p.old.id+'"]')
+        if (c){ totalPitches = Math.max(0, totalPitches-1); c.remove(); updateFeedCounts() }
       })
     .subscribe()
 
@@ -713,9 +836,15 @@ function updateScoreboard(game) {
   ovPip('ov-s1','ov-s2',null,s,'#e74c3c')
   ovPip('ov-o1','ov-o2',null,o,'#666')
 
-  // Sync bases from game record
+  // Half flip = bases cleared for real, so the identity model resets too
+  if (game.half && window._lastHalfSeen && game.half !== window._lastHalfSeen) runners = [null,null,null]
+  if (game.half) window._lastHalfSeen = game.half
+
+  // Sync bases from game record — the booleans are authoritative; any base
+  // they empty loses its inferred identity (occupied-but-unknown = plain dot)
   if (game.base_1b !== undefined) {
     bases = [!!game.base_1b, !!game.base_2b, !!game.base_3b]
+    for (var rz=0; rz<3; rz++) if (!bases[rz]) runners[rz] = null
     renderBases()
   }
 
@@ -735,6 +864,7 @@ function updateScoreboard(game) {
       updatePlayerCards(lineup, acesBat)
     } catch(e) {}
   }
+  try { updateFieldScore() } catch(e) {}
   try { updateWP() } catch(e) {}
 }
 
@@ -782,17 +912,37 @@ function updateFieldOverlays(lineup, acesBat) {
 // storing the pitcher's name.
 var GC_ROSTER = null
 async function loadGcRoster(){
-  if (GC_ROSTER || !db) return
+  if (GC_ROSTER) return
+  // demo mode never created the client — a read-only roster fetch is fine
+  if (!db && ACES_CONFIG.supabaseUrl && ACES_CONFIG.supabaseKey) {
+    try { db = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) } catch(e) {}
+  }
+  if (!db) return
   try {
-    var r = await db.from('players').select('id,first_name,last_name,jersey_num')
+    var r = await db.from('players').select('id,first_name,last_name,jersey_num,photo_url')
     GC_ROSTER = {}
     ;(r.data||[]).forEach(function(p){
-      GC_ROSTER[p.id] = { name: p.first_name+' '+p.last_name, num: p.jersey_num }
+      GC_ROSTER[p.id] = { name: p.first_name+' '+p.last_name, num: p.jersey_num, photo: p.photo_url||null }
     })
     if (liveGame && liveGame.notes) {
       try { updatePlayerCards(JSON.parse(liveGame.notes), acesBatting()) } catch(e){}
+      try { refreshCurrentBatter() } catch(e){}
     }
   } catch(e) { GC_ROSTER = {} }
+}
+
+// Card avatar: headshot when the roster has one, jersey number otherwise
+// (same fallback rule as the Due Up card).
+function setCardAvatar(elId, playerId, fallback){
+  var el = document.getElementById(elId)
+  if (!el) return
+  var ro = playerId && GC_ROSTER && GC_ROSTER[playerId]
+  if (ro && ro.photo) {
+    el.innerHTML = '<img src="'+ro.photo+'" alt="" onerror="this.onerror=null;this.parentNode.textContent=\''+(fallback||'')+'\'">'
+  } else {
+    el.textContent = fallback || ''
+    if (playerId && !GC_ROSTER) loadGcRoster()   // photo fills on the next render
+  }
 }
 
 function updatePlayerCards(lineup, acesBat) {
@@ -821,7 +971,7 @@ function updatePlayerCards(lineup, acesBat) {
   } else {
     // Aces pitching — left=our pitcher, right=opp batter
     setText('p-name', ourPitcherName)
-    setText('p-avatar', ourPitcherNum)
+    setCardAvatar('p-avatar', lineup.aces_pitcher_id, ourPitcherNum)
     setText('p-meta', 'pitching')
     // Show first opponent batter
     var firstOpp = lineup.opp_lineup && lineup.opp_lineup.find(function(e){return e.name})
@@ -843,47 +993,67 @@ function ovPip(id1,id2,id3,val,color){
   })
 }
 
-var typeClass={FB:'pt-fb',CB:'pt-cb',SL:'pt-sl',CH:'pt-ch'}
+// ── unified feed: pitches accumulate under a live at-bat card; the at_bats
+// row closes it. Load path replays both tables as one timeline through these
+// same two functions, so live and reload can never render differently. ──
+var curAB = null
+
+function updateFeedCounts() {
+  var feed = document.getElementById('play-log')
+  var ct = feed ? feed.querySelectorAll('.play-item:not(.live-ab)').length : 0
+  setText('play-count', ct+' play'+(ct===1?'':'s')+' · '+totalPitches+' pitch'+(totalPitches===1?'':'es'))
+}
+
+function feedEmptyClear(feed) {
+  var empty = feed.querySelector('div[style]')
+  if (empty) empty.remove()
+}
 
 function addPitch(pitch, isNew) {
   totalPitches++
   if(pitch.pitcher_id) acesPitches++; else oppPitches++
-  setText('total-pitches', totalPitches+' pitch'+(totalPitches===1?'':'es'))
   setText('p-count', pcForHalf())
+  updateFeedCounts()
 
   if (pitch.velocity_mph) {
     document.getElementById('ov-velo').textContent = pitch.velocity_mph+' MPH'
     document.getElementById('ov-type').textContent = pitch.pitch_type||''
   }
 
-  var log = document.getElementById('pitch-log')
-  var empty = log.querySelector('div[style]')
-  if (empty) empty.remove()
+  var feed = document.getElementById('play-log')
+  feedEmptyClear(feed)
 
-  var r = pitch.result||''
-  var rClass = r==='ball'?'pr-ball':r.includes('strike')?'pr-strike':r==='foul'?'pr-foul':'pr-inplay'
-  var rLabel = r.replace(/_/g,' ').replace('strike called','called ✓').replace('strike swinging','swing ✗')
-  var countBefore = (pitch.balls_before||0)+'-'+(pitch.strikes_before||0)
+  if (!curAB) {
+    var innStr = ((pitch.half==='bottom')?'Bot':'Top')+' '+(pitch.inning||(liveGame&&liveGame.inning)||'?')
+    var item = document.createElement('div')
+    item.className = 'play-item live-ab'
+    item.innerHTML = '<div class="pb-avatar"></div><div class="pb-body"><div class="play-inn"></div><div class="play-result">at bat…</div><div class="play-pitches"></div></div>'
+    var bn = document.getElementById('b-name').textContent
+    item.querySelector('.play-inn').textContent = innStr + (bn && bn!=='—' ? ' · '+bn : '')
+    // mirror the At-Bat card's avatar (photo or jersey number)
+    item.querySelector('.pb-avatar').innerHTML = document.getElementById('b-avatar').innerHTML
+    feed.insertBefore(item, feed.firstChild)
+    curAB = { el:item, chips:item.querySelector('.play-pitches'), inn:innStr }
+  }
 
-  var item = document.createElement('div')
-  item.className = 'pitch-item'+(isNew?' new-pitch':'')
-  item.innerHTML =
-    '<div class="pi-num">'+(pitch.pitch_num||totalPitches)+'</div>'+
-    (pitch.velocity_mph
-      ? '<div class="pi-velo">'+pitch.velocity_mph+'</div>'
-      : '<div class="pi-velo no-v">—</div>')+
-    '<div style="display:flex;align-items:center;gap:6px;">'+
-      '<span class="pi-type '+(typeClass[pitch.pitch_type]||'')+'">'+  (pitch.pitch_type||'—')+'</span>'+
-      '<span style="font-family:var(--mono);font-size:9px;color:var(--muted);">'+countBefore+'</span>'+
-    '</div>'+
-    '<div class="pi-result '+rClass+'">'+rLabel+'</div>'
-  log.insertBefore(item, log.firstChild)
+  var r = (pitch.result||'').toLowerCase()
+  var cls = r==='ball'?'b' : r==='foul'?'f' : r.indexOf('strike')===0?'s' : 'x'
+  var suffix = /strike[_ ]called/.test(r)?'✓' : /strike[_ ]swinging/.test(r)?'✗' : ''
+  var chip = document.createElement('span')
+  chip.className = 'pchip '+cls
+  if (pitch.id) chip.dataset.pid = pitch.id   // lets an undo (DELETE) pull the chip
+  chip.title = (pitch.result||'').replace(/_/g,' ') + (pitch.velocity_mph ? ' · '+pitch.velocity_mph+' mph' : '')
+  chip.textContent = pitch.velocity_mph
+    ? pitch.velocity_mph + suffix
+    : (cls==='b'?'B' : cls==='f'?'F' : cls==='x'?'●' : (suffix||'S'))
+  curAB.chips.appendChild(chip)
+
+  if (isNew && window.fxPitch) try { fxPitch(pitch) } catch(e) {}
 }
 
 function addPlay(ab, isNew) {
   var feed = document.getElementById('play-log')
-  var empty = feed.querySelector('div[style]')
-  if (empty) empty.remove()
+  feedEmptyClear(feed)
 
   var r = ab.result||''
   var isHit = ['single','double','triple','home_run','walk','hbp'].includes(r)
@@ -896,50 +1066,138 @@ function addPlay(ab, isNew) {
   if(ab.notes&&ab.notes!==r) detail += (detail?' · ':'')+ab.notes
 
   var inningStr = (ab.half==='bottom'?'Bot':'Top')+' '+(ab.inning||'?')
+  var info = abBatterInfo(ab)
+  var name = (info && info.name) || ''
+  var isBR = BR_RE.test(r)
 
-  var item = document.createElement('div')
-  item.className = 'play-item'+(isNew?' new-play':'')
-  item.innerHTML =
-    '<div class="play-inn">'+inningStr+'</div>'+
-    '<div class="play-result '+rClass+'">'+rLabel+'</div>'+
-    (detail?'<div class="play-detail">'+detail+'</div>':'')
-  feed.insertBefore(item, feed.firstChild)
-
-  var ct = feed.querySelectorAll('.play-item').length
-  setText('play-count', ct+' play'+(ct===1?'':'s'))
-}
-
-function applyViewerBases(r) {
-  var o=(r||'').toLowerCase(), b=bases.slice()
-  if(o==='home_run'){b=[false,false,false]}
-  else if(o==='triple'){b=[false,false,true]}
-  else if(o==='double'){b=[false,true,b[0]]}
-  else if(o.includes('single')){b=[true,b[0],b[1]]}
-  else if(o==='walk'||o==='intentional_walk'||o==='hbp'){
-    if(b[0]&&b[1]&&b[2]){}
-    else if(b[0]&&b[1])b=[true,true,true]
-    else if(b[0])b=[true,true,b[2]]
-    else b=[true,b[1],b[2]]
+  var item
+  if (!isBR && curAB) {
+    // close the live at-bat card — its pitch chips belong to this result
+    item = curAB.el
+    item.classList.remove('live-ab')
+    curAB = null
+  } else {
+    // no pitches seen (page opened mid-AB) or a baserunning event mid-AB
+    item = document.createElement('div')
+    item.className = 'play-item'
+    item.innerHTML = '<div class="pb-avatar"></div><div class="pb-body"><div class="play-inn"></div><div class="play-result"></div><div class="play-pitches"></div></div>'
+    // a BR event happens DURING the current at-bat: keep the live card on top
+    if (isBR && curAB) feed.insertBefore(item, curAB.el.nextSibling)
+    else feed.insertBefore(item, feed.firstChild)
   }
-  else if(o==='error'||o==='fielders_choice'){b=[true,b[0],b[1]]}
-  else if(o==='sac_fly'){if(b[2])b[2]=false}
-  else if(o==='stolen_base'){if(!b[1]&&b[0])b=[false,true,b[2]];else if(!b[2]&&b[1])b=[b[0],false,true]}
-  bases=b; renderBases()
+
+  if (ab.id != null) item.dataset.abid = ab.id   // lets an undo (DELETE) pull the row
+
+  // avatar: headshot > jersey number > drop the circle (opponent rows)
+  var av = item.querySelector('.pb-avatar')
+  if (av) {
+    if (info && info.photo) {
+      av.innerHTML = '<img src="'+info.photo+'" alt="" onerror="this.onerror=null;this.parentNode.textContent=\''+(info.num!=null?'#'+info.num:'')+'\'">'
+    } else if (info && info.num != null) {
+      av.textContent = '#'+info.num
+    } else if (!av.innerHTML.trim()) {
+      av.remove()
+    }
+  }
+
+  item.querySelector('.play-inn').textContent = inningStr + (name ? ' · '+name : '')
+  var res = item.querySelector('.play-result')
+  res.className = 'play-result ' + rClass
+  res.textContent = rLabel
+  var od = item.querySelector('.play-detail')
+  if (od) od.remove()
+  if (detail) {
+    var d = document.createElement('div')
+    d.className = 'play-detail'
+    d.textContent = detail
+    res.insertAdjacentElement('afterend', d)
+  }
+  if (isNew) { item.classList.remove('new-play'); void item.offsetWidth; item.classList.add('new-play') }
+
+  updateFeedCounts()
+
+  if (isNew && window.fxPlay) try { fxPlay(ab) } catch(e) {}
 }
 
+// Moves booleans AND inferred identities together. `batter` is the batter's
+// {id,name,num,photo} (or null), `runnerId` the runner on SB/CS-family rows.
+function applyViewerBases(r, batter, runnerId) {
+  var o=(r||'').toLowerCase(), b=bases.slice(), ri=runners.slice()
+  var bt = batter || null
+  if(o==='home_run'){b=[false,false,false];ri=[null,null,null]}
+  else if(o==='triple'){b=[false,false,true];ri=[null,null,bt]}
+  else if(o==='double'){b=[false,true,b[0]];ri=[null,bt,ri[0]]}
+  else if(o.includes('single')){b=[true,b[0],b[1]];ri=[bt,ri[0],ri[1]]}
+  else if(o==='walk'||o==='intentional_walk'||o==='hbp'){
+    if(b[0]&&b[1]&&b[2]){ri=[bt,ri[0],ri[1]]}
+    else if(b[0]&&b[1]){b=[true,true,true];ri=[bt,ri[0],ri[1]]}
+    else if(b[0]){b=[true,true,b[2]];ri=[bt,ri[0],ri[2]]}
+    else {b=[true,b[1],b[2]];ri=[bt,ri[1],ri[2]]}
+  }
+  else if(o==='error'||o==='fielders_choice'){b=[true,b[0],b[1]];ri=[bt,ri[0],ri[1]]}
+  else if(o==='sac_fly'){if(b[2]){b[2]=false;ri[2]=null}}
+  else if(/stolen_base|wp_advance|pb_advance|balk/.test(o)){
+    // advance the identified runner when we know where he stands, else the lead runner
+    var ai=-1
+    if(runnerId) ai=ri.findIndex(function(x){return x&&x.id===runnerId})
+    if(ai<0){ if(!b[1]&&b[0])ai=0; else if(!b[2]&&b[1])ai=1 }
+    if(ai===0&&!b[1]){b=[false,true,b[2]];ri=[null,ri[0],ri[2]]}
+    else if(ai===1&&!b[2]){b=[b[0],false,true];ri=[ri[0],null,ri[1]]}
+  }
+  else if(/caught_stealing|pickoff/.test(o)){
+    var ci=-1
+    if(runnerId) ci=ri.findIndex(function(x){return x&&x.id===runnerId})
+    if(ci<0) ci = b[0]?0:b[1]?1:b[2]?2:-1
+    if(ci>=0){b[ci]=false;ri[ci]=null}
+  }
+  bases=b; runners=ri; renderBases()
+}
+
+var RUNNER_XY = [{x:510,y:240},{x:340,y:85},{x:170,y:240}]
 function renderBases() {
-  var map = [{bid:'fld-1b',hid:'halo-1b',rid:'run-1b',on:bases[0]},
-             {bid:'fld-2b',hid:'halo-2b',rid:'run-2b',on:bases[1]},
-             {bid:'fld-3b',hid:'halo-3b',rid:'run-3b',on:bases[2]}]
-  map.forEach(function(m){
-    var be=document.getElementById(m.bid)
-    var he=document.getElementById(m.hid)
-    var re=document.getElementById(m.rid)
-    if(be) be.style.fill=m.on?'#E8530A':'#e8e8e8'
-    if(he) he.style.opacity=m.on?'0.35':'0'
-    if(re) re.style.opacity=m.on?'1':'0'
+  ;['1b','2b','3b'].forEach(function(k,i){
+    var be=document.getElementById('fld-'+k)
+    var he=document.getElementById('halo-'+k)
+    var re=document.getElementById('run-'+k)
+    if(be) be.style.fill=bases[i]?'#E8530A':'#e8e8e8'
+    if(he) he.style.opacity=bases[i]?'0.35':'0'
+    if(!re) return
+    if(!bases[i]){ re.setAttribute('opacity','0'); re.innerHTML=''; return }
+    var c=RUNNER_XY[i], id=runners[i]
+    if(id && id.photo){
+      re.innerHTML='<circle cx="'+c.x+'" cy="'+c.y+'" r="14.5" fill="#0A0C0E" stroke="#E8530A" stroke-width="2"/>'+
+        '<image href="'+id.photo+'" x="'+(c.x-13)+'" y="'+(c.y-13)+'" width="26" height="26" clip-path="url(#rclip-'+i+')" preserveAspectRatio="xMidYMid slice"/>'
+    } else if(id && id.num!=null){
+      re.innerHTML='<circle cx="'+c.x+'" cy="'+c.y+'" r="12" fill="#E8530A" stroke="#ff8a5c" stroke-width="2"/>'+
+        '<text x="'+c.x+'" y="'+(c.y+3.5)+'" text-anchor="middle" font-family="Oswald,sans-serif" font-size="10" font-weight="700" fill="#fff">'+id.num+'</text>'
+    } else {
+      re.innerHTML='<circle cx="'+c.x+'" cy="'+c.y+'" r="12" fill="#E8530A" stroke="#ff8a5c" stroke-width="2"/>'+
+        '<circle cx="'+c.x+'" cy="'+c.y+'" r="4.5" fill="white"/>'
+    }
+    re.setAttribute('opacity','1')
   })
 }
+// Field score plate mirrors the DOM scoreboard (single source — no independent math)
+function updateFieldScore() {
+  function shortName(id, fb){
+    var t = (document.getElementById(id).textContent || fb).trim()
+    var w = t.split(' ').pop().toUpperCase()
+    return w.length > 9 ? w.slice(0,9) : w
+  }
+  var us   = parseInt(document.getElementById('away-score').textContent, 10) || 0
+  var them = parseInt(document.getElementById('home-score').textContent, 10) || 0
+  setText('ovs-away',   shortName('away-name', 'ACES'))
+  setText('ovs-home',   shortName('home-name', 'OPP'))
+  setText('ovs-away-n', us)
+  setText('ovs-home-n', them)
+  var aEl = document.getElementById('ovs-away-n'), hEl = document.getElementById('ovs-home-n')
+  if (aEl) aEl.setAttribute('fill', us > them ? '#E8530A' : '#F0EDE8')
+  if (hEl) hEl.setAttribute('fill', them > us ? '#E8530A' : (them === us ? '#F0EDE8' : '#7A8290'))
+  var half = document.getElementById('inn-half').textContent || ''
+  var inn  = document.getElementById('inn-num').textContent || ''
+  setText('ovs-inn', /top/i.test(half) ? '▲ TOP '+inn : /bot/i.test(half) ? '▼ BOT '+inn : half.toUpperCase())
+}
+
 function setBadge(type, txt) {
   var badge = document.getElementById('nav-badge')
   badge.className = type==='live'?'live-badge':'pre-badge'
@@ -1030,6 +1288,251 @@ init()
         plugins:{legend:{display:false},tooltip:{callbacks:{label:function(c){return 'Aces '+c.parsed.y+'%';}}}},
         scales:{y:{min:0,max:100,display:false},x:{display:false}}}});
   };
+})();
+</script>
+
+<!-- ══ PLAY FX ENGINE + DEMO DRIVER ══ -->
+<script>
+(function(){
+  // ── coordinate map: scorer spray tap → gamecast field ──
+  // hit_x/hit_y are normalized 0-1 in the scorer's 200x200 field (home 100,185;
+  // 2B 100,47; fair cone half-angle atan2(100,165)). The gamecast field is
+  // 680x460 (home 340,390; 2B 340,85; half-angle 45°). A polar map around home
+  // preserves fair/foul exactly; depth scales by the home→2B ratio.
+  var SANG = Math.atan2(100,165), GANG = Math.PI/4, RSCALE = 305/138
+  function mapSpray(nx, ny){
+    var dx = nx*200 - 100, dy = 185 - ny*200
+    var r = Math.sqrt(dx*dx + dy*dy) * RSCALE
+    var phi = Math.atan2(dx, dy) * (GANG/SANG)
+    if (phi >  Math.PI) phi =  Math.PI
+    if (phi < -Math.PI) phi = -Math.PI
+    var x = 340 + r*Math.sin(phi), y = 390 - r*Math.cos(phi)
+    return { x: Math.max(10, Math.min(670, x)), y: Math.max(12, Math.min(450, y)) }
+  }
+
+  // ── ball flight (rAF) ──
+  var raf = null
+  var REDUCED = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches
+  function flyBall(x0, y0, x1, y1, o){
+    o = o || {}
+    var b = document.getElementById('fx-ball')
+    if (!b) return
+    if (REDUCED) { if (o.done) o.done(); return }   // results, not flights
+    if (raf) cancelAnimationFrame(raf)
+    var dur = o.dur || 500
+    b.setAttribute('opacity','1')
+    var t0 = performance.now()
+    function step(t){
+      var p = Math.min(1, (t - t0)/dur)
+      var e = o.ease ? 1-(1-p)*(1-p) : p   // batted balls decelerate; pitches don't
+      var x = x0 + (x1-x0)*e, y = y0 + (y1-y0)*e
+      if (o.bounce) y -= 14*Math.abs(Math.sin(p*Math.PI*2.5))*(1-p)
+      else if (o.arc) y -= o.arc*Math.sin(Math.PI*e)
+      b.setAttribute('cx', x); b.setAttribute('cy', y)
+      if (p < 1) raf = requestAnimationFrame(step)
+      else { b.setAttribute('opacity','0'); raf = null; if (o.done) o.done() }
+    }
+    raf = requestAnimationFrame(step)
+  }
+
+  // ── pitch-call flash at the plate ──
+  window.fxCall = function(txt, color){
+    var el = document.getElementById('fx-call')
+    if (!el) return
+    el.textContent = txt
+    el.setAttribute('fill', color)
+    el.classList.remove('pop')
+    void el.getBoundingClientRect()   // restart the CSS animation
+    el.classList.add('pop')
+  }
+
+  window.fxPitch = function(pitch){
+    var r = (pitch.result||'').toLowerCase().replace(/_/g,' ')
+    var call, color
+    if (r === 'ball')                { call='BALL';         color='#4da8e8' }
+    else if (r.indexOf('swing')>=0)  { call='SWING & MISS'; color='#e74c3c' }
+    else if (r.indexOf('strike')>=0) { call='STRIKE';       color='#e74c3c' }
+    else if (r === 'foul')           { call='FOUL';         color='#d4a042' }
+    else                             { call='IN PLAY';      color='#3DDC6A' }
+    flyBall(340, 252, 340, 382, {dur:300, arc:5, done:function(){ fxCall(call, color) }})
+  }
+
+  // ── result banner over the field ──
+  // Placement: midfield by default (user-tested 2026-08-03). ?banner=top|mid|low
+  // is a hard override; a saved demo audition choice (fxCycleBanner) comes next.
+  var POS = new URLSearchParams(location.search).get('banner') || localStorage.getItem('fx_banner_pos') || 'mid'
+  if (['top','mid','low'].indexOf(POS) < 0) POS = 'top'
+  var bTimer = null
+  window.fxBanner = function(title, sub, cls){
+    var b = document.getElementById('fx-banner')
+    if (!b) return
+    document.getElementById('fxb-title').textContent = title
+    document.getElementById('fxb-sub').textContent = sub || ''
+    b.className = 'fx-banner show' + (cls ? ' '+cls : '') + (POS !== 'top' ? ' pos-'+POS : '')
+    clearTimeout(bTimer)
+    bTimer = setTimeout(function(){ b.classList.remove('show') }, 3200)
+  }
+  window.fxCycleBanner = function(){
+    POS = POS === 'top' ? 'mid' : POS === 'mid' ? 'low' : 'top'
+    try { localStorage.setItem('fx_banner_pos', POS) } catch(e) {}
+    fxBanner('BANNER: ' + (POS === 'top' ? 'TOP' : POS === 'mid' ? 'MIDFIELD' : 'BOTTOM'), 'tap field or press B to cycle', '')
+  }
+
+  var LBL = {
+    strikeout_swinging:'STRIKEOUT', strikeout_looking:'CAUGHT LOOKING',
+    home_run:'HOME RUN!', fielders_choice:"FIELDER'S CHOICE",
+    sac_fly:'SAC FLY', sac_bunt:'SAC BUNT', double_play:'DOUBLE PLAY',
+    hbp:'HIT BY PITCH', intentional_walk:'INTENTIONAL WALK'
+  }
+  function abClass(ab){
+    var isHit = ['single','double','triple','home_run','walk','hbp'].includes(ab.result||'')
+    return ab.runs_scored > 0 ? 'score' : (isHit ? 'hit' : 'out')
+  }
+
+  window.fxPlay = function(ab){
+    var det = ''
+    if (ab.rbi > 0) det += ab.rbi + ' RBI'
+    if (ab.runs_scored > 0) det += (det?' · ':'') + ab.runs_scored + ' RUN' + (ab.runs_scored>1?'S':'') + ' SCORED'
+    var nm = ''
+    try { nm = window.abBatterName ? abBatterName(ab) : '' } catch(e) {}
+    if (nm) det = nm.toUpperCase() + (det ? ' · '+det : '')
+    fxBanner(LBL[ab.result] || (ab.result||'').replace(/_/g,' ').toUpperCase(), det, abClass(ab))
+    if (ab.hit_x != null) setTimeout(function(){ fxSpray(ab) }, 500)
+  }
+
+  // ── hit arc to the tapped landing spot ──
+  var spraySeen = {}
+  window.fxSpray = function(ab){
+    if (ab.id != null) { if (spraySeen[ab.id]) return; spraySeen[ab.id] = 1 }
+    if (ab.hit_x == null) return
+    var to = mapSpray(ab.hit_x, ab.hit_y)
+    var r = ab.result || ''
+    var type = ab.hit_type || (r.indexOf('ground')>=0 || r==='sac_bunt' ? 'ground'
+              : /fly|pop|sac_fly/.test(r) ? 'fly' : 'line')
+    var dist = Math.hypot(to.x-340, to.y-390)
+    var isHit = ['single','double','triple','home_run'].includes(r)
+    var color = r==='home_run' ? '#E8530A' : (isHit || r==='error' ? '#3DDC6A' : '#aab2bd')
+    var opts = {dur: Math.max(450, dist*2.2)}
+    if (type === 'ground')    { opts.bounce = true; opts.dur = Math.max(500, dist*2.6) }
+    else if (type === 'fly')  { opts.arc = Math.max(36, dist*.32); opts.ease = true }
+    else                      { opts.arc = 12; opts.ease = true }
+    opts.done = function(){
+      var d = document.getElementById('fx-landing')
+      if (d){
+        d.setAttribute('cx', to.x); d.setAttribute('cy', to.y)
+        d.setAttribute('fill', color); d.setAttribute('opacity','1')
+        setTimeout(function(){ d.setAttribute('opacity','0') }, 4500)
+      }
+    }
+    flyBall(340, 386, to.x, to.y, opts)
+  }
+})();
+
+// ── DEMO DRIVER (?demo=1): scripted fake game, zero DB traffic ──
+if (window.DEMO) (async function(){
+  document.getElementById('pregame-screen').style.display = 'none'
+  // honest video placeholder — demo never checks for a stream
+  var vo = document.getElementById('video-offline')
+  if (vo) vo.innerHTML = '<div class="vo-icon">🎬</div>'+
+    '<div class="vo-text">Demo mode — scripted replay<br>'+
+    '<span style="color:var(--orange);font-size:10px;">nothing is live or being recorded</span></div>'
+  setText('home-name', 'Demo Opponent')
+  setText('inn-num', '1'); setText('inn-half', '▲ Top Inning')
+  setText('p-name', 'Demo Pitcher'); setText('p-meta', 'opponent'); setText('p-avatar', 'P')
+  setText('b-meta', 'demo mode')
+  updateFieldScore()
+
+  // placement audition: tap the field or press B to cycle the banner position
+  var fs = document.querySelector('.field-section')
+  if (fs) fs.addEventListener('click', function(){ fxCycleBanner() })
+  document.addEventListener('keydown', function(e){ if (e.key === 'b' || e.key === 'B') fxCycleBanner() })
+
+  // real roster (names, numbers, headshots) via one read-only fetch;
+  // hardcoded fallback keeps the demo alive offline
+  var batters = [{name:'C. White',num:7},{name:'B. Franssen',num:44},{name:'J. May',num:24},{name:'L. May',num:99}]
+  try {
+    await loadGcRoster()
+    if (GC_ROSTER && Object.keys(GC_ROSTER).length) {
+      batters = Object.keys(GC_ROSTER).map(function(id){
+        var e = GC_ROSTER[id]
+        return { id:id, name:e.name, num:e.num, photo:e.photo }
+      }).sort(function(a,b){ return (a.num||99) - (b.num||99) }).slice(0,9)
+    }
+  } catch(e) {}
+  var b=0, s=0, outs=0, us=0, pn=0, bi=0
+  function setBatter(){
+    var bt = batters[bi % batters.length]
+    setText('b-name', bt.name)
+    setCardAvatar('b-avatar', bt.id, bt.num!=null ? '#'+bt.num : 'B')
+    var f = document.getElementById('ov-batter'); if (f) f.textContent = bt.name.split(' ').pop()
+  }
+  function pips(){
+    ;['b1','b2','b3'].forEach(function(id,i){pip(id,i<b,'b')})
+    ;['s1','s2'].forEach(function(id,i){pip(id,i<s,'s')})
+    ;['o1','o2'].forEach(function(id,i){pip(id,i<outs,'o')})
+    ovPip('ov-b1','ov-b2','ov-b3',b,'#1a7ac4')
+    ovPip('ov-s1','ov-s2',null,s,'#e74c3c')
+    ovPip('ov-o1','ov-o2',null,outs,'#666')
+  }
+  function sleep(ms){ return new Promise(function(r){ setTimeout(r, ms) }) }
+
+  // one scripted trip through the order — loops forever
+  var seq = [
+    {p:'ball'},
+    {p:'strike_called'},
+    {p:'foul'},
+    {p:'in_play', ab:{result:'single', hit:[0.30,0.38], type:'line'}},
+    {p:'strike_swinging'},
+    {p:'ball'},
+    {p:'strike_swinging', ab:{result:'strikeout_swinging'}},
+    {p:'in_play', ab:{result:'double', rbi:1, runs:1, hit:[0.86,0.30], type:'fly'}},
+    {p:'in_play', ab:{result:'groundout', hit:[0.38,0.52], type:'ground'}},
+    {p:'ball'},
+    {p:'in_play', ab:{result:'home_run', rbi:2, runs:2, hit:[0.55,0.06], type:'fly'}},
+    {p:'in_play', ab:{result:'flyout', hit:[0.18,0.30], type:'fly'}}
+  ]
+
+  setBatter(); pips()
+  while (true){
+    for (var i=0; i<seq.length; i++){
+      var st = seq[i]
+      pn++
+      addPitch({pitch_num:pn, velocity_mph:50+((pn*7)%9), pitch_type:['FB','FB','CB','FB','CH'][pn%5],
+                result:st.p, balls_before:b, strikes_before:s, pitcher_id:null, inning:1, half:'top'}, true)
+      await sleep(1500)
+      if (st.p === 'ball') b++
+      else if (st.p === 'foul') { if (s<2) s++ }
+      else if (st.p.indexOf('strike') === 0) s++
+      pips()
+      if (st.ab){
+        await sleep(400)
+        var bt = batters[bi % batters.length]
+        var ab = {id:'demo-'+pn, result:st.ab.result, rbi:st.ab.rbi||0, runs_scored:st.ab.runs||0,
+                  inning:1, half:'top', hit_x:null, _batterId:bt.id||null, _batterName:bt.name, _num:bt.num, _photo:bt.photo||null}
+        addPlay(ab, true)
+        applyViewerBases(st.ab.result, {id:bt.id||null, name:bt.name, num:bt.num, photo:bt.photo||null})
+        if (st.ab.runs){
+          us += st.ab.runs
+          setText('away-score', us)
+          document.getElementById('away-score').className = 'sb-score lead'
+          updateFieldScore()
+        }
+        if (/out|strikeout/.test(st.ab.result)){
+          outs = (outs+1) % 3
+          if (outs === 0){ bases=[false,false,false]; runners=[null,null,null]; renderBases() }
+        }
+        b=0; s=0; pips()
+        if (st.ab.hit){
+          await sleep(900)   // simulates the coach's spray tap arriving late
+          fxSpray({id:'demo-'+pn+'-s', result:st.ab.result, hit_x:st.ab.hit[0], hit_y:st.ab.hit[1], hit_type:st.ab.type})
+        }
+        bi++; setBatter()
+        await sleep(2200)
+      } else {
+        await sleep(900)
+      }
+    }
+  }
 })();
 </script>
 </body>
