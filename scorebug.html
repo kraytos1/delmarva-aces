@@ -70,11 +70,19 @@
   .due-h .t{ font-size:13px; font-weight:800; letter-spacing:.2em; text-transform:uppercase; color:var(--orange); }
   .due-h .team{ font-size:13px; font-weight:700; color:var(--cream); margin-left:auto;
     max-width:230px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-  .due-row{ display:flex; align-items:center; gap:13px; padding:11px 20px; }
+  .due-row{ display:flex; align-items:center; gap:12px; padding:9px 20px; }
   .due-row + .due-row{ border-top:1px solid rgba(255,255,255,.05); }
-  .due-ord{ font-family:ui-monospace,monospace; font-size:12px; color:var(--muted); width:16px; }
-  .due-num{ font-family:ui-monospace,monospace; font-size:15px; font-weight:800; color:var(--orange2);
-    min-width:34px; }
+  .due-ord{ font-family:ui-monospace,monospace; font-size:12px; color:var(--muted); width:14px; flex-shrink:0; }
+  /* Headshot, with the jersey number as the fallback so a missing photo (or an
+     opponent we have no photos for) still reads as a deliberate design. */
+  .due-pic{ width:44px; height:44px; border-radius:50%; object-fit:cover; flex-shrink:0;
+    background:#20262f; border:1.5px solid rgba(255,255,255,.14); }
+  .due-ph{ width:44px; height:44px; border-radius:50%; flex-shrink:0; display:flex;
+    align-items:center; justify-content:center; background:#20262f;
+    border:1.5px solid rgba(255,255,255,.14);
+    font-family:ui-monospace,monospace; font-size:14px; font-weight:800; color:var(--orange2); }
+  .due-num{ font-family:ui-monospace,monospace; font-size:14px; font-weight:800; color:var(--orange2);
+    min-width:32px; }
   .due-name{ font-size:17px; font-weight:700; color:var(--cream); letter-spacing:.01em;
     white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .due-pos{ margin-left:auto; font-family:ui-monospace,monospace; font-size:11px; color:var(--muted); }
@@ -324,20 +332,25 @@ async function poll(){
 // order, so searching the order alone left this blank and the bug fell back to
 // "Aces pitcher". Prefer the name lineup.html now stores, then the order, then
 // the roster (fetched once, lazily).
+// id -> { name, num, photo }. Also the source of the Due Up headshots, so it's
+// loaded up front (one small query) and the images are warmed before any break.
 var ROSTER = null;
 async function loadRoster(){
   if (ROSTER) return;
   try{
-    var r = await db.from('players').select('id,first_name,last_name,jersey_num');
+    var r = await db.from('players').select('id,first_name,last_name,jersey_num,photo_url');
     ROSTER = {};
-    (r.data||[]).forEach(function(p){ ROSTER[p.id] = p.first_name+' '+p.last_name; });
+    (r.data||[]).forEach(function(p){
+      ROSTER[p.id] = { name: p.first_name+' '+p.last_name, num: p.jersey_num, photo: p.photo_url || '' };
+      if (p.photo_url){ var im = new Image(); im.src = p.photo_url; }   // warm the cache
+    });
   }catch(e){ ROSTER = {}; }
 }
 function acesPitcherName(n){
   if (n.acesPitcherName) return n.acesPitcherName;
   var e = (n.lineup||[]).filter(function(x){return x.playerName;}).find(function(x){return x.playerId===n.acesPitcherId;});
   if (e) return e.playerName;
-  if (ROSTER && n.acesPitcherId && ROSTER[n.acesPitcherId]) return ROSTER[n.acesPitcherId];
+  if (ROSTER && n.acesPitcherId && ROSTER[n.acesPitcherId]) return ROSTER[n.acesPitcherId].name;
   if (n.acesPitcherId) loadRoster();   // fills in on the next poll
   return '';
 }
@@ -519,10 +532,23 @@ function spinDock(){
 // off independently and the other still plays.
 function dueRowsHtml(list){
   return list.map(function(b, i){
+    // photo when we have one; otherwise the jersey number in the same circle,
+    // and onerror falls back too so a dead URL never leaves a broken image
+    var num  = (b.num!=null && b.num!=='') ? esc(b.num) : '';
+    var name = esc(b.name || '').trim();
+    var face = b.photo
+      ? '<img class="due-pic" src="'+esc(b.photo)+'" alt="" '
+        + 'onerror="this.outerHTML=\'<span class=&quot;due-ph&quot;>'+num+'</span>\'"/>'
+      : '<span class="due-ph">'+num+'</span>';
+    // Opponent orders are often just a jersey number. Rather than an empty
+    // name beside a duplicated "#2", promote the number into the name slot.
+    var numCol  = name && num ? '<span class="due-num">#'+num+'</span>' : '';
+    var nameTxt = name || (num ? '#'+num : 'Batter');
     return '<div class="due-row">'
       + '<span class="due-ord">'+(i+1)+'</span>'
-      + '<span class="due-num">'+(b.num!=null && b.num!=='' ? '#'+esc(b.num) : '')+'</span>'
-      + '<span class="due-name">'+esc(b.name)+'</span>'
+      + face
+      + numCol
+      + '<span class="due-name">'+nameTxt+'</span>'
       + (b.pos ? '<span class="due-pos">'+esc(b.pos)+'</span>' : '')
       + '</div>';
   }).join('');
@@ -539,7 +565,9 @@ function computeDueUp(n, isAcesBatting, acesAbs, oppAbs, oppName){
     var start = acesAbs.length % valid.length;
     return { team: 'Delmarva Aces', list: [0,1,2].slice(0, Math.min(3, valid.length)).map(function(k){
       var b = valid[(start+k) % valid.length];
-      return { num: b.jerseyNum, name: b.playerName, pos: b.position };
+      // the lineup carries no photo, so pair it up from the roster
+      var r = (ROSTER && b.playerId) ? ROSTER[b.playerId] : null;
+      return { num: b.jerseyNum, name: b.playerName, pos: b.position, photo: r ? r.photo : '' };
     })};
   }
   var opp = (n.oppLineup||[]).filter(function(x){return x.name;});
@@ -613,6 +641,7 @@ function spOnState(g, n, isAcesBatting, acesAbs, oppAbs, oppName){
 }
 
 var _dockTimer = null;
+loadRoster();      // up front: Due Up headshots must be warm before the first break
 loadSponsors();
 setInterval(loadSponsors, 600000);
 setTimeout(function(){ spinDock(); _dockTimer = setInterval(spinDock, SP.everySec*1000); }, 1500);
