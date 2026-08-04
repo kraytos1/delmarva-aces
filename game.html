@@ -794,11 +794,13 @@ function subscribeToGame(gameId) {
           merged.base_2b = p.new.base_2b
           merged.base_3b = p.new.base_3b
           merged.notes = p.new.notes
-          var notesChanged = (p.new.notes !== window._lastGameNotes)
           window._lastGameNotes = p.new.notes
           liveGame = merged
           updateScoreboard(merged)
-          if (notesChanged) refreshCurrentBatter()
+          // Always re-derive the batter card — a half flip often arrives with
+          // byte-identical notes (pointer unchanged), and gating on
+          // notesChanged left the card showing the other team's hitter.
+          refreshCurrentBatter()
         } catch(e) {
           updateScoreboard(p.new)
         }
@@ -839,6 +841,64 @@ function subscribeToGame(gameId) {
 
   console.log('Subscribed to game:', gameId)
 }
+
+// ── POLL RECONCILER ──
+// Realtime is the fast path, polling is the truth. Backgrounded phone tabs and
+// wifi blips drop the websocket, and Supabase does NOT replay events missed
+// while disconnected — without this the page freezes on stale state (wrong
+// half, wrong batter) until a manual refresh. Every 10s (and immediately when
+// the tab returns to the foreground) we catch up missed feed rows and re-sync
+// the authoritative game row.
+var _lastEventTs = null
+function _bumpTs(t){ if (t && (!_lastEventTs || t > _lastEventTs)) _lastEventTs = t }
+
+var _pollBusy = false
+async function pollReconcile(){
+  if (window.DEMO || !db || _pollBusy) return
+  _pollBusy = true
+  try {
+    if (!liveGame) {
+      // a game may have gone live while we sat on the pregame screen
+      try { await loadLiveGame() } catch(e) {}
+      return
+    }
+    // 1) catch up feed rows realtime may have dropped (no fx — this is repair)
+    if (_lastEventTs) {
+      var {data:np} = await db.from('pitches').select('*').eq('game_id', liveGame.id)
+        .gt('created_at', _lastEventTs).order('created_at',{ascending:true}).limit(60)
+      var {data:na} = await db.from('at_bats').select('*').eq('game_id', liveGame.id)
+        .gt('created_at', _lastEventTs).order('created_at',{ascending:true}).limit(30)
+      var tl = []
+      ;(np||[]).forEach(function(p){ tl.push({t:p.created_at, k:'p', d:p}) })
+      ;(na||[]).forEach(function(a){ tl.push({t:a.created_at, k:'a', d:a}) })
+      tl.sort(function(a,b){ return new Date(a.t) - new Date(b.t) })
+      tl.forEach(function(e){
+        if (e.k === 'p') {
+          if (e.d.id && document.querySelector('#play-log [data-pid="'+e.d.id+'"]')) return
+          addPitch(e.d, false)
+        } else {
+          if (e.d.id && document.querySelector('#play-log [data-abid="'+e.d.id+'"]')) return
+          addPlay(e.d, false)
+          try { applyViewerBases(e.d.result, abBatterInfo(e.d), e.d.runner_id) } catch(err) {}
+          try { (window._wpAtBats = window._wpAtBats || []).push(e.d) } catch(err) {}
+        }
+      })
+    }
+    // 2) re-sync the game row — authoritative for score/half/bases/pointer
+    var {data:g2} = await db.from('live_game_summary').select('*').eq('id', liveGame.id).single()
+    var {data:raw} = await db.from('games').select('base_1b,base_2b,base_3b,is_home,notes').eq('id', liveGame.id).single()
+    if (g2 && raw) {
+      g2.base_1b = raw.base_1b; g2.base_2b = raw.base_2b; g2.base_3b = raw.base_3b
+      g2.is_home = raw.is_home; g2.notes = raw.notes
+      window._lastGameNotes = raw.notes
+      liveGame = g2
+      updateScoreboard(g2)
+      refreshCurrentBatter()   // unconditional — see the realtime handler note
+    }
+  } catch(e) {} finally { _pollBusy = false }
+}
+setInterval(pollReconcile, 10000)
+document.addEventListener('visibilitychange', function(){ if (!document.hidden) pollReconcile() })
 
 function updateScoreboard(game) {
   setText('away-name', game.team_name||'Delmarva Aces')
@@ -1038,6 +1098,7 @@ function feedEmptyClear(feed) {
 
 function addPitch(pitch, isNew) {
   totalPitches++
+  _bumpTs(pitch.created_at)
   if(pitch.pitcher_id) acesPitches++; else oppPitches++
   setText('p-count', pcForHalf())
   updateFeedCounts()
@@ -1081,6 +1142,7 @@ function addPitch(pitch, isNew) {
 function addPlay(ab, isNew) {
   var feed = document.getElementById('play-log')
   feedEmptyClear(feed)
+  _bumpTs(ab.created_at)
 
   var r = ab.result||''
   var isHit = ['single','double','triple','home_run','walk','hbp'].includes(r)
