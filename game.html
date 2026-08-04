@@ -518,6 +518,14 @@ function abBatterInfo(ab) {
   if (ab._batterName) return { id: ab._batterId || null, name: ab._batterName, num: ab._num, photo: ab._photo || null }   // demo
   var lu = null
   try { lu = (liveGame && liveGame.notes) ? JSON.parse(liveGame.notes) : null } catch(e) {}
+  // Runner events carry BOTH batter_id and runner_id — the play belongs to the
+  // RUNNER (matches the scorer's own feed attribution), so check him first.
+  if (BR_RE.test(ab.result||'') && ab.runner_id) {
+    var br = GC_ROSTER && GC_ROSTER[ab.runner_id]
+    if (br) return { id: ab.runner_id, name: br.name, num: br.num, photo: br.photo }
+    loadGcRoster()
+    return null
+  }
   if (ab.batter_id) {
     var ro = GC_ROSTER && GC_ROSTER[ab.batter_id]
     var e = lu && lu.aces_lineup && lu.aces_lineup.find(function(x){ return x.playerId === ab.batter_id })
@@ -682,9 +690,16 @@ function loadLineupIntoCards(lineup, game) {
 // Update batter card when new at-bat comes in
 function updateBatterCard(ab) {
   if (!liveGame?.notes) return
+  // Runner events (SB/CS/pickoff…) happen MID at-bat — the batter stays up.
+  // These rows still carry batter_id, so without this guard a steal advanced
+  // the card to the wrong hitter.
+  if (BR_RE.test(ab.result||'')) return
   try {
     var lineup = JSON.parse(liveGame.notes)
     if (!lineup.aces_lineup) return
+    // Scorer publishes its pointer with every play — the notes UPDATE arriving
+    // right behind this INSERT drives refreshCurrentBatter; don't guess ahead.
+    if (typeof lineup.cur_batter_idx === 'number') return
 
     // Only update batter card for Aces at-bats (top half, has batter_id)
     if (ab.batter_id) {
@@ -719,10 +734,16 @@ async function refreshCurrentBatter() {
     // Named slots only — the same order the scorer walks (empty slots aren't batters)
     var valid = (lineup.aces_lineup || []).filter(function(e){return e.playerName})
     if (!valid.length) return
-    var BR = /(stolen_base|wp_advance|pb_advance|balk|caught_stealing|pickoff|out_advancing)/i
-    var {data:abs} = await db.from('at_bats').select('half,result').eq('game_id', liveGame.id)
-    var acesAbs = (abs||[]).filter(function(a){ return a.half===acesHalfG() && !BR.test(a.result||''); })
-    var b = valid[acesAbs.length % valid.length]
+    var b
+    if (typeof lineup.cur_batter_idx === 'number') {
+      // the scorer publishes its own pointer — never re-derive what it already tells us
+      b = valid[lineup.cur_batter_idx % valid.length]
+    } else {
+      // legacy game (pre-pointer): fall back to counting at-bats
+      var {data:abs} = await db.from('at_bats').select('half,result').eq('game_id', liveGame.id)
+      var acesAbs = (abs||[]).filter(function(a){ return a.half===acesHalfG() && !BR_RE.test(a.result||''); })
+      b = valid[acesAbs.length % valid.length]
+    }
     if (b) {
       setText('b-name', b.playerName)
       setCardAvatar('b-avatar', b.playerId, b.jerseyNum ? '#'+b.jerseyNum : 'B')
@@ -973,9 +994,15 @@ function updatePlayerCards(lineup, acesBat) {
     setText('p-name', ourPitcherName)
     setCardAvatar('p-avatar', lineup.aces_pitcher_id, ourPitcherNum)
     setText('p-meta', 'pitching')
-    // Show first opponent batter
-    var firstOpp = lineup.opp_lineup && lineup.opp_lineup.find(function(e){return e.name})
-    setText('b-name', firstOpp ? firstOpp.name : 'Opp. Batter')
+    // Opponent batter: the scorer's published pointer when present, else first entry
+    var oppList = (lineup.opp_lineup || []).filter(function(e){return e.name})
+    var oppB = null
+    if (oppList.length) {
+      oppB = (typeof lineup.cur_opp_batter_idx === 'number')
+        ? oppList[lineup.cur_opp_batter_idx % oppList.length]
+        : oppList[0]
+    }
+    setText('b-name', oppB ? oppB.name : 'Opp. Batter')
     setText('b-avatar', 'B')
     setText('b-meta', 'at bat')
   }

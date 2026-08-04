@@ -922,12 +922,20 @@ function logSub(type, info){
   S.subsLog.push(base)
 }
 
-async function saveNotes(){
+function buildNotesPayload(){
   // NOTE: this rebuilds the whole notes payload — any new persistent field
-  // must be listed here or the next sub silently drops it.
-  var payload={ aces_lineup:S.acesLineup, aces_pitcher_id:S.currentPitcherId||null,
+  // must be listed here or the next save silently drops it.
+  // cur_batter_idx / cur_opp_batter_idx: the scorer PUBLISHES its batting-order
+  // pointers so viewers (game.html, scorebug) read them instead of re-deriving
+  // from at-bat counts — independent derivations drift (resume, Skip batter,
+  // manual batter set all break count-based math).
+  return { aces_lineup:S.acesLineup, aces_pitcher_id:S.currentPitcherId||null,
     aces_pitcher_name:S.currentPitcherName||null, aces_pitcher_num:S.currentPitcherNum||null,
-    opp_pitcher:S.oppPitcher||'', opp_lineup:S.oppLineup||[], subs_log:S.subsLog||[], scoring_start_utc:S.scoringStartUtc||null }
+    opp_pitcher:S.oppPitcher||'', opp_lineup:S.oppLineup||[], subs_log:S.subsLog||[], scoring_start_utc:S.scoringStartUtc||null,
+    cur_batter_idx:S.currentBatterIdx||0, cur_opp_batter_idx:S.currentOppBatterIdx||0 }
+}
+async function saveNotes(){
+  var payload=buildNotesPayload()
   try{
     if(S.game) S.game.notes = JSON.stringify(payload)
     await db.from('games').update({notes: JSON.stringify(payload)}).eq('id',S.gameId)
@@ -1318,12 +1326,20 @@ async function startScoring() {
         if(pitcherEntry){ S.currentPitcherName = pitcherEntry.playerName; S.currentPitcherNum = pitcherEntry.jerseyNum }
       }
 
-      // Figure out where in the order we are based on at_bats already logged
+      // Where in the order are we? The pointer the scorer PUBLISHED wins —
+      // the at-bat count is only a fallback for games saved before pointers
+      // existed. (Count-derivation broke on resume: if the count query above
+      // failed silently, the pointer reset to leadoff and the wrong batter
+      // got credited — and Skip batter / manual set never matched counts.)
       var _order = acesOrder()
-      if(acesAbCount > 0 && _order.length > 0) {
+      if (typeof saved.cur_batter_idx === 'number' && _order.length) {
+        S.currentBatterIdx = saved.cur_batter_idx % _order.length
+      } else if(acesAbCount > 0 && _order.length > 0) {
         S.currentBatterIdx = acesAbCount % _order.length
       }
-      if(oppAbCount > 0 && S.oppLineup.length > 0) {
+      if (typeof saved.cur_opp_batter_idx === 'number' && S.oppLineup.length) {
+        S.currentOppBatterIdx = saved.cur_opp_batter_idx % S.oppLineup.length
+      } else if(oppAbCount > 0 && S.oppLineup.length > 0) {
         S.currentOppBatterIdx = oppAbCount % S.oppLineup.length
       }
     } catch(e) { console.log('Lineup parse error:', e) }
@@ -1868,23 +1884,30 @@ function applyBaserunners(r) {
 
 async function pushState() {
   if(!S.gameId) return
+  // Rebuild notes on every push so the batting-order pointers ride along with
+  // the state they describe (atomic with half/inning — viewers never see a
+  // pointer from one play paired with the count of another).
+  var notesJson = null
+  try { notesJson = JSON.stringify(buildNotesPayload()); if(S.game) S.game.notes = notesJson } catch(e){}
   var state = {
     our_score:S.scores.us, opp_score:S.scores.them,
     inning:S.inning, half:S.isTop?'top':'bottom',
     outs:S.outs, balls:S.balls, strikes:S.strikes,
-    notes: S.game?.notes  // preserve lineup
+    notes: notesJson || S.game?.notes
   }
   // Save locally first
   try { localStorage.setItem('aces_game_state_'+S.gameId, JSON.stringify(state)) } catch(e){}
   // Push to Supabase
   try{
     if(!isOnline) return
-    await db.from('games').update({
+    var upd = {
       our_score:S.scores.us, opp_score:S.scores.them,
       inning:S.inning, half:S.isTop?'top':'bottom',
       outs:S.outs, balls:S.balls, strikes:S.strikes,
       base_1b:S.bases[0], base_2b:S.bases[1], base_3b:S.bases[2]
-    }).eq('id',S.gameId)
+    }
+    if (notesJson) upd.notes = notesJson
+    await db.from('games').update(upd).eq('id',S.gameId)
   }catch(e){}
 }
 
@@ -2045,6 +2068,7 @@ function skipBatter(){
   renderCount()
   S.currentBatterIdx=(S.currentBatterIdx+1)%order.length
   updateBatterDisplay()
+  pushState()   // publish the moved pointer so viewers follow the skip
   var to = order[S.currentBatterIdx % order.length]
   var toName = (to && to.playerName || '').split(' ').pop()
   showToast('Skipped '+fromName+' — '+toName+' up (tap the name to undo)')
@@ -2640,6 +2664,7 @@ function setBatterIdx(idx){
   if(!order[idx]) return
   S.currentBatterIdx = idx
   updateBatterDisplay()
+  pushState()   // publish the corrected pointer so viewers follow
   showToast('Batter: '+(order[idx].playerName || '').split(' ').pop()+' ✓')
 }
 

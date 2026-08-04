@@ -280,6 +280,9 @@ function parseNotes(raw){
     notesCache.acesPitcherName = s.aces_pitcher_name || '';
     notesCache.oppPitcher   = s.opp_pitcher   || '';
     notesCache.oppLineup    = s.opp_lineup    || [];
+    // batting-order pointers the scorer publishes (null on pre-pointer games)
+    notesCache.curBatterIdx    = (typeof s.cur_batter_idx     === 'number') ? s.cur_batter_idx     : null;
+    notesCache.curOppBatterIdx = (typeof s.cur_opp_batter_idx === 'number') ? s.cur_opp_batter_idx : null;
   }catch(e){}
   return notesCache;
 }
@@ -360,6 +363,9 @@ function currentAcesBatter(n, acesAbs){
   // from the scorer as soon as a lineup was short.
   var valid = (n.lineup || []).filter(function(x){return x.playerName;});
   if (!valid.length) return null;
+  // The scorer's published pointer wins; the at-bat count is only a fallback
+  // for games saved before pointers existed (count math breaks on resume/skip).
+  if (n.curBatterIdx != null) return valid[n.curBatterIdx % valid.length];
   return valid[acesAbs.length % valid.length];
 }
 function batterTodayLine(batterId, acesAbs){
@@ -562,7 +568,8 @@ function computeDueUp(n, isAcesBatting, acesAbs, oppAbs, oppName){
   if (isAcesBatting){
     var valid = (n.lineup||[]).filter(function(x){return x.playerName;});
     if (!valid.length) return null;
-    var start = acesAbs.length % valid.length;
+    var start = (n.curBatterIdx != null) ? (n.curBatterIdx % valid.length)
+                                         : (acesAbs.length % valid.length);
     return { team: 'Delmarva Aces', list: [0,1,2].slice(0, Math.min(3, valid.length)).map(function(k){
       var b = valid[(start+k) % valid.length];
       // the lineup carries no photo, so pair it up from the roster
@@ -572,7 +579,8 @@ function computeDueUp(n, isAcesBatting, acesAbs, oppAbs, oppName){
   }
   var opp = (n.oppLineup||[]).filter(function(x){return x.name;});
   if (!opp.length) return null;              // no opponent order entered — skip
-  var s2 = oppAbs.length % opp.length;
+  var s2 = (n.curOppBatterIdx != null) ? (n.curOppBatterIdx % opp.length)
+                                       : (oppAbs.length % opp.length);
   return { team: oppName || 'Opponent', list: [0,1,2].slice(0, Math.min(3, opp.length)).map(function(k){
     var b = opp[(s2+k) % opp.length];
     var m = String(b.name).match(/^#?(\d+)\s*(.*)$/);   // "12 Smith" / "#12" / "Smith"
