@@ -4,6 +4,9 @@
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>The Rafters · Delmarva Aces</title>
+<!-- Carries championship team photos of the kids, so it follows the same rule
+     as photos.html: findable by families who have the link, not by search. -->
+<meta name="robots" content="noindex, nofollow"/>
 <link rel="manifest" href="/manifest.json"/>
 <link rel="apple-touch-icon" href="/icon-192.png"/>
 <meta name="theme-color" content="#E8530A"/>
@@ -157,6 +160,18 @@ body{background:var(--black);color:var(--text);font-family:var(--body);overflow-
 .d-close:hover{color:var(--text);background:var(--dark3);}
 .d-body{padding:12px 20px 18px;}
 .d-note{font-family:var(--mono);font-size:10.5px;color:var(--muted);letter-spacing:.6px;line-height:1.9;}
+/* The championship photo — the team's tradition, and the thing families
+   actually want to see. Leads the drawer: photo, then story, then proof. */
+.d-photo{position:relative;margin:2px 0 16px;border-radius:10px;overflow:hidden;
+  border:1px solid rgba(212,160,66,.22);background:var(--dark);
+  box-shadow:0 12px 30px rgba(0,0,0,.5);}
+.d-photo img{display:block;width:100%;height:auto;max-height:420px;object-fit:cover;
+  object-position:center 30%;}
+.d-photo figcaption{position:absolute;left:0;right:0;bottom:0;padding:22px 16px 9px;
+  font-family:var(--mono);font-size:9.5px;letter-spacing:2px;text-transform:uppercase;
+  color:#F0EDE8;background:linear-gradient(180deg,transparent,rgba(6,8,10,.88));}
+.d-photo figcaption b{color:var(--gold-lt);font-weight:600;}
+
 /* Coach's recap — the part a box score can't hold. His words, unedited. */
 .recap{background:rgba(212,160,66,.05);border:1px solid rgba(212,160,66,.16);
   border-radius:10px;padding:14px 18px 4px;margin:2px 0 16px;}
@@ -345,7 +360,8 @@ async function open(b){
   d.scrollIntoView({behavior:'smooth', block:'nearest'});
 
   if (!b.from){
-    $('d-body').innerHTML = recapHtml(b) + `<div class="d-note">${esc(b.note || 'No game-by-game detail stored for this one yet.')}</div>`;
+    $('d-body').innerHTML = photoHtml(b) + recapHtml(b) + `<div class="d-note">${esc(b.note || 'No game-by-game detail stored for this one yet.')}</div>`;
+    loadPhoto(b);
     return;
   }
   // local rows -> the same shape the DB returns, so one renderer handles both
@@ -359,7 +375,8 @@ async function open(b){
     if (error) throw error;
     const rows = (data && data.length) ? data : local;
     if (!rows.length){
-      $('d-body').innerHTML = recapHtml(b) + `<div class="d-note">${esc(b.note || 'No game rows stored for this tournament yet.')}</div>`;
+      $('d-body').innerHTML = photoHtml(b) + recapHtml(b) + `<div class="d-note">${esc(b.note || 'No game rows stored for this tournament yet.')}</div>`;
+      loadPhoto(b);
       return;
     }
     renderGames(rows, null, b);
@@ -368,6 +385,45 @@ async function open(b){
     if (local.length) renderGames(local, "Couldn't reach the database — showing the archived list.", b);
     else $('d-body').innerHTML = `<div class="d-note">Couldn't load games for this tournament.</div>`;
   }
+}
+
+// The championship photo leads the drawer. Photos are found BY CONVENTION so
+// adding one never needs a code change: drop the coach's CHAMPIONS shot at
+//   /championships/<slug>.jpg      (png / jpeg / webp also work)
+// and it appears. `photo:` on a banner overrides the convention with any URL.
+// Nothing is rendered until an image actually loads, so a missing photo leaves
+// no empty frame — see championships/README.md for the exact filenames.
+// Two extensions only, and misses are remembered: probing six variants logged
+// six console 404s per photoless banner, which buries real errors.
+const PHOTO_EXT = ['jpg','png'];
+const photoMiss = new Set();
+function slug(s){
+  return String(s||'').toLowerCase()
+    .replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'');
+}
+function photoHtml(b){
+  if (!b || b.tier === 'pending') return '';
+  return `<figure class="d-photo" id="d-photo" hidden>
+    <img alt="Delmarva Aces after winning ${esc(b.name)}"/>
+    <figcaption><b>Champions</b> · ${esc(b.name)} · ${esc(b.loc)}</figcaption>
+  </figure>`;
+}
+// Try the explicit URL, then each extension in turn; reveal on the first hit.
+function loadPhoto(b){
+  const fig = document.getElementById('d-photo');
+  if (!fig || !b || b.tier === 'pending') return;
+  const key = b.photo || slug(b.name);
+  if (photoMiss.has(key)) { fig.remove(); return; }   // already known absent
+  const img = fig.querySelector('img');
+  const tries = b.photo ? [b.photo]
+                        : PHOTO_EXT.map(e => `/championships/${slug(b.name)}.${e}`);
+  let i = 0;
+  img.onload  = () => { fig.hidden = false; };
+  img.onerror = () => {
+    if (++i < tries.length) { img.src = tries[i]; return; }
+    photoMiss.add(key); fig.remove();
+  };
+  img.src = tries[0];
 }
 
 // The coach writes a recap after every championship. A box score can't hold a
@@ -386,7 +442,7 @@ function renderGames(rows, prefix, b){
   const rf = rows.reduce((s,g) => s + (g.our_score||0), 0);
   const ra = rows.reduce((s,g) => s + (g.opp_score||0), 0);
   $('d-body').innerHTML =
-    recapHtml(b) +
+    photoHtml(b) + recapHtml(b) +
     (prefix ? `<div class="d-note" style="margin-bottom:6px;">${esc(prefix)}</div>` : '') +
     `<div class="d-note" style="margin-bottom:8px;">${rows.length} GAMES · ${w}-${l} · ${rf} RUNS SCORED, ${ra} ALLOWED</div>` +
     rows.map(g => {
@@ -398,6 +454,7 @@ function renderGames(rows, prefix, b){
         <span class="g-sc ${win?'w':'l'}">${win?'W':'L'} ${g.our_score}–${g.opp_score}</span>
       </div>`;
     }).join('');
+  loadPhoto(b);
 }
 
 $('d-close').addEventListener('click', () => $('drawer').classList.remove('show'));
