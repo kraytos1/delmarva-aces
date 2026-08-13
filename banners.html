@@ -190,7 +190,7 @@ body{background:var(--black);color:var(--text);font-family:var(--body);overflow-
     <div class="tally">
       <div><div class="n" id="t-titles">—</div><div class="l">Championships</div></div>
       <div><div class="n o" id="t-rec">—</div><div class="l">Spring 2026</div></div>
-      <div><div class="n" id="t-sweeps">—</div><div class="l">Won Without a Loss</div></div>
+      <div><div class="n" id="t-sweeps">—</div><div class="l">In Those Ten</div></div>
     </div>
   </div>
 
@@ -216,8 +216,8 @@ body{background:var(--black);color:var(--text);font-family:var(--body);overflow-
   </div>
 
   <div class="foot" id="foot">
-    NINE OF THE TEN SPRING TITLES WERE WON WITHOUT DROPPING A GAME — 45–0 ACROSS THOSE NINE.<br>
-    RECORDS COMPUTED FROM REAL GAME ROWS; COOPERSTOWN WEEK LIVES ONLY ON GAMECHANGER.
+    TEN TITLES IN ONE SPRING — AND NOT ONE GAME LOST ON THE WAY TO ANY OF THEM.<br>
+    EVERY RECORD HERE IS COMPUTED FROM REAL GAME ROWS, NOT TYPED IN.
   </div>
 </div>
 
@@ -263,10 +263,24 @@ const BANNERS = [
     rec:'5–0', tier:'title', stars:3, from:'2026-06-12', to:'2026-06-14' },
 
   // The crown. Kept separate from the season record, per Chris.
+  // Cooperstown week is the one block of spring that never made it into the
+  // `games` table — these ten rows come from index.html's spring archive
+  // (which is where the site's 62-2 comes from). The drawer prefers the DB and
+  // falls back to these, so it starts working on its own if they ever load.
   { d:'JUN 24–30', name:'Cooperstown', loc:'Cooperstown, NY',
-    rec:'CHAMPS', tier:'major', stars:5, from:'2026-06-24', to:'2026-06-30',
-    note:'Cooperstown week never made it into our own games table — the ' +
-         'game-by-game log lives only on GameChanger. The banner is the record.' },
+    rec:'10–0', tier:'major', stars:5, from:'2026-06-24', to:'2026-06-30',
+    games:[
+      ['2026-06-26','Park Sharon Nationals',11,4],
+      ['2026-06-26','G3 12U - Gonzalez',19,5],
+      ['2026-06-26','ZBC 12u Green',15,0],
+      ['2026-06-27','Ohio Valley Xpress 12U',16,3],
+      ['2026-06-27','Knoxville Stars 12U',15,3],
+      ['2026-06-28','Battle Utah 12U',14,1],
+      ['2026-06-29','West Pines Cobras Venom 2032 12U',16,4],
+      ['2026-06-29','Tidewater Drillers 12U',13,5],
+      ['2026-06-29','Devine Baseball Navy 12U',18,7],
+      ['2026-06-29','Wesley Chapel Storm 12U',18,5],
+    ] },
 
   { d:'FALL 2026', name:'13U East', loc:'The story starts now', rec:'—',
     tier:'pending', from:null, to:null, note:'This one is still being written.' },
@@ -298,12 +312,14 @@ function render(){
     </button>`).join('');
 
   // Every hanging banner IS a championship (the wall's rule), minus the
-  // not-yet-written one. Sweeps count only records we can verify from games.
-  const titles = BANNERS.filter(b => b.tier !== 'pending').length;
-  const sweeps = BANNERS.filter(b => /^\d+–0$/.test(b.rec)).length;
-  $('t-titles').textContent = titles;
+  // not-yet-written one. The combined title-run record is the headline: every
+  // game played inside a tournament they won.
+  const won = BANNERS.filter(b => b.tier !== 'pending');
+  const runW = won.reduce((s,b) => s + (parseInt(b.rec,10) || 0), 0);
+  const runL = won.reduce((s,b) => s + (parseInt((b.rec.split('–')[1]||'0'),10) || 0), 0);
+  $('t-titles').textContent = won.length;
   $('t-rec').textContent = SEASON.rec;
-  $('t-sweeps').textContent = sweeps;
+  $('t-sweeps').textContent = `${runW}–${runL}`;
 
   wall.querySelectorAll('.banner').forEach(el =>
     el.addEventListener('click', () => open(BANNERS[+el.dataset.i])));
@@ -322,36 +338,45 @@ async function open(b){
     $('d-body').innerHTML = `<div class="d-note">${esc(b.note || 'No game-by-game detail stored for this one yet.')}</div>`;
     return;
   }
+  // local rows -> the same shape the DB returns, so one renderer handles both
+  const local = (b.games || []).map(g => ({
+    game_date:g[0], opponents:{name:g[1]}, our_score:g[2], opp_score:g[3] }));
   try{
     const { data, error } = await db.from('games')
       .select('game_date,our_score,opp_score,status,opponents(name)')
       .gte('game_date', b.from).lte('game_date', b.to)
       .eq('status','final').order('game_date');
     if (error) throw error;
-    const rows = data || [];
+    const rows = (data && data.length) ? data : local;
     if (!rows.length){
       $('d-body').innerHTML = `<div class="d-note">${esc(b.note || 'No game rows stored for this tournament yet.')}</div>`;
       return;
     }
-    const w = rows.filter(g => g.our_score > g.opp_score).length;
-    const l = rows.filter(g => g.our_score < g.opp_score).length;
-    const rf = rows.reduce((s,g) => s + (g.our_score||0), 0);
-    const ra = rows.reduce((s,g) => s + (g.opp_score||0), 0);
-    $('d-body').innerHTML =
-      `<div class="d-note" style="margin-bottom:8px;">${rows.length} GAMES · ${w}-${l} · ${rf} RUNS SCORED, ${ra} ALLOWED</div>` +
-      rows.map(g => {
-        const win = g.our_score > g.opp_score;
-        const dt = (g.game_date||'').slice(5).replace('-','/');
-        return `<div class="g-row">
-          <span class="g-date">${esc(dt)}</span>
-          <span class="g-opp">${esc((g.opponents && g.opponents.name) || 'Opponent')}</span>
-          <span class="g-sc ${win?'w':'l'}">${win?'W':'L'} ${g.our_score}–${g.opp_score}</span>
-        </div>`;
-      }).join('');
+    renderGames(rows);
   }catch(e){
     console.error(e);
-    $('d-body').innerHTML = `<div class="d-note">Couldn't load games for this tournament.</div>`;
+    if (local.length) renderGames(local, "Couldn't reach the database — showing the archived list.");
+    else $('d-body').innerHTML = `<div class="d-note">Couldn't load games for this tournament.</div>`;
   }
+}
+
+function renderGames(rows, prefix){
+  const w = rows.filter(g => g.our_score > g.opp_score).length;
+  const l = rows.filter(g => g.our_score < g.opp_score).length;
+  const rf = rows.reduce((s,g) => s + (g.our_score||0), 0);
+  const ra = rows.reduce((s,g) => s + (g.opp_score||0), 0);
+  $('d-body').innerHTML =
+    (prefix ? `<div class="d-note" style="margin-bottom:6px;">${esc(prefix)}</div>` : '') +
+    `<div class="d-note" style="margin-bottom:8px;">${rows.length} GAMES · ${w}-${l} · ${rf} RUNS SCORED, ${ra} ALLOWED</div>` +
+    rows.map(g => {
+      const win = g.our_score > g.opp_score;
+      const dt = (g.game_date||'').slice(5).replace('-','/');
+      return `<div class="g-row">
+        <span class="g-date">${esc(dt)}</span>
+        <span class="g-opp">${esc((g.opponents && g.opponents.name) || 'Opponent')}</span>
+        <span class="g-sc ${win?'w':'l'}">${win?'W':'L'} ${g.our_score}–${g.opp_score}</span>
+      </div>`;
+    }).join('');
 }
 
 $('d-close').addEventListener('click', () => $('drawer').classList.remove('show'));
