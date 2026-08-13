@@ -111,6 +111,9 @@ body{background:var(--black);color:var(--text);font-family:var(--body);overflow-
 .b-tag{font-family:var(--mono);font-size:8.5px;letter-spacing:1.8px;text-transform:uppercase;
   color:var(--muted);margin-top:7px;}
 .b-logo{width:24px;margin:12px auto 0;display:block;opacity:.5;}
+/* a banner carrying the coach's write-up gets a quiet mark */
+.b-story{font-family:var(--mono);font-size:7.5px;letter-spacing:1.6px;color:var(--gold);
+  opacity:.75;margin-top:8px;}
 /* drawn stars — a banner's rank marks, not a text glyph */
 .stars{display:flex;gap:3px;justify-content:center;margin-top:8px;}
 .stars svg{width:9px;height:9px;display:block;}
@@ -154,6 +157,15 @@ body{background:var(--black);color:var(--text);font-family:var(--body);overflow-
 .d-close:hover{color:var(--text);background:var(--dark3);}
 .d-body{padding:12px 20px 18px;}
 .d-note{font-family:var(--mono);font-size:10.5px;color:var(--muted);letter-spacing:.6px;line-height:1.9;}
+/* Coach's recap — the part a box score can't hold. His words, unedited. */
+.recap{background:rgba(212,160,66,.05);border:1px solid rgba(212,160,66,.16);
+  border-radius:10px;padding:14px 18px 4px;margin:2px 0 16px;}
+.recap-by{font-family:var(--mono);font-size:9px;letter-spacing:2px;text-transform:uppercase;
+  color:var(--gold);margin-bottom:9px;}
+.recap p{font-size:13.5px;line-height:1.8;color:var(--text);max-width:74ch;margin-bottom:11px;}
+.recap p:last-child{margin-bottom:11px;}
+.recap-src{font-family:var(--mono);font-size:9px;color:var(--muted);letter-spacing:1px;
+  border-top:1px solid rgba(255,255,255,.06);padding-top:8px;margin-top:2px;}
 .g-row{display:flex;align-items:center;gap:12px;padding:8px 0;border-bottom:1px solid rgba(255,255,255,.045);}
 .g-row:last-child{border-bottom:none;}
 .g-date{font-family:var(--mono);font-size:10px;color:var(--muted);width:52px;flex-shrink:0;}
@@ -245,7 +257,13 @@ const BANNERS = [
     rec:'5–0', tier:'title', stars:3, from:'2026-05-02', to:'2026-05-03' },
 
   { d:'MAY 15–17', name:'Shipyard #82', loc:'Mt Pleasant, SC',
-    rec:'4–0', tier:'title', stars:3, from:'2026-05-15', to:'2026-05-17' },
+    rec:'4–0', tier:'title', stars:3, from:'2026-05-15', to:'2026-05-17',
+    recapBy:'May 18', recap:[
+      "12U East is the champion of Shipyard Park in Mount Pleasant, South Carolina. The team went 4-0 at the event and upped their record to 42-2 on the season following the championship in South Carolina.",
+      "The team opened up with a 21-0 win as they pounded out 15 hits on Friday night. Ayden Jester was 3-for-3 with three home runs and five RBIs, while a trio of pitchers combined on the complete game shutout.",
+      "The team went 2-0 on Saturday and Jake Coulbourne, Hunter Washbon and Mason Maloney combined to throw a perfect game in the first contest. Squad won 9-0 in game two behind a grand slam by Hudson Hartstein to take the win and secure the number one seed.",
+      "The team capped off the tournament with a thrilling come-from-behind victory to walk it off in the championship game. It was Jester again that hit the decisive game-winning home run as he plated Hartstein, who singled earlier in the inning.",
+    ] },
 
   { d:'MAY 23–25', name:'ESTB Memorial Day Classic', loc:'Fruitland, MD',
     rec:'5–0', tier:'title', stars:3, from:'2026-05-23', to:'2026-05-25' },
@@ -298,6 +316,7 @@ function render(){
         <div class="b-rec${/[A-Za-z]/.test(b.rec) ? ' word' : ''}">${esc(b.rec)}</div>
         ${b.stars ? `<div class="stars">${STAR.repeat(b.stars)}</div>` : ''}
         <div class="b-tag">${esc(b.loc)}</div>
+        ${b.recap ? '<div class="b-story">READ THE STORY</div>' : ''}
         <img class="b-logo" src="/icon-192.png" alt=""/>
       </div>
     </button>`).join('');
@@ -326,7 +345,7 @@ async function open(b){
   d.scrollIntoView({behavior:'smooth', block:'nearest'});
 
   if (!b.from){
-    $('d-body').innerHTML = `<div class="d-note">${esc(b.note || 'No game-by-game detail stored for this one yet.')}</div>`;
+    $('d-body').innerHTML = recapHtml(b) + `<div class="d-note">${esc(b.note || 'No game-by-game detail stored for this one yet.')}</div>`;
     return;
   }
   // local rows -> the same shape the DB returns, so one renderer handles both
@@ -340,23 +359,34 @@ async function open(b){
     if (error) throw error;
     const rows = (data && data.length) ? data : local;
     if (!rows.length){
-      $('d-body').innerHTML = `<div class="d-note">${esc(b.note || 'No game rows stored for this tournament yet.')}</div>`;
+      $('d-body').innerHTML = recapHtml(b) + `<div class="d-note">${esc(b.note || 'No game rows stored for this tournament yet.')}</div>`;
       return;
     }
-    renderGames(rows);
+    renderGames(rows, null, b);
   }catch(e){
     console.error(e);
-    if (local.length) renderGames(local, "Couldn't reach the database — showing the archived list.");
+    if (local.length) renderGames(local, "Couldn't reach the database — showing the archived list.", b);
     else $('d-body').innerHTML = `<div class="d-note">Couldn't load games for this tournament.</div>`;
   }
 }
 
-function renderGames(rows, prefix){
+// The coach writes a recap after every championship. A box score can't hold a
+// walk-off; his words can. Shown above the games, in his voice, unedited.
+function recapHtml(b){
+  if (!b || !b.recap || !b.recap.length) return '';
+  return `<div class="recap">
+    <div class="recap-by">Coach's recap${b.recapBy ? ' · ' + esc(b.recapBy) : ''}</div>
+    ${b.recap.map(p => `<p>${esc(p)}</p>`).join('')}
+  </div>`;
+}
+
+function renderGames(rows, prefix, b){
   const w = rows.filter(g => g.our_score > g.opp_score).length;
   const l = rows.filter(g => g.our_score < g.opp_score).length;
   const rf = rows.reduce((s,g) => s + (g.our_score||0), 0);
   const ra = rows.reduce((s,g) => s + (g.opp_score||0), 0);
   $('d-body').innerHTML =
+    recapHtml(b) +
     (prefix ? `<div class="d-note" style="margin-bottom:6px;">${esc(prefix)}</div>` : '') +
     `<div class="d-note" style="margin-bottom:8px;">${rows.length} GAMES · ${w}-${l} · ${rf} RUNS SCORED, ${ra} ALLOWED</div>` +
     rows.map(g => {
