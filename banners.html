@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>The Rafters · Delmarva Aces</title>
+<link rel="manifest" href="/manifest.json"/>
+<link rel="apple-touch-icon" href="/icon-192.png"/>
+<meta name="theme-color" content="#E8530A"/>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="config.js"></script>
+<script src="/nav.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Inter:wght@300;400;500;600&family=Roboto+Mono:wght@400;500&display=swap');
+:root{
+  color-scheme:dark;
+  --orange:#E8530A;--orange2:#C44208;
+  --gold:#d4a042;--gold-lt:#e8c06a;
+  --black:#0A0C0E;--dark:#111418;--dark2:#181C22;--dark3:#1F242C;
+  --bdr:rgba(255,255,255,.08);--bdr-a:rgba(232,83,10,.35);
+  --text:#F0EDE8;--muted:#7A8290;--green:#3DDC6A;
+  --mono:'Roboto Mono',monospace;--display:'Oswald',sans-serif;--body:'Inter',sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--black);color:var(--text);font-family:var(--body);overflow-x:hidden;}
+
+/* the room: a dark gym, one light source above the rafter */
+.hall{position:relative;padding:0 0 60px;
+  background:
+    radial-gradient(120% 70% at 50% -8%, rgba(232,83,10,.10), transparent 60%),
+    radial-gradient(90% 50% at 50% 0%, rgba(255,255,255,.045), transparent 70%),
+    var(--black);}
+
+.head{max-width:1180px;margin:0 auto;padding:34px 20px 8px;text-align:center;}
+.head .kick{font-family:var(--mono);font-size:10px;letter-spacing:3px;color:var(--orange);text-transform:uppercase;}
+.head h1{font-family:var(--display);font-size:clamp(2.1rem,7vw,3.4rem);font-weight:700;
+  letter-spacing:1px;line-height:1;margin-top:8px;text-transform:uppercase;}
+.head p{font-size:13.5px;color:var(--muted);margin-top:10px;line-height:1.7;
+  max-width:60ch;margin-left:auto;margin-right:auto;}
+.tally{display:flex;gap:26px;justify-content:center;margin-top:18px;flex-wrap:wrap;}
+.tally div{text-align:center;}
+.tally .n{font-family:var(--display);font-size:26px;font-weight:700;color:var(--gold-lt);line-height:1;}
+.tally .n.o{color:var(--orange);}
+.tally .l{font-family:var(--mono);font-size:9px;color:var(--muted);letter-spacing:1.5px;
+  text-transform:uppercase;margin-top:5px;}
+
+/* ── the rafter ──
+   One CONTINUOUS beam with the banners hanging off it. The rack scrolls
+   sideways rather than wrapping: a wrapped banner would hang from nothing,
+   and the wall has to keep working as more banners get added. */
+.rafter-wrap{position:relative;max-width:1180px;margin:40px auto 0;padding:0 20px;}
+.rack{overflow-x:auto;overflow-y:hidden;padding-bottom:12px;
+  scrollbar-width:thin;scrollbar-color:#2a303a transparent;
+  -webkit-mask-image:linear-gradient(90deg,transparent,#000 22px,#000 calc(100% - 22px),transparent);
+          mask-image:linear-gradient(90deg,transparent,#000 22px,#000 calc(100% - 22px),transparent);}
+.rack::-webkit-scrollbar{height:6px;}
+.rack::-webkit-scrollbar-thumb{background:#2a303a;border-radius:3px;}
+.rack-in{display:inline-block;min-width:100%;padding:0 22px;}
+.beam{position:relative;height:16px;border-radius:3px;
+  background:linear-gradient(180deg,#2b3038 0%,#1a1e24 42%,#0e1116 100%);
+  box-shadow:0 3px 10px rgba(0,0,0,.65), inset 0 1px 0 rgba(255,255,255,.10);}
+.beam::before{content:'';position:absolute;inset:0;height:1px;top:-9px;
+  background:linear-gradient(90deg,transparent,rgba(255,255,255,.09),transparent);}
+
+/* ── banners ── */
+.wall{display:flex;gap:clamp(11px,1.9vw,23px);justify-content:center;align-items:flex-start;
+  flex-wrap:nowrap;padding:0 4px;}
+.banner{
+  --w:clamp(130px,12vw,152px);
+  width:var(--w);flex:0 0 auto;position:relative;cursor:pointer;
+  border:none;padding:0;background:none;text-align:center;color:inherit;
+  transform-origin:top center;
+  animation:drop .85s cubic-bezier(.16,1,.3,1) both;
+}
+@keyframes drop{
+  0%{opacity:0;transform:translateY(-38px) rotate(-2.5deg);}
+  60%{opacity:1;transform:translateY(0) rotate(.9deg);}
+  100%{opacity:1;transform:translateY(0) rotate(0);}
+}
+/* the hanger: two grommets + the strap over the beam */
+.straps{position:relative;height:22px;display:flex;justify-content:center;gap:calc(var(--w) * .42);}
+.straps i{display:block;width:9px;height:22px;border-radius:0 0 2px 2px;
+  background:linear-gradient(180deg,#3a4048,#232830);box-shadow:0 1px 2px rgba(0,0,0,.6);}
+.straps i::after{content:'';display:block;width:5px;height:5px;border-radius:50%;
+  background:#0c0f13;margin:13px auto 0;box-shadow:inset 0 1px 1px rgba(0,0,0,.9);}
+
+.cloth{position:relative;padding:16px 12px 34px;
+  /* banners on a rafter hang to the SAME length — uniform height, content
+     distributed, logo pinned to the tail */
+  min-height:236px;display:flex;flex-direction:column;
+  clip-path:polygon(0 0,100% 0,100% 88%,50% 100%,0 88%);
+  background:linear-gradient(175deg,#20262f 0%,#151a21 55%,#0f1319 100%);
+  box-shadow:0 16px 34px rgba(0,0,0,.55);
+  transition:transform .32s cubic-bezier(.16,1,.3,1), filter .32s;}
+.banner:hover .cloth,.banner:focus-visible .cloth{transform:translateY(3px) scale(1.028);filter:brightness(1.1);}
+.banner:focus-visible{outline:none;}
+.banner:focus-visible .cloth{box-shadow:0 16px 34px rgba(0,0,0,.55),0 0 0 2px var(--orange);}
+/* stitched inner edge + woven texture */
+.cloth::before{content:'';position:absolute;inset:6px 6px 12px;border:1px dashed rgba(255,255,255,.13);
+  clip-path:polygon(0 0,100% 0,100% 88%,50% 100%,0 88%);pointer-events:none;}
+.cloth::after{content:'';position:absolute;inset:0;pointer-events:none;opacity:.5;
+  background:repeating-linear-gradient(90deg,rgba(255,255,255,.028) 0 1px,transparent 1px 3px);}
+
+.b-yr{font-family:var(--mono);font-size:9.5px;letter-spacing:2px;color:var(--muted);}
+.b-name{font-family:var(--display);font-size:12px;font-weight:600;line-height:1.24;
+  text-transform:uppercase;letter-spacing:.3px;margin-top:10px;padding:0 1px;
+  text-wrap:balance;}
+.b-rec{font-family:var(--display);font-size:clamp(27px,3.5vw,35px);font-weight:700;line-height:1;
+  margin-top:auto;padding-top:12px;color:var(--text);}
+.b-tag{font-family:var(--mono);font-size:8.5px;letter-spacing:1.8px;text-transform:uppercase;
+  color:var(--muted);margin-top:7px;}
+.b-logo{width:24px;margin:12px auto 0;display:block;opacity:.5;}
+/* drawn stars — a banner's rank marks, not a text glyph */
+.stars{display:flex;gap:3px;justify-content:center;margin-top:8px;}
+.stars svg{width:9px;height:9px;display:block;}
+.stars svg path{fill:var(--gold);}
+.banner.major .stars svg{width:11px;height:11px;}
+
+/* tiers — gold is the championship voice, orange stays the live/now signal */
+.banner.title .cloth{background:linear-gradient(175deg,#2a2114 0%,#1a1610 55%,#100e0b 100%);}
+.banner.title .b-rec,.banner.title .b-name{color:var(--gold-lt);}
+.banner.title .b-tag{color:var(--gold);}
+/* the marquee banner hangs LONGER and wider — the way the big one always does */
+.banner.major{--w:clamp(158px,15.4vw,194px);}
+.banner.major .cloth{min-height:296px;
+  background:linear-gradient(175deg,#3a2c16 0%,#241c10 52%,#12100c 100%);
+  box-shadow:0 20px 44px rgba(0,0,0,.62),0 0 34px rgba(212,160,66,.13);}
+.banner.major .b-name{font-size:14.5px;}
+.banner.major .b-rec{color:var(--gold-lt);font-size:clamp(34px,4.6vw,46px);}
+.banner.major .b-tag{color:var(--gold);font-size:9px;}
+.banner.major .b-logo{width:32px;opacity:.75;}
+.banner.season .b-rec{color:var(--orange);}
+.banner.pending{opacity:.62;}
+.banner.pending .cloth{background:linear-gradient(175deg,#191d24 0%,#141821 60%,#0e1116 100%);
+  box-shadow:0 10px 24px rgba(0,0,0,.45);}
+.banner.pending .b-rec{color:var(--muted);font-weight:500;}
+
+/* ── detail drawer ── */
+.drawer{max-width:1180px;margin:34px auto 0;padding:0 20px;}
+.drawer-in{background:var(--dark2);border:1px solid var(--bdr);border-radius:12px;overflow:hidden;
+  display:none;box-shadow:0 14px 40px rgba(0,0,0,.5);}
+.drawer-in.show{display:block;animation:fade .3s ease-out both;}
+@keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.d-top{padding:16px 20px;border-bottom:1px solid var(--bdr);display:flex;gap:14px;
+  align-items:baseline;flex-wrap:wrap;background:
+   radial-gradient(120% 130% at 0% 0%,rgba(212,160,66,.1),transparent 55%),var(--dark);}
+.d-yr{font-family:var(--mono);font-size:10px;letter-spacing:2px;color:var(--gold);}
+.d-name{font-family:var(--display);font-size:20px;font-weight:600;text-transform:uppercase;}
+.d-rec{font-family:var(--display);font-size:20px;font-weight:700;color:var(--gold-lt);margin-left:auto;}
+.d-close{background:none;border:1px solid var(--bdr);color:var(--muted);border-radius:6px;
+  font-family:var(--mono);font-size:10px;padding:5px 10px;cursor:pointer;letter-spacing:1px;}
+.d-close:hover{color:var(--text);background:var(--dark3);}
+.d-body{padding:12px 20px 18px;}
+.d-note{font-family:var(--mono);font-size:10.5px;color:var(--muted);letter-spacing:.6px;line-height:1.9;}
+.g-row{display:flex;align-items:center;gap:12px;padding:8px 0;border-bottom:1px solid rgba(255,255,255,.045);}
+.g-row:last-child{border-bottom:none;}
+.g-date{font-family:var(--mono);font-size:10px;color:var(--muted);width:52px;flex-shrink:0;}
+.g-opp{font-size:13px;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.g-sc{font-family:var(--display);font-size:15px;font-weight:600;letter-spacing:.5px;}
+.g-sc.w{color:var(--green);} .g-sc.l{color:#e07a5f;}
+.foot{max-width:1180px;margin:26px auto 0;padding:0 20px;font-family:var(--mono);font-size:10px;
+  color:var(--muted);letter-spacing:1px;line-height:2;text-align:center;}
+
+@media (max-width:640px){
+  .rafter-wrap{padding:0 8px;}
+  .rack-in{padding:0 14px;}
+  .wall{gap:11px;justify-content:flex-start;}
+  .banner{--w:126px;}
+  .banner.major{--w:154px;}
+}
+@media (prefers-reduced-motion:reduce){
+  .banner{animation:none;}
+  .cloth,.drawer-in{transition:none;animation:none;}
+}
+</style>
+</head>
+<body>
+
+<div id="site-nav"></div>
+
+<div class="hall">
+  <div class="head">
+    <div class="kick">Delmarva Aces · 12U East</div>
+    <h1>The Rafters</h1>
+    <p>Every banner this team has earned. Tap one to see the games behind it.</p>
+    <div class="tally">
+      <div><div class="n" id="t-titles">—</div><div class="l">Championships</div></div>
+      <div><div class="n o" id="t-rec">—</div><div class="l">12U Record</div></div>
+      <div><div class="n" id="t-sweeps">—</div><div class="l">Undefeated Runs</div></div>
+    </div>
+  </div>
+
+  <div class="rafter-wrap">
+    <div class="rack">
+      <div class="rack-in">
+        <div class="beam"></div>
+        <div class="wall" id="wall"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="drawer">
+    <div class="drawer-in" id="drawer">
+      <div class="d-top">
+        <span class="d-yr" id="d-yr"></span>
+        <span class="d-name" id="d-name"></span>
+        <span class="d-rec" id="d-rec"></span>
+        <button class="d-close" id="d-close">CLOSE</button>
+      </div>
+      <div class="d-body" id="d-body"></div>
+    </div>
+  </div>
+
+  <div class="foot" id="foot">CONCEPT · not linked from the nav yet</div>
+</div>
+
+<script>
+// ── BANNER DATA ────────────────────────────────────────────────────────────
+// One entry per banner. `match` is the games.tournament value used to pull the
+// real game list for the drawer; leave it null for banners we have no game
+// rows for. tier: 'major' | 'title' | 'season' | 'pending'
+const BANNERS = [
+  { year:'FEB 2026', name:'Vero Beach Winter Classic', rec:'6–0', tag:'Champions',
+    tier:'title', match:'Vero Beach Winter Classic', stars:3 },
+
+  { year:'MAY 2026', name:'Myrtle Beach Classic', rec:'4–0', tag:'Champions',
+    tier:'title', match:'Myrtle Beach Classic', stars:3 },
+
+  { year:'SPRING 2026', name:'12U Season', rec:'62–2', tag:'Cooperstown Champions',
+    tier:'major', match:'Spring 2026', stars:5 },
+
+  { year:'JUN 2026', name:'PG 12U National', rec:'5–0', tag:'Champions',
+    tier:'title', match:'PG 12U National', stars:3 },
+
+  { year:'FALL 2025', name:'Fall Season', rec:'13–1', tag:'Season', tier:'season',
+    match:null, note:'From the fall 2025 GameChanger season.' },
+
+  { year:'FALL 2026', name:'13U East', rec:'—', tag:'The story starts now',
+    tier:'pending', match:null, note:'This one is still being written.' },
+];
+
+const STAR = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 1.6l3.1 6.9 7.5.8-5.6 5 1.6 7.4-6.6-3.8-6.6 3.8 1.6-7.4-5.6-5 7.5-.8z"/></svg>';
+
+const db = supabase.createClient(ACES_CONFIG.supabaseUrl, ACES_CONFIG.supabaseKey);
+const $ = id => document.getElementById(id);
+const esc = s => String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+function render(){
+  const wall = $('wall');
+  wall.innerHTML = BANNERS.map((b,i) => `
+    <button class="banner ${b.tier}" style="animation-delay:${i*90}ms" data-i="${i}"
+            aria-label="${esc(b.name)} ${esc(b.rec)}">
+      <div class="straps"><i></i><i></i></div>
+      <div class="cloth">
+        <div class="b-yr">${esc(b.year)}</div>
+        <div class="b-name">${esc(b.name)}</div>
+        <div class="b-rec">${esc(b.rec)}</div>
+        ${b.stars ? `<div class="stars">${STAR.repeat(b.stars)}</div>` : ''}
+        <div class="b-tag">${esc(b.tag)}</div>
+        <img class="b-logo" src="/icon-192.png" alt=""/>
+      </div>
+    </button>`).join('');
+
+  const titles = BANNERS.filter(b => /champion/i.test(b.tag)).length;
+  const sweeps = BANNERS.filter(b => /^(\d+)–0$/.test(b.rec)).length;
+  $('t-titles').textContent = titles;
+  $('t-rec').textContent = '74–3';
+  $('t-sweeps').textContent = sweeps;
+
+  wall.querySelectorAll('.banner').forEach(el =>
+    el.addEventListener('click', () => open(BANNERS[+el.dataset.i])));
+}
+
+async function open(b){
+  const d = $('drawer');
+  $('d-yr').textContent = b.year;
+  $('d-name').textContent = b.name;
+  $('d-rec').textContent = b.rec;
+  $('d-body').innerHTML = `<div class="d-note">Loading games…</div>`;
+  d.classList.add('show');
+  d.scrollIntoView({behavior:'smooth', block:'nearest'});
+
+  if (!b.match){
+    $('d-body').innerHTML = `<div class="d-note">${esc(b.note || 'No game-by-game detail stored for this one yet.')}</div>`;
+    return;
+  }
+  try{
+    const { data, error } = await db.from('games')
+      .select('game_date,our_score,opp_score,status,opponents(name)')
+      .eq('tournament', b.match).eq('status','final').order('game_date');
+    if (error) throw error;
+    const rows = data || [];
+    if (!rows.length){
+      $('d-body').innerHTML = `<div class="d-note">No game rows stored for this tournament yet.</div>`;
+      return;
+    }
+    const w = rows.filter(g => g.our_score > g.opp_score).length;
+    const l = rows.filter(g => g.our_score < g.opp_score).length;
+    const rf = rows.reduce((s,g) => s + (g.our_score||0), 0);
+    const ra = rows.reduce((s,g) => s + (g.opp_score||0), 0);
+    $('d-body').innerHTML =
+      `<div class="d-note" style="margin-bottom:8px;">${rows.length} GAMES · ${w}-${l} · ${rf} RUNS SCORED, ${ra} ALLOWED</div>` +
+      rows.map(g => {
+        const win = g.our_score > g.opp_score;
+        const dt = (g.game_date||'').slice(5).replace('-','/');
+        return `<div class="g-row">
+          <span class="g-date">${esc(dt)}</span>
+          <span class="g-opp">${esc((g.opponents && g.opponents.name) || 'Opponent')}</span>
+          <span class="g-sc ${win?'w':'l'}">${win?'W':'L'} ${g.our_score}–${g.opp_score}</span>
+        </div>`;
+      }).join('');
+  }catch(e){
+    console.error(e);
+    $('d-body').innerHTML = `<div class="d-note">Couldn't load games for this tournament.</div>`;
+  }
+}
+
+$('d-close').addEventListener('click', () => $('drawer').classList.remove('show'));
+render();
+</script>
+</body>
+</html>
