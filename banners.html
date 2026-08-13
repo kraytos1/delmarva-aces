@@ -107,6 +107,9 @@ body{background:var(--black);color:var(--text);font-family:var(--body);overflow-
   text-wrap:balance;}
 .b-rec{font-family:var(--display);font-size:clamp(27px,3.5vw,35px);font-weight:700;line-height:1;
   margin-top:auto;padding-top:12px;color:var(--text);}
+/* a word where a score would go ("CHAMPS") needs its own scale — a 6-letter
+   word at score size overruns the cloth */
+.b-rec.word{font-size:clamp(17px,2vw,21px);letter-spacing:2.5px;}
 .b-tag{font-family:var(--mono);font-size:8.5px;letter-spacing:1.8px;text-transform:uppercase;
   color:var(--muted);margin-top:7px;}
 .b-logo{width:24px;margin:12px auto 0;display:block;opacity:.5;}
@@ -127,6 +130,7 @@ body{background:var(--black);color:var(--text);font-family:var(--body);overflow-
   box-shadow:0 20px 44px rgba(0,0,0,.62),0 0 34px rgba(212,160,66,.13);}
 .banner.major .b-name{font-size:14.5px;}
 .banner.major .b-rec{color:var(--gold-lt);font-size:clamp(34px,4.6vw,46px);}
+.banner.major .b-rec.word{font-size:clamp(20px,2.5vw,26px);letter-spacing:3px;}
 .banner.major .b-tag{color:var(--gold);font-size:9px;}
 .banner.major .b-logo{width:32px;opacity:.75;}
 .banner.season .b-rec{color:var(--orange);}
@@ -182,11 +186,11 @@ body{background:var(--black);color:var(--text);font-family:var(--body);overflow-
   <div class="head">
     <div class="kick">Delmarva Aces · 12U East</div>
     <h1>The Rafters</h1>
-    <p>Every banner this team has earned. Tap one to see the games behind it.</p>
+    <p>Every championship this team has won. Tap a banner to see the games behind it.</p>
     <div class="tally">
       <div><div class="n" id="t-titles">—</div><div class="l">Championships</div></div>
-      <div><div class="n o" id="t-rec">—</div><div class="l">12U Record</div></div>
-      <div><div class="n" id="t-sweeps">—</div><div class="l">Undefeated Runs</div></div>
+      <div><div class="n o" id="t-rec">—</div><div class="l">Spring 2026</div></div>
+      <div><div class="n" id="t-sweeps">—</div><div class="l">Won Without a Loss</div></div>
     </div>
   </div>
 
@@ -211,34 +215,65 @@ body{background:var(--black);color:var(--text);font-family:var(--body);overflow-
     </div>
   </div>
 
-  <div class="foot" id="foot">CONCEPT · CHAMPIONSHIPS ONLY · AWAITING THE FULL TOURNAMENT LIST</div>
+  <div class="foot" id="foot">
+    NINE OF THE TEN SPRING TITLES WERE WON WITHOUT DROPPING A GAME — 45–0 ACROSS THOSE NINE.<br>
+    RECORDS COMPUTED FROM REAL GAME ROWS; COOPERSTOWN WEEK LIVES ONLY ON GAMECHANGER.
+  </div>
 </div>
 
 <script>
 // ── BANNER DATA ────────────────────────────────────────────────────────────
 // RULE (Chris, 2026-08-13): CHAMPIONSHIPS ONLY. A rafter full of participation
-// banners dilutes the real ones — only titles hang, plus the marquee season
-// banner and the empty hook for the one still being written.
+// banners dilutes the real ones — only titles hang, plus the empty hook for the
+// one still being written. The season record lives in the tally, not on a
+// banner (Cooperstown and the overall record are kept separate on purpose).
 //
-// One entry per banner. `match` is the games.tournament value used to pull the
-// real game list for the drawer; leave it null when we have no game rows.
+// Games are matched by DATE RANGE, not by games.tournament — our own tournament
+// labels are unreliable (six of these spring events were all filed under a
+// single "Spring 2026" bucket, and two carried the wrong event name entirely).
+// The dates come from Chris's list; every record below was computed from the
+// real game rows in that window.
 // tier: 'major' | 'title' | 'pending'
 const BANNERS = [
-  { year:'FEB 2026', name:'Vero Beach Winter Classic', rec:'6–0', tag:'Champions',
-    tier:'title', match:'Vero Beach Winter Classic', stars:3 },
+  { d:'FEB 14–16', name:"President's Day 42 Challenge", loc:'Vero Beach, FL',
+    rec:'6–0', tier:'title', stars:3, from:'2026-02-14', to:'2026-02-16' },
 
-  { year:'MAY 2026', name:'Myrtle Beach Classic', rec:'4–0', tag:'Champions',
-    tier:'title', match:'Myrtle Beach Classic', stars:3 },
+  { d:'MAR 14–15', name:'Ripken Opening Day', loc:'Aberdeen, MD',
+    rec:'5–0', tier:'title', stars:3, from:'2026-03-14', to:'2026-03-15' },
 
-  { year:'SPRING 2026', name:'12U Season', rec:'62–2', tag:'Cooperstown Champions',
-    tier:'major', match:'Spring 2026', stars:5 },
+  { d:'MAR 28–29', name:'USSSA Shake the Rust Rumble', loc:'Kent Island, MD',
+    rec:'5–0', tier:'title', stars:3, from:'2026-03-28', to:'2026-03-29' },
 
-  { year:'JUN 2026', name:'PG 12U National', rec:'5–0', tag:'Champions',
-    tier:'title', match:'PG 12U National', stars:3 },
+  { d:'APR 11–12', name:'Mutiny in the Park', loc:'Olney, MD',
+    rec:'5–0', tier:'title', stars:3, from:'2026-04-11', to:'2026-04-12' },
 
-  { year:'FALL 2026', name:'13U East', rec:'—', tag:'The story starts now',
-    tier:'pending', match:null, note:'This one is still being written.' },
+  { d:'APR 17–19', name:'OBX Bash at the Beach', loc:'Kitty Hawk, NC',
+    rec:'5–0', tier:'title', stars:3, from:'2026-04-17', to:'2026-04-19' },
+
+  { d:'MAY 2–3', name:"Who's Who", loc:'Ocean City, MD',
+    rec:'5–0', tier:'title', stars:3, from:'2026-05-02', to:'2026-05-03' },
+
+  { d:'MAY 15–17', name:'Shipyard #82', loc:'Mt Pleasant, SC',
+    rec:'4–0', tier:'title', stars:3, from:'2026-05-15', to:'2026-05-17' },
+
+  { d:'MAY 23–25', name:'ESTB Memorial Day Classic', loc:'Fruitland, MD',
+    rec:'5–0', tier:'title', stars:3, from:'2026-05-23', to:'2026-05-25' },
+
+  { d:'JUN 12–14', name:'Perfect Game Bear Down', loc:'Bear, DE',
+    rec:'5–0', tier:'title', stars:3, from:'2026-06-12', to:'2026-06-14' },
+
+  // The crown. Kept separate from the season record, per Chris.
+  { d:'JUN 24–30', name:'Cooperstown', loc:'Cooperstown, NY',
+    rec:'CHAMPS', tier:'major', stars:5, from:'2026-06-24', to:'2026-06-30',
+    note:'Cooperstown week never made it into our own games table — the ' +
+         'game-by-game log lives only on GameChanger. The banner is the record.' },
+
+  { d:'FALL 2026', name:'13U East', loc:'The story starts now', rec:'—',
+    tier:'pending', from:null, to:null, note:'This one is still being written.' },
 ];
+
+// Spring 2026 season line — shown in the tally, deliberately NOT a banner.
+const SEASON = { rec:'62–2', label:'Spring 2026', all:'74–3' };
 
 const STAR = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 1.6l3.1 6.9 7.5.8-5.6 5 1.6 7.4-6.6-3.8-6.6 3.8 1.6-7.4-5.6-5 7.5-.8z"/></svg>';
 
@@ -249,23 +284,25 @@ const esc = s => String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&
 function render(){
   const wall = $('wall');
   wall.innerHTML = BANNERS.map((b,i) => `
-    <button class="banner ${b.tier}" style="animation-delay:${i*90}ms" data-i="${i}"
-            aria-label="${esc(b.name)} ${esc(b.rec)}">
+    <button class="banner ${b.tier}" style="animation-delay:${i*70}ms" data-i="${i}"
+            aria-label="${esc(b.name)}, ${esc(b.loc)}, ${esc(b.rec)}">
       <div class="straps"><i></i><i></i></div>
       <div class="cloth">
-        <div class="b-yr">${esc(b.year)}</div>
+        <div class="b-yr">${esc(b.d)}</div>
         <div class="b-name">${esc(b.name)}</div>
-        <div class="b-rec">${esc(b.rec)}</div>
+        <div class="b-rec${/[A-Za-z]/.test(b.rec) ? ' word' : ''}">${esc(b.rec)}</div>
         ${b.stars ? `<div class="stars">${STAR.repeat(b.stars)}</div>` : ''}
-        <div class="b-tag">${esc(b.tag)}</div>
+        <div class="b-tag">${esc(b.loc)}</div>
         <img class="b-logo" src="/icon-192.png" alt=""/>
       </div>
     </button>`).join('');
 
-  const titles = BANNERS.filter(b => /champion/i.test(b.tag)).length;
-  const sweeps = BANNERS.filter(b => /^(\d+)–0$/.test(b.rec)).length;
+  // Every hanging banner IS a championship (the wall's rule), minus the
+  // not-yet-written one. Sweeps count only records we can verify from games.
+  const titles = BANNERS.filter(b => b.tier !== 'pending').length;
+  const sweeps = BANNERS.filter(b => /^\d+–0$/.test(b.rec)).length;
   $('t-titles').textContent = titles;
-  $('t-rec').textContent = '74–3';
+  $('t-rec').textContent = SEASON.rec;
   $('t-sweeps').textContent = sweeps;
 
   wall.querySelectorAll('.banner').forEach(el =>
@@ -274,25 +311,26 @@ function render(){
 
 async function open(b){
   const d = $('drawer');
-  $('d-yr').textContent = b.year;
+  $('d-yr').textContent = b.d + ' · ' + b.loc;
   $('d-name').textContent = b.name;
   $('d-rec').textContent = b.rec;
   $('d-body').innerHTML = `<div class="d-note">Loading games…</div>`;
   d.classList.add('show');
   d.scrollIntoView({behavior:'smooth', block:'nearest'});
 
-  if (!b.match){
+  if (!b.from){
     $('d-body').innerHTML = `<div class="d-note">${esc(b.note || 'No game-by-game detail stored for this one yet.')}</div>`;
     return;
   }
   try{
     const { data, error } = await db.from('games')
       .select('game_date,our_score,opp_score,status,opponents(name)')
-      .eq('tournament', b.match).eq('status','final').order('game_date');
+      .gte('game_date', b.from).lte('game_date', b.to)
+      .eq('status','final').order('game_date');
     if (error) throw error;
     const rows = data || [];
     if (!rows.length){
-      $('d-body').innerHTML = `<div class="d-note">No game rows stored for this tournament yet.</div>`;
+      $('d-body').innerHTML = `<div class="d-note">${esc(b.note || 'No game rows stored for this tournament yet.')}</div>`;
       return;
     }
     const w = rows.filter(g => g.our_score > g.opp_score).length;
