@@ -211,14 +211,18 @@ body{background:var(--black);color:var(--text);font-family:var(--body);overflow-
     </div>
   </div>
 
-  <div class="foot" id="foot">CONCEPT · not linked from the nav yet</div>
+  <div class="foot" id="foot">CONCEPT · CHAMPIONSHIPS ONLY · AWAITING THE FULL TOURNAMENT LIST</div>
 </div>
 
 <script>
 // ── BANNER DATA ────────────────────────────────────────────────────────────
+// RULE (Chris, 2026-08-13): CHAMPIONSHIPS ONLY. A rafter full of participation
+// banners dilutes the real ones — only titles hang, plus the marquee season
+// banner and the empty hook for the one still being written.
+//
 // One entry per banner. `match` is the games.tournament value used to pull the
-// real game list for the drawer; leave it null for banners we have no game
-// rows for. tier: 'major' | 'title' | 'season' | 'pending'
+// real game list for the drawer; leave it null when we have no game rows.
+// tier: 'major' | 'title' | 'pending'
 const BANNERS = [
   { year:'FEB 2026', name:'Vero Beach Winter Classic', rec:'6–0', tag:'Champions',
     tier:'title', match:'Vero Beach Winter Classic', stars:3 },
@@ -231,9 +235,6 @@ const BANNERS = [
 
   { year:'JUN 2026', name:'PG 12U National', rec:'5–0', tag:'Champions',
     tier:'title', match:'PG 12U National', stars:3 },
-
-  { year:'FALL 2025', name:'Fall Season', rec:'13–1', tag:'Season', tier:'season',
-    match:null, note:'From the fall 2025 GameChanger season.' },
 
   { year:'FALL 2026', name:'13U East', rec:'—', tag:'The story starts now',
     tier:'pending', match:null, note:'This one is still being written.' },
