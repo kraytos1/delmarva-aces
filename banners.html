@@ -439,6 +439,11 @@ const PHOTO_EXT = ['jpg','png'];
 const photoMiss = new Set();
 function slug(s){
   return String(s||'').toLowerCase()
+    // Apostrophes are DROPPED, not turned into a dash — "Who's Who" is
+    // whos-who and "President's Day" is presidents-day, which is both what
+    // README.md documents and what anyone would type. Collapsing them to a
+    // dash instead silently hid two correctly-named photos.
+    .replace(/['’]/g,'')
     .replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'');
 }
 function photoHtml(b){

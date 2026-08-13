@@ -22,9 +22,10 @@ have no photo yet.
 | Perfect Game Bear Down | `perfect-game-bear-down.jpg` |
 | Cooperstown | `cooperstown.jpg` |
 
-**Adding a future title?** The filename is just the banner's name lowercased
-with every run of non-letters/numbers turned into a single dash — so
-"Fall Brawl #3" becomes `fall-brawl-3.jpg`.
+**Adding a future title?** The filename is the banner's name lowercased, with
+apostrophes deleted and every other run of non-letters/numbers turned into a
+single dash — so "Fall Brawl #3" becomes `fall-brawl-3.jpg` and
+"Coach's Classic" becomes `coachs-classic.jpg`.
 
 ### Notes
 
