@@ -117,6 +117,11 @@ body{background:var(--black);color:var(--text);font-family:var(--body);overflow-
 /* a banner carrying the coach's write-up gets a quiet mark */
 .b-story{font-family:var(--mono);font-size:7.5px;letter-spacing:1.6px;color:var(--gold);
   opacity:.75;margin-top:8px;}
+/* a distinction the record alone can't say — sewn on like a patch */
+.b-dist{font-family:var(--display);font-size:9px;font-weight:600;letter-spacing:1.4px;
+  text-transform:uppercase;color:var(--gold-lt);margin-top:9px;line-height:1.3;
+  padding:4px 6px;border-top:1px solid rgba(212,160,66,.28);
+  border-bottom:1px solid rgba(212,160,66,.28);}
 /* drawn stars — a banner's rank marks, not a text glyph */
 .stars{display:flex;gap:3px;justify-content:center;margin-top:8px;}
 .stars svg{width:9px;height:9px;display:block;}
@@ -290,6 +295,8 @@ const BANNERS = [
       "The team opened up with a 21-0 win as they pounded out 15 hits on Friday night. Ayden Jester was 3-for-3 with three home runs and five RBIs, while a trio of pitchers combined on the complete game shutout.",
       "The team went 2-0 on Saturday and Jake Coulbourne, Hunter Washbon and Mason Maloney combined to throw a perfect game in the first contest. Squad won 9-0 in game two behind a grand slam by Hudson Hartstein to take the win and secure the number one seed.",
       "The team capped off the tournament with a thrilling come-from-behind victory to walk it off in the championship game. It was Jester again that hit the decisive game-winning home run as he plated Hartstein, who singled earlier in the inning.",
+      "The dudes have now won seven tournaments this spring in the following states: Florida (1x), South Carolina (1x), North Carolina (1x), Maryland (4x).",
+      "Headed home for play locally for Memorial Day weekend!",
     ] },
 
   { d:'MAY 23–25', name:'ESTB Memorial Day Classic', loc:'Fruitland, MD',
@@ -317,6 +324,14 @@ const BANNERS = [
   // falls back to these, so it starts working on its own if they ever load.
   { d:'JUN 24–30', name:'Cooperstown', loc:'Cooperstown, NY',
     rec:'10–0', tier:'major', stars:5, from:'2026-06-24', to:'2026-06-30',
+    distinction:'First from Delmarva',
+    recapBy:'June 30', recap:[
+      "History made.",
+      "First team from the Delmarva Peninsula to ever win the championship at Cooperstown Dreams Park dating back to 1996.",
+      "The team hit 61 homeruns en route to a 10-0 record at the 104 team tournament.",
+      "12U East finishes the spring/summer season 62-2 and 74-3 as 12Us.",
+      "Crown your champs 👑",
+    ],
     games:[
       ['2026-06-26','Park Sharon Nationals',11,4],
       ['2026-06-26','G3 12U - Gonzalez',19,5],
@@ -354,6 +369,7 @@ function render(){
         <div class="b-name">${esc(b.name)}</div>
         <div class="b-rec${/[A-Za-z]/.test(b.rec) ? ' word' : ''}">${esc(b.rec)}</div>
         ${b.stars ? `<div class="stars">${STAR.repeat(b.stars)}</div>` : ''}
+        ${b.distinction ? `<div class="b-dist">${esc(b.distinction)}</div>` : ''}
         <div class="b-tag">${esc(b.loc)}</div>
         ${b.recap ? '<div class="b-story">READ THE STORY</div>' : ''}
         <img class="b-logo" src="/icon-192.png" alt=""/>
