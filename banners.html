@@ -381,6 +381,38 @@ function renderGames(rows, prefix){
 
 $('d-close').addEventListener('click', () => $('drawer').classList.remove('show'));
 render();
+
+// Land with the marquee (Cooperstown — the biggest win of the year) centered in
+// the rack. Scrolls the RACK only, never the page: scrollIntoView would drag
+// the window down past the header. Runs after layout so the measurement is real.
+function centerMarquee(){
+  const rack = document.querySelector('.rack');
+  const inner = rack && rack.querySelector('.rack-in');
+  const m = rack && rack.querySelector('.banner.major');
+  if (!rack || !m || !inner) return;
+
+  // Nothing scrolls => the whole wall is already on screen; centering is moot
+  // and tail padding would only invent dead space.
+  inner.style.paddingRight = '';
+  if (rack.scrollWidth <= rack.clientWidth + 1) return;
+
+  const want = () => {
+    const r = rack.getBoundingClientRect(), b = m.getBoundingClientRect();
+    return rack.scrollLeft + (b.left + b.width/2) - (r.left + r.width/2);
+  };
+  // Cooperstown sits second-from-last, so there isn't enough wall after it to
+  // scroll it to the middle. Add exactly the shortfall as tail padding.
+  const short = want() - (rack.scrollWidth - rack.clientWidth);
+  if (short > 0) inner.style.paddingRight = (22 + Math.ceil(short)) + 'px';
+
+  rack.scrollLeft = Math.max(0, Math.min(want(), rack.scrollWidth - rack.clientWidth));
+}
+requestAnimationFrame(() => requestAnimationFrame(centerMarquee));
+// the logo images change layout width as they load
+window.addEventListener('load', centerMarquee);
+let _rz; window.addEventListener('resize', () => {
+  clearTimeout(_rz); _rz = setTimeout(centerMarquee, 180);
+});
 </script>
 </body>
 </html>
