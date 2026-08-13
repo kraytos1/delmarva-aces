@@ -35,9 +35,7 @@ body{background:var(--black);color:var(--text);font-family:var(--body);overflow-
 .head .kick{font-family:var(--mono);font-size:10px;letter-spacing:3px;color:var(--orange);text-transform:uppercase;}
 .head h1{font-family:var(--display);font-size:clamp(2.1rem,7vw,3.4rem);font-weight:700;
   letter-spacing:1px;line-height:1;margin-top:8px;text-transform:uppercase;}
-.head p{font-size:13.5px;color:var(--muted);margin-top:10px;line-height:1.7;
-  max-width:60ch;margin-left:auto;margin-right:auto;}
-.tally{display:flex;gap:26px;justify-content:center;margin-top:18px;flex-wrap:wrap;}
+.tally{display:flex;gap:26px;justify-content:center;margin-top:22px;flex-wrap:wrap;}
 .tally div{text-align:center;}
 .tally .n{font-family:var(--display);font-size:26px;font-weight:700;color:var(--gold-lt);line-height:1;}
 .tally .n.o{color:var(--orange);}
@@ -162,8 +160,6 @@ body{background:var(--black);color:var(--text);font-family:var(--body);overflow-
 .g-opp{font-size:13px;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .g-sc{font-family:var(--display);font-size:15px;font-weight:600;letter-spacing:.5px;}
 .g-sc.w{color:var(--green);} .g-sc.l{color:#e07a5f;}
-.foot{max-width:1180px;margin:26px auto 0;padding:0 20px;font-family:var(--mono);font-size:10px;
-  color:var(--muted);letter-spacing:1px;line-height:2;text-align:center;}
 
 @media (max-width:640px){
   .rafter-wrap{padding:0 8px;}
@@ -186,7 +182,6 @@ body{background:var(--black);color:var(--text);font-family:var(--body);overflow-
   <div class="head">
     <div class="kick">Delmarva Aces · 12U East</div>
     <h1>The Rafters</h1>
-    <p>Every championship this team has won. Tap a banner to see the games behind it.</p>
     <div class="tally">
       <div><div class="n" id="t-titles">—</div><div class="l">Championships</div></div>
       <div><div class="n o" id="t-rec">—</div><div class="l">Spring 2026</div></div>
@@ -215,10 +210,6 @@ body{background:var(--black);color:var(--text);font-family:var(--body);overflow-
     </div>
   </div>
 
-  <div class="foot" id="foot">
-    TEN TITLES IN ONE SPRING — AND NOT ONE GAME LOST ON THE WAY TO ANY OF THEM.<br>
-    EVERY RECORD HERE IS COMPUTED FROM REAL GAME ROWS, NOT TYPED IN.
-  </div>
 </div>
 
 <script>
@@ -407,9 +398,13 @@ function centerMarquee(){
 
   rack.scrollLeft = Math.max(0, Math.min(want(), rack.scrollWidth - rack.clientWidth));
 }
+// Center on every settle point: layout, webfonts (Oswald changes banner
+// widths), images, and once more late — Chrome restores a scroll container's
+// position on reload AFTER load fires, which silently undid the centering.
 requestAnimationFrame(() => requestAnimationFrame(centerMarquee));
-// the logo images change layout width as they load
+if (document.fonts && document.fonts.ready) document.fonts.ready.then(centerMarquee);
 window.addEventListener('load', centerMarquee);
+setTimeout(centerMarquee, 350);
 let _rz; window.addEventListener('resize', () => {
   clearTimeout(_rz); _rz = setTimeout(centerMarquee, 180);
 });
