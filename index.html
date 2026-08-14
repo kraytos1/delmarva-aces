@@ -279,6 +279,21 @@
   .footer-link{font-family:var(--mono);font-size:11px;color:var(--muted);text-decoration:none;transition:color .15s;}
   .footer-link:hover{color:var(--text);}
 
+  /* Tablet band: the full link bar (8 items) no longer fits beside the brand
+     and the bell between 721px and the hamburger breakpoint, so tighten the
+     bar rather than let it run under the bell. */
+  @media(min-width:721px) and (max-width:940px){
+    nav{padding:0 16px;}
+    .nav-logo,.nav-logo img{width:32px;height:32px;}
+    .nav-name{font-size:15px;}
+    .nav-link{padding:6px 7px;font-size:12.5px;}
+  }
+  /* Below ~800px the LIVE pill can also be in the bar; the logo alone still
+     identifies the page, so the wordmark gives up its room first. */
+  @media(min-width:721px) and (max-width:800px){
+    .nav-name{display:none;}
+  }
+
   @media(max-width:720px){
     nav{padding:0 16px;}
     .hero,.section{padding:40px 20px;}
@@ -342,6 +357,8 @@
     <button class="nav-link" id="nav-schedule" onclick="showPage('schedule')">Schedule</button>
     <button class="nav-link" id="nav-roster" onclick="showPage('roster')">Roster</button>
     <a class="nav-link" href="/highlights.html" style="text-decoration:none;">Highlights</a>
+    <a class="nav-link" href="/banners.html" style="text-decoration:none;">Rafters</a>
+    <a class="nav-link" href="/photos.html" style="text-decoration:none;">Photos</a>
     <a class="nav-link" href="/game.html" style="text-decoration:none;">Live Game</a>
     <div class="nav-coach" id="nav-coach">
       <button class="nav-link nav-coach-btn" type="button" onclick="toggleCoach(event)">Coach<span class="nav-caret">▾</span></button>
@@ -502,7 +519,7 @@
 
   <footer>
     <div class="footer-brand">Delmarva <span>Aces</span> · 13U East · 2026</div>
-    <div class="footer-links"><a class="footer-link" href="/#schedule">Schedule</a><a class="footer-link" href="/highlights.html">Highlights</a></div>
+    <div class="footer-links"><a class="footer-link" href="/#schedule">Schedule</a><a class="footer-link" href="/highlights.html">Highlights</a><a class="footer-link" href="/banners.html">Rafters</a></div>
   </footer>
 </div>
 
@@ -608,7 +625,7 @@
 
   <footer>
     <div class="footer-brand">Delmarva <span>Aces</span> · 13U East · 2026</div>
-    <div class="footer-links"><a class="footer-link" href="/#schedule">Schedule</a><a class="footer-link" href="/highlights.html">Highlights</a></div>
+    <div class="footer-links"><a class="footer-link" href="/#schedule">Schedule</a><a class="footer-link" href="/highlights.html">Highlights</a><a class="footer-link" href="/banners.html">Rafters</a></div>
   </footer>
 </div>
 
@@ -659,7 +676,7 @@
 
   <footer>
     <div class="footer-brand">Delmarva <span>Aces</span> · 13U East · 2026</div>
-    <div class="footer-links"><a class="footer-link" href="/highlights.html">Highlights</a></div>
+    <div class="footer-links"><a class="footer-link" href="/highlights.html">Highlights</a><a class="footer-link" href="/banners.html">Rafters</a></div>
   </footer>
 </div>
 </main>
