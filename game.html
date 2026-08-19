@@ -1473,6 +1473,18 @@ init()
     if (ab.hit_x == null) return
     var to = mapSpray(ab.hit_x, ab.hit_y)
     var r = ab.result || ''
+    // Home runs land beyond the wall. The depth map is 2B-ratio scaled, so even
+    // the deepest scorer tap stops mid-outfield — for HRs, extend the landing
+    // point along its own bearing from home until it clears the fence arc
+    // (radius 280 on the mound at 340,295; track outer edge 287 → land at 288).
+    if (r === 'home_run') {
+      var vx = to.x - 340, vy = to.y - 390
+      var vlen = Math.hypot(vx, vy) || 1
+      var ux = vx/vlen, uy = vy/vlen
+      // solve |home + t·u − mound| = 288 for t (mound is 95 above home)
+      var t = (-190*uy + Math.sqrt(36100*uy*uy + 4*(288*288 - 9025))) / 2
+      if (t > vlen) { to.x = 340 + t*ux; to.y = 390 + t*uy }
+    }
     var type = ab.hit_type || (r.indexOf('ground')>=0 || r==='sac_bunt' ? 'ground'
               : /fly|pop|sac_fly/.test(r) ? 'fly' : 'line')
     var dist = Math.hypot(to.x-340, to.y-390)

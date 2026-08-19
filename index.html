@@ -1409,7 +1409,7 @@ function renderResults() {
         '<div class="result-matchup">Delmarva Aces vs '+g.opp+'</div>'+
         '<div class="result-event">'+(g.event||'')+' · '+g.date+'</div>'+
       '</div>'+
-      '<div class="result-score"><span class="us">'+g.us+'</span> – '+g.them+'</div>'+
+      '<div class="result-score"><span class="'+(g.W?'us':'')+'"'+(g.W?'':' style="color:var(--muted)"')+'>'+g.us+'</span> – '+g.them+'</div>'+
       '<button class="recap-share-btn" title="Share recap card" onclick="openRecap('+i+')">📸</button>'+
     '</div>'
   }).join('')
