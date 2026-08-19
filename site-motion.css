@@ -1,0 +1,79 @@
+/* Delmarva Aces — homepage motion layer (matches the site's real markup).
+   Loads after the page's own <style>. JS adds body.motion-ready (initial states)
+   then body.motion-go when the loading overlay hides. */
+
+/* ---------- keyframes ---------- */
+@keyframes aces-rise      { to { transform: translateY(0); } }
+@keyframes aces-fade-up   { from { opacity: 0; transform: translateY(16px) } to { opacity: 1; transform: none } }
+@keyframes aces-fade-down { from { opacity: 0; transform: translateY(-10px) } to { opacity: 1; transform: none } }
+@keyframes aces-pop       { 0% { opacity: 0; transform: scale(.7) } 70% { opacity: 1; transform: scale(1.04) } 100% { opacity: 1; transform: scale(1) } }
+@keyframes aces-draw      { to { stroke-dashoffset: 0; } }
+@keyframes aces-drift     { 0%, 100% { transform: translate(0,0) } 50% { transform: translate(50px, 24px) } }
+@keyframes aces-pulse-ring{ 0% { transform: scale(1); opacity: .8 } 100% { transform: scale(3); opacity: 0 } }
+@keyframes aces-cd        { from { opacity: 0; transform: translateY(.55em) } to { opacity: 1; transform: none } }
+
+/* ---------- 1. loading overlay: upward wipe instead of fade ----------
+   hideLoading() sets display:none after 500ms, so the wipe finishes in 480ms. */
+.loading-overlay { transition: transform .48s cubic-bezier(.7, 0, .25, 1) !important; }
+.loading-overlay.hidden { opacity: 1 !important; transform: translateY(-101%); pointer-events: none; }
+
+/* ---------- 2. hero initial states (only once JS is confirmed running) ---------- */
+body.motion-ready .hero-wordmark,
+body.motion-ready .hero-eyebrow,
+body.motion-ready .hero-record,
+body.motion-ready .hero-faces,
+body.motion-ready .hero-stats,
+body.motion-ready .hero-cta,
+body.motion-ready .preseason-hero-note { opacity: 0; }
+body.motion-ready .hero-title > div { overflow: hidden; padding-bottom: .04em; margin-bottom: -.04em; }
+body.motion-ready .aces-rise { display: block; transform: translateY(115%); }
+
+/* ---------- 3. hero entrance (starts as the overlay wipes away) ---------- */
+body.motion-go .hero-wordmark { animation: aces-fade-down .6s ease .05s forwards; }
+body.motion-go .hero-eyebrow  { animation: aces-fade-up .6s ease .15s forwards; }
+body.motion-go .aces-rise     { animation: aces-rise .8s cubic-bezier(.16, 1, .3, 1) .25s forwards; }
+body.motion-go .line2 .aces-rise { animation-delay: .4s; }
+body.motion-go .hero-stats    { animation: aces-fade-up .7s ease .55s forwards; }
+body.motion-go .hero-faces    { animation: aces-fade-up .7s ease .7s forwards; }
+body.motion-go .hero-cta,
+body.motion-go .preseason-hero-note { animation: aces-fade-up .7s ease .8s forwards; }
+body.motion-go .hero-record   { animation: aces-pop .5s cubic-bezier(.34, 1.56, .64, 1) .95s forwards; }
+
+/* ---------- 4. fly-ball arc + glow drift ---------- */
+.aces-arc { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 0; }
+.aces-arc path { fill: none; stroke: var(--orange, #E8530A); stroke-width: 2; stroke-opacity: .3; stroke-dasharray: 1; stroke-dashoffset: 1; }
+body.motion-go .aces-arc path { animation: aces-draw 1.6s cubic-bezier(.4, 0, .2, 1) .9s forwards; }
+.aces-glow { position: absolute; top: -120px; left: -80px; width: 760px; height: 520px; pointer-events: none; z-index: 0;
+  background: radial-gradient(closest-side, rgba(232, 83, 10, .12), transparent 72%);
+  animation: aces-drift 14s ease-in-out infinite; }
+
+/* ---------- 5. scroll reveals (JS assigns data-reveal + .is-in) ---------- */
+[data-reveal] { opacity: 0; transform: translateY(26px); }
+[data-reveal].is-in { opacity: 1; transform: none;
+  transition: opacity .7s cubic-bezier(.2, .7, .3, 1), transform .7s cubic-bezier(.2, .7, .3, 1); }
+
+/* ---------- 6. countdown tick roll ---------- */
+.countdown-num.cd-tick { animation: aces-cd .45s cubic-bezier(.2, .8, .2, 1); }
+
+/* ---------- 7. live pill: broadcast pulse ring ---------- */
+.live-dot { position: relative; }
+.live-dot::after { content: ''; position: absolute; inset: 0; border-radius: 50%; background: #3DDC6A;
+  animation: aces-pulse-ring 1.8s ease-out infinite; }
+
+/* ---------- 8. hover lift on the primary CTA ---------- */
+.btn-primary { transition: transform .2s ease, box-shadow .2s ease; }
+.btn-primary:hover { transform: translateY(-2px); box-shadow: 0 10px 28px rgba(232, 83, 10, .35); }
+
+/* ---------- mobile ---------- */
+@media (max-width: 640px) {
+  .aces-arc { display: none; }              /* stretched arc stops reading as a fly ball */
+  .aces-glow { width: 420px; height: 320px; }
+}
+
+/* ---------- accessibility ---------- */
+@media (prefers-reduced-motion: reduce) {
+  .loading-overlay, .loading-overlay.hidden { transition: opacity .4s !important; transform: none; }
+  .aces-arc path { stroke-dashoffset: 0; }
+  .aces-glow, .live-dot::after, .countdown-num.cd-tick { animation: none; }
+  [data-reveal] { opacity: 1; transform: none; }
+}
