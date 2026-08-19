@@ -245,95 +245,72 @@ nav{background:rgba(10,12,14,.95);border-bottom:1px solid var(--bdr);display:fle
       <svg id="field-svg" viewBox="0 0 680 460" width="100%" style="display:block;background:#060c04;">
         <defs>
           <!-- circular crops for runner headshots on the bases -->
-          <clipPath id="rclip-0"><circle cx="510" cy="240" r="13"/></clipPath>
-          <clipPath id="rclip-1"><circle cx="340" cy="85"  r="13"/></clipPath>
-          <clipPath id="rclip-2"><circle cx="170" cy="240" r="13"/></clipPath>
+          <clipPath id="rclip-0"><circle cx="440" cy="290" r="13"/></clipPath>
+          <clipPath id="rclip-1"><circle cx="340" cy="190" r="13"/></clipPath>
+          <clipPath id="rclip-2"><circle cx="240" cy="290" r="13"/></clipPath>
         </defs>
 
-        <!-- OUTFIELD GRASS -->
-        <rect width="680" height="460" fill="#10270a"/>
-
-        <!-- GRASS STRIPES -->
-        <rect x="0"   y="0" width="56" height="460" fill="#0c1e06" opacity=".5"/>
-        <rect x="56"  y="0" width="56" height="460" fill="#153a0b" opacity=".4"/>
-        <rect x="112" y="0" width="56" height="460" fill="#0c1e06" opacity=".5"/>
-        <rect x="168" y="0" width="56" height="460" fill="#153a0b" opacity=".4"/>
-        <rect x="224" y="0" width="56" height="460" fill="#0c1e06" opacity=".5"/>
-        <rect x="280" y="0" width="56" height="460" fill="#153a0b" opacity=".4"/>
-        <rect x="336" y="0" width="56" height="460" fill="#0c1e06" opacity=".5"/>
-        <rect x="392" y="0" width="56" height="460" fill="#153a0b" opacity=".4"/>
-        <rect x="448" y="0" width="56" height="460" fill="#0c1e06" opacity=".5"/>
-        <rect x="504" y="0" width="56" height="460" fill="#153a0b" opacity=".4"/>
-        <rect x="560" y="0" width="56" height="460" fill="#0c1e06" opacity=".5"/>
-        <rect x="616" y="0" width="64" height="460" fill="#153a0b" opacity=".4"/>
-
-        <!-- FOUL TERRITORY -->
-        <polygon points="340,390 0,50 0,460" fill="#081505"/>
-        <polygon points="340,390 680,50 680,460" fill="#081505"/>
-
-        <!-- FOUL LINES -->
-        <line x1="340" y1="390" x2="0"   y2="50" stroke="#ffffff" stroke-width="1.5" opacity=".4"/>
-        <line x1="340" y1="390" x2="680" y2="50" stroke="#ffffff" stroke-width="1.5" opacity=".4"/>
-
-        <!-- INFIELD DIRT CIRCLE -->
-        <circle cx="340" cy="240" r="155" fill="#523517"/>
-
-        <!-- INFIELD GRASS -->
-        <polygon points="340,85 510,240 340,395 170,240" fill="#153a0b"/>
-
-        <!-- BASE PATHS -->
-        <line x1="340" y1="390" x2="510" y2="240" stroke="#523517" stroke-width="18" opacity=".8"/>
-        <line x1="510" y1="240" x2="340" y2="85"  stroke="#523517" stroke-width="18" opacity=".8"/>
-        <line x1="340" y1="85"  x2="170" y2="240" stroke="#523517" stroke-width="18" opacity=".8"/>
-        <line x1="170" y1="240" x2="340" y2="390" stroke="#523517" stroke-width="18" opacity=".8"/>
-
-        <!-- PITCHER MOUND -->
-        <circle cx="340" cy="240" r="18" fill="#5e401a"/>
-        <circle cx="340" cy="240" r="8"  fill="#6e4d22"/>
-
-        <!-- CATCHER AREA / HOME PLATE DIRT -->
-        <ellipse cx="340" cy="408" rx="38" ry="22" fill="#523517" opacity=".7"/>
-
-        <!-- BATTER'S BOXES -->
-        <rect x="302" y="382" width="28" height="36" rx="1" fill="none" stroke="#ffffff" stroke-width="1" opacity=".4"/>
-        <rect x="350" y="382" width="28" height="36" rx="1" fill="none" stroke="#ffffff" stroke-width="1" opacity=".4"/>
-
-        <!-- HOME PLATE -->
-        <polygon points="340,420 327,409 327,397 353,397 353,409" fill="#e8e8e8" opacity=".95"/>
+        <!-- FIELD — true proportions: 90° diamond, fan outfield with even LF/CF/RF depth -->
+        <path d="M340,390 L100.3,150.3 A280,280 0 0 1 579.7,150.3 Z" fill="#10270a"/>
+        <!-- radial grass stripes -->
+        <path d="M340,390 L100.3,150.3 A280,280 0 0 1 143.3,95.7 Z" fill="#0c1e06" opacity=".55"/>
+        <path d="M340,390 L200.2,52.4 A280,280 0 0 1 267.3,24.6 Z" fill="#0c1e06" opacity=".55"/>
+        <path d="M340,390 L340,15 A280,280 0 0 1 412.7,24.6 Z" fill="#0c1e06" opacity=".55"/>
+        <path d="M340,390 L479.8,52.4 A280,280 0 0 1 536.7,95.7 Z" fill="#0c1e06" opacity=".55"/>
+        <!-- warning track + fence -->
+        <path d="M100.3,150.3 A280,280 0 0 1 579.7,150.3" fill="none" stroke="#523517" stroke-width="14"/>
+        <path d="M340,390 L100.3,150.3 A280,280 0 0 1 579.7,150.3 Z" fill="none" stroke="#2e2010" stroke-width="4"/>
+        <!-- infield dirt: arc concentric with the fence (both centered on the mound) -->
+        <path d="M318,368 L205.6,255.6 A140,140 0 0 1 474.4,255.6 L362,368 A31,31 0 1 1 318,368 Z" fill="#523517"/>
+        <!-- foul lines (chalk) -->
+        <line x1="340" y1="390" x2="100.3" y2="150.3" stroke="#ffffff" stroke-width="2" opacity=".45"/>
+        <line x1="340" y1="390" x2="579.7" y2="150.3" stroke="#ffffff" stroke-width="2" opacity=".45"/>
+        <!-- infield grass diamond + home dirt circle -->
+        <polygon points="340,215 415,290 340,365 265,290" fill="#153a0b"/>
+        <circle cx="340" cy="390" r="31" fill="#523517"/>
+        <!-- pitcher mound -->
+        <circle cx="340" cy="295" r="14" fill="#5e401a"/>
+        <circle cx="340" cy="295" r="6" fill="#6e4d22"/>
+        <rect x="336.5" y="293.5" width="7" height="3" rx="1" fill="#e8e8e8" opacity=".65"/>
+        <!-- batter's boxes -->
+        <rect x="304" y="372" width="26" height="34" rx="1" fill="none" stroke="#ffffff" stroke-width="1" opacity=".4"/>
+        <rect x="350" y="372" width="26" height="34" rx="1" fill="none" stroke="#ffffff" stroke-width="1" opacity=".4"/>
+        <!-- home plate -->
+        <polygon points="340,398 331,391 331,383 349,383 349,391" fill="#e8e8e8" opacity=".95"/>
 
         <!-- RUNNER HALOS -->
-        <circle id="halo-1b" cx="510" cy="240" r="22" fill="#E8530A" opacity="0"/>
-        <circle id="halo-2b" cx="340" cy="85"  r="22" fill="#E8530A" opacity="0"/>
-        <circle id="halo-3b" cx="170" cy="240" r="22" fill="#E8530A" opacity="0"/>
+        <circle id="halo-1b" cx="440" cy="290" r="22" fill="#E8530A" opacity="0"/>
+        <circle id="halo-2b" cx="340" cy="190"  r="22" fill="#E8530A" opacity="0"/>
+        <circle id="halo-3b" cx="240" cy="290" r="22" fill="#E8530A" opacity="0"/>
 
         <!-- BASES -->
-        <rect id="fld-1b" x="497" y="227" width="26" height="26" rx="3" fill="#e8e8e8" stroke="#aaa" stroke-width=".5" transform="rotate(45,510,240)"/>
-        <rect id="fld-2b" x="327" y="72"  width="26" height="26" rx="3" fill="#e8e8e8" stroke="#aaa" stroke-width=".5" transform="rotate(45,340,85)"/>
-        <rect id="fld-3b" x="157" y="227" width="26" height="26" rx="3" fill="#e8e8e8" stroke="#aaa" stroke-width=".5" transform="rotate(45,170,240)"/>
+        <rect id="fld-1b" x="427" y="277" width="26" height="26" rx="3" fill="#e8e8e8" stroke="#aaa" stroke-width=".5" transform="rotate(45,440,290)"/>
+        <rect id="fld-2b" x="327" y="177" width="26" height="26" rx="3" fill="#e8e8e8" stroke="#aaa" stroke-width=".5" transform="rotate(45,340,190)"/>
+        <rect id="fld-3b" x="227" y="277" width="26" height="26" rx="3" fill="#e8e8e8" stroke="#aaa" stroke-width=".5" transform="rotate(45,240,290)"/>
 
         <!-- RUNNERS (drawn on top of bases) -->
         <g id="run-1b" opacity="0" style="transition:opacity .3s;pointer-events:none;">
-          <circle cx="510" cy="240" r="12" fill="#E8530A" stroke="#ff8a5c" stroke-width="2"/>
-          <circle cx="510" cy="240" r="4.5" fill="white"/>
+          <circle cx="440" cy="290" r="12" fill="#E8530A" stroke="#ff8a5c" stroke-width="2"/>
+          <circle cx="440" cy="290" r="4.5" fill="white"/>
         </g>
         <g id="run-2b" opacity="0" style="transition:opacity .3s;pointer-events:none;">
-          <circle cx="340" cy="85"  r="12" fill="#E8530A" stroke="#ff8a5c" stroke-width="2"/>
-          <circle cx="340" cy="85"  r="4.5" fill="white"/>
+          <circle cx="340" cy="190" r="12" fill="#E8530A" stroke="#ff8a5c" stroke-width="2"/>
+          <circle cx="340" cy="190" r="4.5" fill="white"/>
         </g>
         <g id="run-3b" opacity="0" style="transition:opacity .3s;pointer-events:none;">
-          <circle cx="170" cy="240" r="12" fill="#E8530A" stroke="#ff8a5c" stroke-width="2"/>
-          <circle cx="170" cy="240" r="4.5" fill="white"/>
+          <circle cx="240" cy="290" r="12" fill="#E8530A" stroke="#ff8a5c" stroke-width="2"/>
+          <circle cx="240" cy="290" r="4.5" fill="white"/>
         </g>
 
         <!-- POSITION LABELS (subtle, below name pills) -->
-        <text x="340" y="56"  text-anchor="middle" font-family="'Roboto Mono',monospace" font-size="9" fill="#3c6b2b" opacity=".8">CF</text>
-        <text x="108" y="100" text-anchor="middle" font-family="'Roboto Mono',monospace" font-size="9" fill="#3c6b2b" opacity=".8">LF</text>
-        <text x="572" y="100" text-anchor="middle" font-family="'Roboto Mono',monospace" font-size="9" fill="#3c6b2b" opacity=".8">RF</text>
-        <text x="256" y="200" text-anchor="middle" font-family="'Roboto Mono',monospace" font-size="9" fill="#3c6b2b" opacity=".8">SS</text>
-        <text x="424" y="200" text-anchor="middle" font-family="'Roboto Mono',monospace" font-size="9" fill="#3c6b2b" opacity=".8">2B</text>
-        <text x="122" y="274" text-anchor="middle" font-family="'Roboto Mono',monospace" font-size="9" fill="#3c6b2b" opacity=".8">3B</text>
-        <text x="558" y="274" text-anchor="middle" font-family="'Roboto Mono',monospace" font-size="9" fill="#3c6b2b" opacity=".8">1B</text>
-        <text x="340" y="244" text-anchor="middle" font-family="'Roboto Mono',monospace" font-size="8"  fill="#8a6a2a" opacity=".9">P</text>
+        <text x="340" y="58" text-anchor="middle" font-family="'Roboto Mono',monospace" font-size="9" fill="#3c6b2b" opacity=".8">CF</text>
+        <text x="150" y="136" text-anchor="middle" font-family="'Roboto Mono',monospace" font-size="9" fill="#3c6b2b" opacity=".8">LF</text>
+        <text x="530" y="136" text-anchor="middle" font-family="'Roboto Mono',monospace" font-size="9" fill="#3c6b2b" opacity=".8">RF</text>
+        <text x="238" y="172" text-anchor="middle" font-family="'Roboto Mono',monospace" font-size="9" fill="#3c6b2b" opacity=".8">SS</text>
+        <text x="442" y="172" text-anchor="middle" font-family="'Roboto Mono',monospace" font-size="9" fill="#3c6b2b" opacity=".8">2B</text>
+        <text x="152" y="292" text-anchor="middle" font-family="'Roboto Mono',monospace" font-size="9" fill="#3c6b2b" opacity=".8">3B</text>
+        <text x="528" y="292" text-anchor="middle" font-family="'Roboto Mono',monospace" font-size="9" fill="#3c6b2b" opacity=".8">1B</text>
+        <text x="340" y="299" text-anchor="middle" font-family="'Roboto Mono',monospace" font-size="8"  fill="#8a6a2a" opacity=".9">P</text>
         <text x="340" y="452" text-anchor="middle" font-family="'Roboto Mono',monospace" font-size="9" fill="#3c6b2b" opacity=".8">C</text>
 
         <!-- PLAYER NAME PILLS — cleaner, away from bases -->
@@ -343,12 +320,12 @@ nav{background:rgba(10,12,14,.95);border-bottom:1px solid var(--bdr);display:fle
           <text id="name-cf" x="0" y="4" text-anchor="middle" font-family="'Inter',sans-serif" font-size="9.5" font-weight="500" fill="#e8e4de" letter-spacing=".3"></text>
         </g>
         <!-- LF — upper left -->
-        <g id="overlay-lf" transform="translate(108,84)">
+        <g id="overlay-lf" transform="translate(128,112)">
           <rect x="-44" y="-10" width="88" height="17" rx="8" fill="rgba(0,0,0,.55)" stroke="rgba(255,255,255,.18)" stroke-width=".5"/>
           <text id="name-lf" x="0" y="4" text-anchor="middle" font-family="'Inter',sans-serif" font-size="9.5" font-weight="500" fill="#e8e4de" letter-spacing=".3"></text>
         </g>
         <!-- RF — upper right -->
-        <g id="overlay-rf" transform="translate(572,84)">
+        <g id="overlay-rf" transform="translate(552,112)">
           <rect x="-44" y="-10" width="88" height="17" rx="8" fill="rgba(0,0,0,.55)" stroke="rgba(255,255,255,.18)" stroke-width=".5"/>
           <text id="name-rf" x="0" y="4" text-anchor="middle" font-family="'Inter',sans-serif" font-size="9.5" font-weight="500" fill="#e8e4de" letter-spacing=".3"></text>
         </g>
@@ -363,12 +340,12 @@ nav{background:rgba(10,12,14,.95);border-bottom:1px solid var(--bdr);display:fle
           <text id="name-2b" x="0" y="4" text-anchor="middle" font-family="'Inter',sans-serif" font-size="9.5" font-weight="500" fill="#e8e4de" letter-spacing=".3"></text>
         </g>
         <!-- 3B — left, outside dirt circle -->
-        <g id="overlay-3b-p" transform="translate(116,258)">
+        <g id="overlay-3b-p" transform="translate(185,315)">
           <rect x="-44" y="-10" width="88" height="17" rx="8" fill="rgba(0,0,0,.55)" stroke="rgba(255,255,255,.18)" stroke-width=".5"/>
           <text id="name-3b" x="0" y="4" text-anchor="middle" font-family="'Inter',sans-serif" font-size="9.5" font-weight="500" fill="#e8e4de" letter-spacing=".3"></text>
         </g>
         <!-- 1B — right, outside dirt circle -->
-        <g id="overlay-1b-p" transform="translate(564,258)">
+        <g id="overlay-1b-p" transform="translate(495,315)">
           <rect x="-44" y="-10" width="88" height="17" rx="8" fill="rgba(0,0,0,.55)" stroke="rgba(255,255,255,.18)" stroke-width=".5"/>
           <text id="name-1b" x="0" y="4" text-anchor="middle" font-family="'Inter',sans-serif" font-size="9.5" font-weight="500" fill="#e8e4de" letter-spacing=".3"></text>
         </g>
@@ -1242,7 +1219,7 @@ function applyViewerBases(r, batter, runnerId) {
   bases=b; runners=ri; renderBases()
 }
 
-var RUNNER_XY = [{x:510,y:240},{x:340,y:85},{x:170,y:240}]
+var RUNNER_XY = [{x:440,y:290},{x:340,y:190},{x:240,y:290}]
 function renderBases() {
   ;['1b','2b','3b'].forEach(function(k,i){
     var be=document.getElementById('fld-'+k)
@@ -1388,7 +1365,7 @@ init()
   // 2B 100,47; fair cone half-angle atan2(100,165)). The gamecast field is
   // 680x460 (home 340,390; 2B 340,85; half-angle 45°). A polar map around home
   // preserves fair/foul exactly; depth scales by the home→2B ratio.
-  var SANG = Math.atan2(100,165), GANG = Math.PI/4, RSCALE = 305/138
+  var SANG = Math.atan2(100,165), GANG = Math.PI/4, RSCALE = 200/138
   function mapSpray(nx, ny){
     var dx = nx*200 - 100, dy = 185 - ny*200
     var r = Math.sqrt(dx*dx + dy*dy) * RSCALE
@@ -1443,7 +1420,7 @@ init()
     else if (r.indexOf('strike')>=0) { call='STRIKE';       color='#e74c3c' }
     else if (r === 'foul')           { call='FOUL';         color='#d4a042' }
     else                             { call='IN PLAY';      color='#3DDC6A' }
-    flyBall(340, 252, 340, 382, {dur:300, arc:5, done:function(){ fxCall(call, color) }})
+    flyBall(340, 307, 340, 382, {dur:300, arc:5, done:function(){ fxCall(call, color) }})
   }
 
   // ── result banner over the field ──
