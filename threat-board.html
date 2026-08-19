@@ -349,38 +349,197 @@
 </main>
 
 <!-- ══ FIELD HEAD-TO-HEAD & COMMON OPPONENTS (strength-of-schedule context) ══ -->
+<!-- Reads answer-first: one ledger says how each field team fared against the
+     competition it shares with the rest of the field; the raw grid and the
+     opponent-by-opponent breakdown sit behind their own disclosures. -->
 <style>
-  #h2hCard { margin-top: 1rem; }
-  #h2hCard .h2h-w { color: #3DDC6A; font-weight: 600; }
-  #h2hCard .h2h-l { color: #ef5350; font-weight: 600; }
-  #h2hCard .h2h-s { color: #d4a042; font-weight: 600; }
-  #h2hCard .h2h-legend { font-size: 0.78rem; color: var(--muted, #7A8290); margin: 0.4rem 0 0.6rem; line-height: 1.7; }
-  #h2hCard .h2h-game { font-size: 0.85rem; padding: 0.28rem 0; border-bottom: 1px solid rgba(255,255,255,0.05); }
-  #h2hCard .h2h-game .d { font-family: 'Roboto Mono', monospace; font-size: 0.72rem; color: #7A8290; margin-right: 0.5rem; }
-  #h2hCard .co-chip { display: inline-block; font-family: 'Roboto Mono', monospace; font-size: 0.72rem;
-    border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; padding: 0.12rem 0.4rem; margin: 0.12rem 0.2rem 0.12rem 0; }
-  #h2hCard .sec-title { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.08em;
-    color: #E8530A; margin: 1rem 0 0.3rem; font-weight: 600; }
+  /* one added neutral: --text-muted is the site's label grey, but loser names
+     and opponent columns are read as content and need the extra contrast */
+  #h2hCard { margin-top: 1rem; --text-dim: #99A1AD; }
+  #h2hCard .h2h-w { color: var(--elite); }
+  #h2hCard .h2h-l { color: var(--danger); }
+  #h2hCard .h2h-s { color: var(--solid); }
+  #h2hCard .h2h-empty { font-size: 0.78rem; color: var(--text-muted); padding: 0.6rem 0.1rem; }
+  #h2hCard .sec-lede { font-size: 0.78rem; color: var(--text-muted); line-height: 1.65;
+    max-width: 66ch; padding: 0.6rem 0.5rem 0; }
+  #h2hCard .sec-lede em { font-style: normal; color: var(--text-dim); }
+
+  /* ── section scaffolding: mono micro-label + hairline, one per data region ── */
+  #h2hCard .sec { margin-top: 1.5rem; }
+  #h2hCard .sec-head { display: flex; align-items: baseline; justify-content: space-between;
+    gap: 0.75rem; padding-bottom: 0.45rem; border-bottom: 1px solid var(--card-border); }
+  #h2hCard .sec-label { font-family: 'Roboto Mono', monospace; font-size: 0.625rem;
+    letter-spacing: 0.15em; text-transform: uppercase; color: var(--text-muted); }
+  #h2hCard .sec-note { font-size: 0.72rem; color: var(--text-muted); text-align: right; }
+  #h2hCard .sec-tail { display: flex; align-items: baseline; gap: 0.75rem; min-width: 0; }
+  #h2hCard.is-empty .led-head, #h2hCard.is-empty .sec-tail,
+  #h2hCard.is-empty .sec ~ .sec { display: none; }
+
+  #h2hCard .ghost { font-family: 'Roboto Mono', monospace; font-size: 0.625rem; letter-spacing: 0.12em;
+    text-transform: uppercase; color: var(--text-muted); background: transparent;
+    border: 1px solid var(--card-border); border-radius: 999px; padding: 0.2rem 0.65rem;
+    cursor: pointer; display: inline-flex; align-items: center; gap: 0.35rem; white-space: nowrap;
+    transition: color .15s ease, border-color .15s ease, background .15s ease; }
+  #h2hCard .ghost:hover { color: var(--text-main); border-color: #4B5563; background: rgba(255,255,255,.04); }
+  #h2hCard .ghost:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  #h2hCard .ghost .chev { transition: transform .18s ease; }
+  #h2hCard .ghost[aria-expanded="true"] .chev { transform: rotate(180deg); }
+
+  /* ── the ledger: one row per field team, the card's centrepiece ── */
+  #h2hCard .led-head, #h2hCard .led-row { display: grid;
+    grid-template-columns: 1.5rem minmax(0, 1fr) auto; align-items: center; gap: 0.6rem; }
+  #h2hCard .led-head { padding: 0.55rem 0.5rem 0.3rem; }
+  #h2hCard .led-row { padding: 0.45rem 0.5rem; border-radius: 6px; }
+  #h2hCard .led-row + .led-row { box-shadow: inset 0 1px 0 rgba(255,255,255,.05); }
+  #h2hCard .led-row:hover { background: rgba(255,255,255,.035); }
+  #h2hCard .led-row.is-aces { background: rgba(232,83,10,.13); box-shadow: inset 0 0 0 1px rgba(232,83,10,.35); }
+  #h2hCard .led-row.is-aces:hover { background: rgba(232,83,10,.18); }
+  #h2hCard .led-rank { font-family: 'Roboto Mono', monospace; font-size: 0.72rem; color: var(--text-muted); text-align: right; }
+  #h2hCard .led-row.is-aces .led-rank { color: var(--accent); }
+  #h2hCard .led-team { font-size: 0.85rem; color: var(--text-main); overflow: hidden;
+    text-overflow: ellipsis; white-space: nowrap; }
+  #h2hCard .led-code { font-family: 'Roboto Mono', monospace; font-size: 0.72rem; color: var(--text-muted); margin-left: 0.4rem; }
+  #h2hCard .led-recs { display: flex; gap: 0.25rem; }
+  #h2hCard .cell { width: 5.4rem; text-align: right; }
+  #h2hCard .cell-label { display: none; }
+  #h2hCard .rec { font-family: 'Roboto Mono', monospace; font-size: 0.85rem; letter-spacing: -0.01em; line-height: 1.25; }
+  #h2hCard .rec .sep { color: #3A424E; margin: 0 0.05rem; }
+  #h2hCard .rec.none { color: #3A424E; }
+  #h2hCard .rd { font-family: 'Roboto Mono', monospace; font-size: 0.72rem; color: var(--text-muted); line-height: 1.3; }
+  #h2hCard .rd.pos { color: var(--elite); }
+  #h2hCard .rd.neg { color: var(--danger); }
+
+  /* ── head-to-head games: winner-first, so the result reads left to right ── */
+  #h2hCard .gm { display: grid; grid-template-columns: 4.4rem minmax(0, 1fr);
+    gap: 0.75rem; align-items: baseline; padding: 0.4rem 0.5rem; border-radius: 6px; }
+  #h2hCard .span-years .gm { grid-template-columns: 5.9rem minmax(0, 1fr); }
+  #h2hCard .gm + .gm { box-shadow: inset 0 1px 0 rgba(255,255,255,.05); }
+  #h2hCard .gm:hover { background: rgba(255,255,255,.035); }
+  #h2hCard .gm.is-aces { background: rgba(232,83,10,.13); box-shadow: inset 0 0 0 1px rgba(232,83,10,.35); }
+  #h2hCard .gm-date { font-family: 'Roboto Mono', monospace; font-size: 0.72rem;
+    letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-muted); white-space: nowrap; }
+  #h2hCard .gm-line { font-size: 0.85rem; color: var(--text-dim); line-height: 1.5; }
+  #h2hCard .gm-win { color: var(--text-main); }
+  #h2hCard .gm-score { font-family: 'Roboto Mono', monospace; color: var(--text-main); margin: 0 0.35rem; }
+  #h2hCard .gm-score .lo { color: var(--text-dim); }
+  #h2hCard .gm-tie { color: var(--solid); }
+
+  /* ── opponent-by-opponent detail (collapsed) ── */
+  #h2hCard .co { padding: 0.65rem 0.5rem; }
+  #h2hCard .co + .co { box-shadow: inset 0 1px 0 rgba(255,255,255,.05); }
+  #h2hCard .co-name { font-size: 0.85rem; color: var(--text-main); margin-bottom: 0.3rem; }
+  #h2hCard .co-name .n { font-family: 'Roboto Mono', monospace; font-size: 0.72rem; color: var(--text-muted); margin-left: 0.45rem; }
+  #h2hCard .co-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr)); gap: 0.15rem 1.2rem; }
+  #h2hCard .co-item { display: grid; grid-template-columns: 2.8rem 2.5rem minmax(0, 1fr);
+    gap: 0.55rem; align-items: baseline; font-size: 0.78rem; }
+  #h2hCard .co-item .rec { font-size: 0.78rem; }
+  #h2hCard .co-item .nm { color: var(--text-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #h2hCard .co-item.is-aces .nm { color: var(--accent); }
+  #h2hCard .co-item .rd { text-align: right; }
+
+  /* ── matrix (behind the Grid toggle): sticky team column, coded headers ── */
+  #h2hMatrixWrap { display: none; }
+  #h2hMatrixWrap.open { display: block; margin-top: 1rem; padding-top: 0.9rem;
+    border-top: 1px solid var(--card-border); }
+  #h2hMatrixWrap table { min-width: 0; font-size: 0.78rem; margin-top: 0; }
+  #h2hMatrixWrap th, #h2hMatrixWrap td { border-bottom: 1px solid rgba(255,255,255,.05); }
+  #h2hMatrixWrap thead th { background: var(--card); font-family: 'Roboto Mono', monospace;
+    font-size: 0.72rem; letter-spacing: 0.06em; color: var(--text-muted); cursor: default; }
+  #h2hMatrixWrap tbody td { font-family: 'Roboto Mono', monospace; }
+  #h2hMatrixWrap tbody tr:nth-child(even) { background: #171B21; }
+  #h2hMatrixWrap tbody tr:nth-child(odd) { background: #13161B; }
+  #h2hMatrixWrap tbody tr:hover td { background: rgba(255,255,255,.04); }
+  #h2hMatrixWrap tr.is-aces td { background: rgba(232,83,10,.13); }
+  #h2hMatrixWrap th:first-child, #h2hMatrixWrap td:first-child { position: sticky; left: 0; z-index: 1;
+    background: inherit; box-shadow: 1px 0 0 rgba(255,255,255,.06); font-family: 'Inter', sans-serif; }
+  #h2hMatrixWrap thead th:first-child { background: var(--card); }
+  #h2hMatrixWrap .nil { color: #2C333D; }
+
+  @media (max-width: 620px) {
+    #h2hCard .led-head, #h2hCard .led-row { grid-template-columns: 1.5rem minmax(0, 1fr); }
+    #h2hCard .led-head .led-recs { display: none; }
+    #h2hCard .led-recs { grid-column: 2 / -1; gap: 0.9rem; margin-top: 0.2rem; }
+    #h2hCard .cell { width: auto; flex: 1 1 0; min-width: 0; text-align: left;
+      display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.4rem; }
+    #h2hCard .cell-label { flex-basis: 100%; }
+    #h2hCard .cell-label { display: block; font-family: 'Roboto Mono', monospace; font-size: 0.625rem;
+      letter-spacing: 0.12em; text-transform: uppercase; color: var(--text-muted); }
+    #h2hCard .sec-note { display: none; }
+    #h2hCard .sec-head { flex-wrap: wrap; row-gap: 0.5rem; }
+    #h2hCard .sec-label { white-space: nowrap; }
+    /* thumb-size targets — these are tapped at the field, not clicked */
+    #h2hCard .ghost { padding: 0.55rem 0.9rem; min-height: 40px; }
+    #h2hCard .gm, #h2hCard .span-years .gm { grid-template-columns: minmax(0, 1fr); gap: 0.1rem; }
+  }
+
+  @keyframes h2hRise { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: none; } }
+  @media (prefers-reduced-motion: no-preference) {
+    #h2hCard .led-row { animation: h2hRise .42s cubic-bezier(.16,1,.3,1) backwards; }
+  }
 </style>
 <section class="card" id="h2hCard">
   <div class="card-header">
     <div>
       <h2>Field Head-to-Head &amp; Common Opponents</h2>
       <div class="card-subtitle">
-        Strength-of-schedule context: Win% alone can't compare teams that played different
-        schedules — this is what happened when the field met each other, and how they fared
-        against shared competition.
+        Win% can't compare teams that played different schedules. This is what happened
+        when the field met each other — and against the opponents they share.
       </div>
     </div>
   </div>
   <div class="status-text" id="h2hStatus"></div>
-  <div class="sec-title" style="margin-top:0.4rem;">Head-to-head matrix</div>
-  <div class="table-scroll" id="h2hMatrixWrap"></div>
-  <div class="sec-title">Head-to-head games</div>
-  <div id="h2hGames"></div>
-  <div class="sec-title">Common opponents</div>
-  <div class="h2h-legend">Outside competition faced by two or more field teams — the closest thing to a shared measuring stick.</div>
-  <div id="commonOpps"></div>
+
+  <div class="sec">
+    <div class="sec-head">
+      <span class="sec-label">Against common competition</span>
+      <span class="sec-tail">
+      <span class="sec-note">Ranked by win% across both columns</span>
+      <button type="button" class="ghost" id="h2hGridBtn" aria-expanded="false" aria-controls="h2hMatrixWrap">
+        Grid
+        <svg class="chev" width="9" height="6" viewBox="0 0 9 6" fill="none" aria-hidden="true">
+          <path d="M1 1.25 4.5 4.75 8 1.25" stroke="currentColor" stroke-width="1.3"
+                stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </button>
+      </span>
+    </div>
+    <div class="led-head">
+      <span></span>
+      <span class="sec-label">Team</span>
+      <span class="led-recs">
+        <span class="cell sec-label">vs field</span>
+        <span class="cell sec-label">vs shared</span>
+      </span>
+    </div>
+    <div id="h2hLedger"></div>
+    <div class="table-scroll" id="h2hMatrixWrap"></div>
+  </div>
+
+  <div class="sec">
+    <div class="sec-head">
+      <span class="sec-label">Head-to-head games</span>
+      <span class="sec-note" id="h2hGamesNote"></span>
+    </div>
+    <div id="h2hGames"></div>
+  </div>
+
+  <div class="sec">
+    <div class="sec-head">
+      <span class="sec-label">Shared opponents</span>
+      <button type="button" class="ghost" id="h2hCommonBtn" aria-expanded="false" aria-controls="commonOpps">
+        <span id="h2hCommonBtnLabel">Opponent by opponent</span>
+        <svg class="chev" width="9" height="6" viewBox="0 0 9 6" fill="none" aria-hidden="true">
+          <path d="M1 1.25 4.5 4.75 8 1.25" stroke="currentColor" stroke-width="1.3"
+                stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </button>
+    </div>
+    <div class="sec-lede" id="h2hSharedLede">
+      Outside teams faced by two or more of the field — the closest thing to a shared
+      measuring stick. Each team's total against them is the <em>vs shared</em> column above.
+    </div>
+    <div id="commonOpps" hidden></div>
+  </div>
 </section>
 
 <script>
@@ -623,13 +782,44 @@
       .replace(/\s+/g, " ").trim();
   }
 
+  const esc = s => String(s == null ? "" : s).replace(/[&<>"]/g, c =>
+    ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+  // Short column codes for the matrix, so headers name teams instead of numbers.
+  // 3+ words -> initials; 2 words -> first word stem + initial; 1 word -> stem.
+  function teamCode(name) {
+    const words = String(name || "").replace(/[^\w\s'’-]/g, " ")
+      .split(/\s+/).filter(w => w && !/^(1[0-9]u|9u|8u|the)$/i.test(w));
+    if (words.length >= 3) return words.slice(0, 4).map(w => w[0]).join("").toUpperCase();
+    if (words.length === 2) return (words[0].slice(0, 3) + words[1][0]).toUpperCase();
+    return (words[0] || String(name)).slice(0, 3).toUpperCase();
+  }
+
+  // W–L(–T), wins and losses coloured independently so the shape reads at a glance.
+  function recHtml(w, l, t) {
+    if (!(w + l + t)) return '<div class="rec none">—</div>';
+    return '<div class="rec"><span class="h2h-w">' + w + '</span>' +
+      '<span class="sep">–</span><span class="h2h-l">' + l + '</span>' +
+      (t ? '<span class="sep">–</span><span class="h2h-s">' + t + '</span>' : "") + "</div>";
+  }
+  function rdHtml(rd, games) {
+    if (!games) return '<div class="rd">&nbsp;</div>';
+    const cls = rd > 0 ? "pos" : rd < 0 ? "neg" : "";
+    return '<div class="rd ' + cls + '">' + (rd > 0 ? "+" : "") + rd + "</div>";
+  }
+
   async function buildHeadToHead(code) {
     const st = document.getElementById("h2hStatus");
+    const card = document.getElementById("h2hCard");
+    const lWrap = document.getElementById("h2hLedger");
     const mWrap = document.getElementById("h2hMatrixWrap");
     const gWrap = document.getElementById("h2hGames");
     const cWrap = document.getElementById("commonOpps");
+    const gNote = document.getElementById("h2hGamesNote");
+    const cBtnLabel = document.getElementById("h2hCommonBtnLabel");
     st.textContent = "Loading head-to-head…";
-    mWrap.innerHTML = ""; gWrap.innerHTML = ""; cWrap.innerHTML = "";
+    lWrap.innerHTML = ""; mWrap.innerHTML = ""; gWrap.innerHTML = ""; cWrap.innerHTML = "";
+    gNote.textContent = ""; cBtnLabel.textContent = "Opponent by opponent";
     try {
       const [tRes, gRes] = await Promise.all([
         db.from("opp_teams").select("id,team_name,gc_aliases"),
@@ -643,7 +833,16 @@
       const owners = new Set(games.map(g => g.opp_team_id));
       const field = (tRes.data || []).filter(t => owners.has(t.id))
         .sort((a, b) => a.team_name.localeCompare(b.team_name));
-      if (field.length < 2) { st.textContent = "Not enough field teams with games."; return; }
+      // Nothing to compare: collapse to a single message rather than leaving
+      // three empty sections and two disclosures with nothing behind them.
+      if (field.length < 2) {
+        st.textContent = "";
+        card.classList.add("is-empty");
+        lWrap.innerHTML = '<div class="h2h-empty">Needs at least two field teams with games. ' +
+          "Load more of this tournament's teams and their schedules.</div>";
+        return;
+      }
+      card.classList.remove("is-empty");
 
       const aliasOf = t => (t.gc_aliases || []).map(h2hNorm).filter(Boolean);
       function matchTeam(onNorm) {
@@ -673,26 +872,94 @@
         if (m.ra > m.rb) c.w++; else if (m.ra < m.rb) c.l++; else c.t++;
         c.rd += (m.ra - m.rb);
       }
-      let html = "<table><thead><tr><th>Team</th>";
-      field.forEach((t, i) => html += `<th title="${t.team_name}">${i + 1}</th>`);
+      // Unique short codes, so the matrix header names teams instead of numbering them
+      const codes = new Map(); const usedCodes = new Set();
+      for (const t of field) {
+        let c = teamCode(t.team_name); const base = c; let n = 2;
+        while (usedCodes.has(c)) c = base.slice(0, 3) + (n++);
+        usedCodes.add(c); codes.set(t.id, c);
+      }
+      const isAcesTeam = t => YOUR_TEAM_NAME &&
+        t.team_name.toLowerCase().includes(YOUR_TEAM_NAME.toLowerCase());
+
+      // Common opponents: outside competition faced by >= 2 field teams
+      const byOpp = new Map();
+      for (const o of outside) {
+        if (!byOpp.has(o.on)) byOpp.set(o.on, { raw: o.raw, teams: new Map() });
+        const e = byOpp.get(o.on);
+        if (!e.teams.has(o.t.id)) e.teams.set(o.t.id, { id: o.t.id, name: o.t.team_name, w: 0, l: 0, t: 0, rd: 0 });
+        const r = e.teams.get(o.t.id);
+        if (o.rf > o.rag) r.w++; else if (o.rf < o.rag) r.l++; else r.t++;
+        r.rd += (o.rf - o.rag);
+      }
+      const common = [...byOpp.values()].filter(e => e.teams.size >= 2)
+        .sort((a, b) => b.teams.size - a.teams.size || a.raw.localeCompare(b.raw));
+
+      // Each field team's total against those shared opponents — the ledger's
+      // right-hand column, and the whole point of the section.
+      const sharedRec = new Map();
+      for (const e of common) {
+        for (const r of e.teams.values()) {
+          const s = sharedRec.get(r.id) || { w: 0, l: 0, t: 0, rd: 0, opps: 0 };
+          s.w += r.w; s.l += r.l; s.t += r.t; s.rd += r.rd; s.opps++;
+          sharedRec.set(r.id, s);
+        }
+      }
+
+      // ── Ledger ──────────────────────────────────────────────────────────
+      const ledger = field.map((t, i) => {
+        const f = { w: 0, l: 0, t: 0, rd: 0 };
+        for (let j = 0; j < field.length; j++) {
+          if (i === j) continue;
+          const c = cell[i][j];
+          f.w += c.w; f.l += c.l; f.t += c.t; f.rd += c.rd;
+        }
+        const s = sharedRec.get(t.id) || { w: 0, l: 0, t: 0, rd: 0, opps: 0 };
+        // Ranked on win% against common competition — field games and shared
+        // opponents pooled, ties worth half. Games break ties so a 1–0 team
+        // can't sit above a 13–4 one on an identical percentage.
+        const w = f.w + s.w, l = f.l + s.l, tie = f.t + s.t, g = w + l + tie;
+        return { t, f, s, g, pct: g ? (w + tie / 2) / g : -1, rd: f.rd + s.rd };
+      }).sort((a, b) => b.pct - a.pct || b.g - a.g || b.rd - a.rd ||
+        a.t.team_name.localeCompare(b.t.team_name));
+
+      lWrap.innerHTML = ledger.map((r, i) => {
+        const fg = r.f.w + r.f.l + r.f.t, sg = r.s.w + r.s.l + r.s.t;
+        return '<div class="led-row' + (isAcesTeam(r.t) ? " is-aces" : "") + '"' +
+          ' style="animation-delay:' + (i * 26) + 'ms">' +
+          '<span class="led-rank">' + (i + 1) + "</span>" +
+          '<span class="led-team" title="' + esc(r.t.team_name) + '">' + esc(r.t.team_name) +
+            '<span class="led-code">' + esc(codes.get(r.t.id)) + "</span></span>" +
+          '<span class="led-recs">' +
+            '<span class="cell"><span class="cell-label">vs field</span>' +
+              recHtml(r.f.w, r.f.l, r.f.t) + rdHtml(r.f.rd, fg) + "</span>" +
+            '<span class="cell"><span class="cell-label">vs shared</span>' +
+              recHtml(r.s.w, r.s.l, r.s.t) + rdHtml(r.s.rd, sg) + "</span>" +
+          "</span></div>";
+      }).join("");
+
+      // ── Matrix (behind the Grid toggle) ─────────────────────────────────
+      let html = '<table><thead><tr><th>Team</th>';
+      field.forEach(t => html += '<th title="' + esc(t.team_name) + '">' + esc(codes.get(t.id)) + "</th>");
       html += "</tr></thead><tbody>";
       field.forEach((t, i) => {
-        html += `<tr><td>${i + 1}. ${t.team_name}</td>`;
+        html += '<tr' + (isAcesTeam(t) ? ' class="is-aces"' : "") + '><td title="' + esc(t.team_name) + '">' +
+          esc(codes.get(t.id)) + " · " + esc(t.team_name) + "</td>";
         field.forEach((u, j) => {
-          if (i === j) { html += "<td style='color:#3a424e'>—</td>"; return; }
+          if (i === j) { html += '<td class="nil">—</td>'; return; }
           const c = cell[i][j];
           const n = c.w + c.l + c.t;
-          if (!n) { html += "<td style='color:#3a424e'>·</td>"; return; }
+          if (!n) { html += '<td class="nil">·</td>'; return; }
           const cls = c.w > c.l ? "h2h-w" : c.l > c.w ? "h2h-l" : "h2h-s";
           const rec = `${c.w}-${c.l}` + (c.t ? `-${c.t}` : "");
-          html += `<td class="${cls}" title="run diff ${c.rd > 0 ? "+" : ""}${c.rd}">${rec}</td>`;
+          html += `<td class="${cls}" title="vs ${esc(u.team_name)} · run diff ${c.rd > 0 ? "+" : ""}${c.rd}">${rec}</td>`;
         });
         html += "</tr>";
       });
       html += "</tbody></table>";
       mWrap.innerHTML = html;
 
-      // Game list, deduped (both schedules usually report the same game)
+      // ── Games, deduped (both schedules usually report the same game) ────
       const seen = new Set(); const items = [];
       for (const m of h2h) {
         const pair = [m.a.team_name, m.b.team_name].sort().join("|");
@@ -702,41 +969,60 @@
         seen.add(key);
         items.push(m);
       }
-      items.sort((x, y) => (x.date || "").localeCompare(y.date || ""));
+      items.sort((x, y) => (y.date || "").localeCompare(x.date || ""));
+      const MON = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+      // A field's schedule can straddle a calendar year (fall + spring), and
+      // "OCT 25" next to "MAY 24" is unreadable without one — so show the year
+      // on every row as soon as the set spans more than one.
+      const spanYears = new Set(items.map(m => (m.date || "").slice(0, 4)).filter(Boolean)).size > 1;
+      gWrap.className = spanYears ? "span-years" : "";
       gWrap.innerHTML = items.length
         ? items.map(m => {
-            const d = (m.date || "").slice(0, 10);
-            const w = m.ra >= m.rb;
-            return `<div class="h2h-game"><span class="d">${d}</span>` +
-              `<span class="${m.ra > m.rb ? "h2h-w" : m.ra < m.rb ? "h2h-l" : "h2h-s"}">${m.a.team_name} ${m.ra}–${m.rb}</span>` +
-              ` vs ${m.b.team_name}</div>`;
+            // winner first, so the line reads as a result rather than a schedule entry
+            const tie = m.ra === m.rb;
+            const win = m.ra >= m.rb ? m.a : m.b, lose = m.ra >= m.rb ? m.b : m.a;
+            const hi = Math.max(m.ra, m.rb), lo = Math.min(m.ra, m.rb);
+            const p = (m.date || "").slice(0, 10).split("-");
+            const d = p.length === 3
+              ? MON[+p[1] - 1] + " " + +p[2] + (spanYears ? " ’" + p[0].slice(2) : "")
+              : (m.date || "").slice(0, 10);
+            const acesGame = isAcesTeam(m.a) || isAcesTeam(m.b);
+            return '<div class="gm' + (acesGame ? " is-aces" : "") + '">' +
+              '<span class="gm-date">' + esc(d) + "</span>" +
+              '<span class="gm-line">' +
+                (tie
+                  ? '<span class="gm-win">' + esc(m.a.team_name) + '</span><span class="gm-score gm-tie">' +
+                      hi + "–" + lo + '</span><span class="gm-win">' + esc(m.b.team_name) + "</span>"
+                  : '<span class="gm-win">' + esc(win.team_name) + '</span><span class="gm-score">' +
+                      hi + '<span class="lo">–' + lo + "</span></span>" + esc(lose.team_name)) +
+              "</span></div>";
           }).join("")
-        : "<div class='h2h-legend'>No head-to-head games found between field teams.</div>";
+        : '<div class="h2h-empty">No head-to-head games found between field teams.</div>';
+      gNote.textContent = items.length
+        ? items.length + (items.length === 1 ? " game" : " games") + " between field teams"
+        : "";
 
-      // Common opponents: outside competition faced by >= 2 field teams
-      const byOpp = new Map();
-      for (const o of outside) {
-        if (!byOpp.has(o.on)) byOpp.set(o.on, { raw: o.raw, teams: new Map() });
-        const e = byOpp.get(o.on);
-        if (!e.teams.has(o.t.id)) e.teams.set(o.t.id, { name: o.t.team_name, w: 0, l: 0, t: 0, rd: 0 });
-        const r = e.teams.get(o.t.id);
-        if (o.rf > o.rag) r.w++; else if (o.rf < o.rag) r.l++; else r.t++;
-        r.rd += (o.rf - o.rag);
-      }
-      const common = [...byOpp.values()].filter(e => e.teams.size >= 2)
-        .sort((a, b) => b.teams.size - a.teams.size || a.raw.localeCompare(b.raw))
-        .slice(0, 20);
-      cWrap.innerHTML = common.length
-        ? common.map(e => {
-            const chips = [...e.teams.values()].sort((a, b) => (b.w - b.l) - (a.w - a.l)).map(r => {
-              const cls = r.w > r.l ? "h2h-w" : r.l > r.w ? "h2h-l" : "h2h-s";
-              const rec = `${r.w}-${r.l}` + (r.t ? `-${r.t}` : "");
-              return `<span class="co-chip"><span class="${cls}">${rec}</span> ${r.name}` +
-                `<span style="color:#7A8290"> (${r.rd > 0 ? "+" : ""}${r.rd})</span></span>`;
-            }).join(" ");
-            return `<div class="h2h-game"><strong>${e.raw.replace(/</g, "&lt;")}</strong><br>${chips}</div>`;
-          }).join("")
-        : "<div class='h2h-legend'>No shared outside opponents found.</div>";
+      // ── Opponent-by-opponent detail (collapsed) ─────────────────────────
+      const CO_MAX = 40;
+      const coShown = common.slice(0, CO_MAX);
+      cWrap.innerHTML = coShown.length
+        ? coShown.map(e => {
+            const rows = [...e.teams.values()]
+              .sort((a, b) => (b.w - b.l) - (a.w - a.l) || b.rd - a.rd)
+              .map(r => '<span class="co-item' + (r.name.toLowerCase().includes(YOUR_TEAM_NAME.toLowerCase()) ? " is-aces" : "") + '">' +
+                recHtml(r.w, r.l, r.t) + rdHtml(r.rd, r.w + r.l + r.t) +
+                '<span class="nm" title="' + esc(r.name) + '">' + esc(r.name) + "</span></span>").join("");
+            return '<div class="co"><div class="co-name">' + esc(e.raw) +
+              '<span class="n">' + e.teams.size + " field teams</span></div>" +
+              '<div class="co-list">' + rows + "</div></div>";
+          }).join("") +
+          (common.length > CO_MAX
+            ? '<div class="h2h-empty">Showing the ' + CO_MAX + " most-shared of " + common.length + " common opponents.</div>"
+            : "")
+        : '<div class="h2h-empty">No shared outside opponents found.</div>';
+      cBtnLabel.textContent = common.length
+        ? "Opponent by opponent · " + common.length
+        : "Opponent by opponent";
 
       st.textContent = "";
     } catch (e) {
@@ -972,7 +1258,21 @@
     }
   }
 
+  // Both disclosures below the ledger: the raw grid and the per-opponent detail.
+  function wireDisclosure(btnId, panelId, useHidden) {
+    const btn = document.getElementById(btnId);
+    const panel = document.getElementById(panelId);
+    if (!btn || !panel) return;
+    btn.addEventListener("click", () => {
+      const open = btn.getAttribute("aria-expanded") === "true";
+      btn.setAttribute("aria-expanded", String(!open));
+      if (useHidden) panel.hidden = open; else panel.classList.toggle("open", !open);
+    });
+  }
+
   document.addEventListener("DOMContentLoaded", () => {
+    wireDisclosure("h2hGridBtn", "h2hMatrixWrap", false);
+    wireDisclosure("h2hCommonBtn", "commonOpps", true);
     loadTournaments();
   });
 </script>
