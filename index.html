@@ -212,6 +212,8 @@
   .result-score{font-family:var(--display);font-size:20px;font-weight:700;letter-spacing:1px;}
   .result-score .us{color:var(--orange);}
   .result-date{font-family:var(--mono);font-size:11px;color:var(--muted);min-width:56px;text-align:right;}
+  .result-score-sch{min-width:80px;text-align:center;}
+  .result-right{display:flex;align-items:center;gap:10px;min-width:160px;justify-content:flex-end;}
 
   /* roster */
   .roster-header{background:var(--dark2);border-bottom:1px solid var(--bdr);padding:48px 40px 32px;}
@@ -307,6 +309,9 @@
     .roster-tabs{padding:0 20px;}
     .roster-grid{grid-template-columns:repeat(2,1fr);gap:12px;}
     .roster-filters{top:64px;}
+    .result-row{flex-wrap:wrap;padding:12px 14px;gap:12px;row-gap:8px;}
+    .result-score-sch{min-width:0;margin-left:auto;}
+    .result-right{min-width:0;flex-basis:100%;justify-content:space-between;padding-left:44px;}
     .hero-title{font-size:34px;margin-bottom:12px;}
     /* keep the squad hero inside one phone screen: tighter record + faces */
     .hero-lede{gap:14px;margin-bottom:18px;}
@@ -1820,10 +1825,10 @@ function renderSchedule() {
       html += '<div class="result-teams">'
       html += '<div class="result-matchup">'+(g.is_home?'vs':'@')+' '+opp+'</div>'
       html += '<div class="result-event">'+meta+'</div></div>'
-      html += '<div class="result-score" style="min-width:80px;text-align:center;">'
-      html += '<span class="'+(win?'us':'')+'" style="'+(win?'':'color:var(--muted)')+'">'+(win?g.our_score:g.opp_score)+'</span>'
-      html += ' – '+(win?g.opp_score:g.our_score)+'</div>'
-      html += '<div style="display:flex;align-items:center;gap:10px;min-width:160px;justify-content:flex-end;">'
+      html += '<div class="result-score result-score-sch">'
+      html += '<span class="'+(win?'us':'')+'" style="'+(win?'':'color:var(--muted)')+'">'+g.our_score+'</span>'
+      html += '<span style="color:var(--muted);font-weight:400;"> – '+g.opp_score+'</span></div>'
+      html += '<div class="result-right">'
       html += '<div style="font-family:var(--mono);font-size:11px;color:var(--muted);">'+dateStr+'</div>'
       if (g.gc_boxscore_url) {
         html += '<a href="'+g.gc_boxscore_url+'" target="_blank" rel="noopener" style="font-family:var(--mono);font-size:10px;color:var(--orange);text-decoration:none;border:1px solid var(--bdr-a);border-radius:4px;padding:3px 8px;white-space:nowrap;">Box score ↗</a>'
