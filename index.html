@@ -323,9 +323,13 @@
     .countdown{display:none;}
     /* team stats stay on phones as a 2x2 grid rather than disappearing */
     .team-stat-bar{display:grid;grid-template-columns:1fr 1fr;width:100%;}
+    /* 2-col grid borders that survive odd counts (schedule bar has 5 items):
+       an odd last item spans the full row; the second-to-last only drops its
+       bottom border when it truly sits in the last row (odd position). */
     .tsb-item{border-right:1px solid var(--bdr);border-bottom:1px solid var(--bdr);}
-    .tsb-item:nth-child(even){border-right:none;}
-    .tsb-item:nth-last-child(-n+2){border-bottom:none;}
+    .tsb-item:nth-child(even),.tsb-item:last-child{border-right:none;}
+    .tsb-item:last-child,.tsb-item:nth-last-child(2):nth-child(odd){border-bottom:none;}
+    .tsb-item:last-child:nth-child(odd){grid-column:1/-1;}
     footer{padding:24px 20px;}
     /* ── mobile nav: collapse the link bar into a tap-to-open menu ── */
     .nav-toggle{display:block;}

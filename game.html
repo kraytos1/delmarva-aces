@@ -1363,8 +1363,8 @@ init()
   // ── coordinate map: scorer spray tap → gamecast field ──
   // hit_x/hit_y are normalized 0-1 in the scorer's 200x200 field (home 100,185;
   // 2B 100,47; fair cone half-angle atan2(100,165)). The gamecast field is
-  // 680x460 (home 340,390; 2B 340,85; half-angle 45°). A polar map around home
-  // preserves fair/foul exactly; depth scales by the home→2B ratio.
+  // 680x460 (home 340,390; 2B 340,190; half-angle 45°). A polar map around home
+  // preserves fair/foul exactly; depth scales by the home→2B ratio (200/138).
   var SANG = Math.atan2(100,165), GANG = Math.PI/4, RSCALE = 200/138
   function mapSpray(nx, ny){
     var dx = nx*200 - 100, dy = 185 - ny*200
