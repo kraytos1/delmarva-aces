@@ -233,11 +233,13 @@ function render(t,threat,hitters,pitchers){
     + '<div class="rpt-sub">'+(t.level?t.level+' · ':'')+(document.getElementById('tourn').value||'All tournaments')+' · Aces scouting report</div>'
     + '</div>'+tierChip+'</div>'+statLine+'</div>';
 
-  html += '<div class="sect" id="ai-sect"><div class="sect-t">✨ AI Game Plan</div>'
-    + '<div id="ai-plan"><button class="btn-go" type="button" onclick="genAIPlan()">✨ Generate AI game plan</button></div></div>';
+  html += '<div class="sect" id="ai-sect"><div class="sect-t">✨ Game Plan</div>'
+    + '<div id="ai-plan"><button class="btn-go" type="button" onclick="genAIPlan()">✨ Generate game plan</button></div></div>';
 
+  // The rule-derived bullets sit under their own heading so the written plan
+  // above can own the "Game Plan" name without two identical titles in a row.
   var bullets=planBullets(threat,hitters,pitchers);
-  html += '<div class="sect"><div class="sect-t">🎯 Game Plan</div><ul class="plan">'+bullets.map(function(b){return '<li>'+b+'</li>';}).join('')+'</ul></div>';
+  html += '<div class="sect"><div class="sect-t">🎯 Keys to the Game</div><ul class="plan">'+bullets.map(function(b){return '<li>'+b+'</li>';}).join('')+'</ul></div>';
 
   html += '<div class="sect"><div class="sect-t">🔥 Top Threats (Hitters)</div>';
   if(topH.length){
