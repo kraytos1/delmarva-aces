@@ -322,17 +322,23 @@ function renderBatting() {
   var batterOrder = []
   var batterStats = {}
   acesABs.forEach(function(ab) {
+    var result = ab.result || ''
+    // Baserunner events (steal/WP/PB/balk/CS/pickoff) ride on the at-plate
+    // batter's id but are not his plate appearance — counting them charged
+    // him a phantom 0-for-1 per steal.
+    if (/(stolen_base|wp_advance|pb_advance|balk|caught_stealing|pickoff|out_advancing)/i.test(result)) return
     var pid = ab.batter_id
     if (!batterStats[pid]) {
       batterOrder.push(pid)
       batterStats[pid] = {ab:0,h:0,r:0,rbi:0,bb:0,so:0,lob:0}
     }
     var s = batterStats[pid]
-    var result = ab.result || ''
     var isHit = ['single','double','triple','home_run'].includes(result)
     var isWalk = ['walk','intentional_walk','hbp'].includes(result)
-    var isK = ['strikeout_looking','strikeout_swinging'].includes(result)
-    if (!isWalk) s.ab++
+    var isSac = ['sac_fly','sac_bunt'].includes(result)
+    // dropped 3rd is a strikeout for the batter whether or not he reached
+    var isK = ['strikeout_looking','strikeout_swinging','dropped_third','dropped_third_k'].includes(result)
+    if (!isWalk && !isSac) s.ab++
     if (isHit) s.h++
     if (isWalk) s.bb++
     if (isK) s.so++
@@ -392,21 +398,26 @@ function renderPitching() {
       pitcherOrder.push(pid)
       pitcherStats[pid] = {np:0,h:0,r:0,er:0,bb:0,so:0,outs:0}
     }
-    var s = pitcherStats[pid]
-    s.np++
-    if (p.result==='ball') s.bb++ // approximate — proper walk tracking via at_bats
+    pitcherStats[pid].np++
   })
 
-  // Get hits/runs from bottom-half at-bats
+  // Hits/runs/walks/outs from the opponent's at-bats. Rows written since the
+  // situational-capture update carry aces_pitcher_id, so attribute exactly;
+  // older rows fall back to the game's last pitcher. (The old code counted
+  // every BALL as a BB and hung every at-bat on the final pitcher.)
   bottomABs.forEach(function(ab) {
-    // Assign to last pitcher who threw (simplified)
-    var lastPid = pitcherOrder[pitcherOrder.length-1]
-    if (!lastPid) return
-    var s = pitcherStats[lastPid]
+    var pid = (ab.aces_pitcher_id && pitcherStats[ab.aces_pitcher_id]) ? ab.aces_pitcher_id
+            : pitcherOrder[pitcherOrder.length-1]
+    if (!pid) return
+    var s = pitcherStats[pid]
     var result = ab.result || ''
     if (['single','double','triple','home_run'].includes(result)) s.h++
-    if (['strikeout_looking','strikeout_swinging'].includes(result)) {s.so++;s.outs++}
-    if (['groundout','flyout','lineout','popout','sac_fly','sac_bunt'].includes(result)) s.outs++
+    if (['walk','intentional_walk'].includes(result)) s.bb++
+    // dropped 3rd is a K for the pitcher even when the batter reaches
+    if (['strikeout_looking','strikeout_swinging','dropped_third','dropped_third_k'].includes(result)) s.so++
+    if (['strikeout_looking','strikeout_swinging','dropped_third_k',
+         'groundout','flyout','lineout','popout','sac_fly','sac_bunt','fielders_choice',
+         'caught_stealing','pickoff_1b','pickoff_2b','pickoff_3b','out_advancing'].includes(result)) s.outs++
     if (result==='double_play') s.outs+=2
     s.r += ab.runs_scored || 0
     s.er += ab.runs_scored || 0 // simplified — no unearned run tracking yet

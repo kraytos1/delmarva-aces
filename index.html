@@ -1083,7 +1083,8 @@ async function init() {
 // without one still appears, with stats zeroed (identity columns kept). This
 // is what stops test games / past seasons from leaking into the live stats.
 var SEASON_STAT_COLS = ['games_played','at_bats','hits','singles','doubles','triples',
-  'home_runs','rbi','runs','walks','hbp','strikeouts','times_on_base']
+  'home_runs','rbi','runs','walks','hbp','strikeouts','sac_flies','times_on_base',
+  'stolen_bases','caught_stealing']
 function seasonStatsRows(rows) {
   var byId = {}
   ;(rows||[]).forEach(function(r){
@@ -1118,7 +1119,9 @@ function mapDBPlayer(p) {
 }
 function calcOBP(p) {
   var n = (p.hits||0)+(p.walks||0)+(p.hbp||0)
-  var d = (p.at_bats||0)+(p.walks||0)+(p.hbp||0)
+  // rulebook denominator: AB + BB + HBP + SF (sac_flies lands with the
+  // 2026-08-19 view migration; missing column reads as 0 until then)
+  var d = (p.at_bats||0)+(p.walks||0)+(p.hbp||0)+(p.sac_flies||0)
   return d > 0 ? n/d : 0
 }
 function calcSLG(p) {

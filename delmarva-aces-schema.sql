@@ -205,8 +205,12 @@ select
   count(ab.id) filter (where ab.batter_id = p.id and ab.result in
     ('walk','intentional_walk'))                          as walks,
   count(ab.id) filter (where ab.batter_id = p.id and ab.result = 'hbp')      as hbp,
+  -- dropped 3rd is a strikeout for the batter whether or not he reached
   count(ab.id) filter (where ab.batter_id = p.id and ab.result in
-    ('strikeout_looking','strikeout_swinging'))            as strikeouts,
+    ('strikeout_looking','strikeout_swinging',
+     'dropped_third','dropped_third_k'))                   as strikeouts,
+  -- sac flies belong in the OBP denominator (AB + BB + HBP + SF)
+  count(ab.id) filter (where ab.batter_id = p.id and ab.result = 'sac_fly')  as sac_flies,
   count(ab.id) filter (where ab.batter_id = p.id and ab.result in
     ('single','double','triple','home_run',
      'walk','hbp','intentional_walk'))                    as times_on_base,
