@@ -1361,34 +1361,16 @@ init()
 <script>
 (function(){
   // ── coordinate map: scorer spray tap → gamecast field ──
-  // hit_x/hit_y are normalized 0-1 in the scorer's 200x200 field (home 100,185;
-  // 2B 100,47; fair cone half-angle atan2(100,165)). The gamecast field is
-  // 680x460 (home 340,390; 2B 340,190; fence arc radius 280 on the mound at
-  // 340,295; half-angle 45°). A polar map around home preserves fair/foul
-  // exactly. Depth is TWO zones: inside 2B scales by the 2B ratio (200/138);
-  // beyond 2B it stretches so the scorer's wall lands ON the drawn fence along
-  // every bearing — the flat 2B ratio rendered wall-taps at mid-outfield
-  // because the scorer square's wall is 1.34x its 2B depth vs the fan's 1.875x.
-  var SANG = Math.atan2(100,165), GANG = Math.PI/4, RSCALE = 200/138
+  // hit_x/hit_y are normalized 0-1 on the scorer's 200x200 field, which is now
+  // the SAME true-proportion fan as this page (home 100,185; 2B 100,101.6;
+  // fence R116.8 on the mound at 100,145.4). One similarity transform about
+  // home maps tap -> field: scale 375/156.4 = 2.3977 (2B->2B, poles->poles,
+  // fence->fence by construction). Taps recorded on the old square scorer
+  // field (test games only) render a touch deep; no real-season taps exist.
+  var SCALE = 2.3977
   function mapSpray(nx, ny){
-    var dx = nx*200 - 100, dy = 185 - ny*200
-    var r0 = Math.sqrt(dx*dx + dy*dy)
-    var phi = Math.atan2(dx, dy) * (GANG/SANG)
-    var r
-    if (r0 <= 138) r = r0 * RSCALE
-    else {
-      // scorer wall along this bearing: top edge (185/cos) or side edge (100/sin)
-      var a = Math.min(Math.abs(Math.atan2(dx, dy)), SANG)
-      var sWall = Math.min(185/Math.cos(a), 100/Math.max(Math.sin(a), 1e-4))
-      // gamecast fence along the mapped bearing: |home + t·u − mound| = 280
-      var cs = Math.cos(Math.min(Math.abs(phi), GANG))
-      var fence = (190*cs + Math.sqrt(36100*cs*cs + 277500)) / 2
-      r = 200 + (r0 - 138) / Math.max(sWall - 138, 1) * (fence - 200)
-      r = Math.min(r, fence + 16)
-    }
-    if (phi >  Math.PI) phi =  Math.PI
-    if (phi < -Math.PI) phi = -Math.PI
-    var x = 340 + r*Math.sin(phi), y = 390 - r*Math.cos(phi)
+    var x = 340 + (nx*200 - 100) * SCALE
+    var y = 390 - (185 - ny*200) * SCALE
     return { x: Math.max(10, Math.min(670, x)), y: Math.max(12, Math.min(450, y)) }
   }
 
