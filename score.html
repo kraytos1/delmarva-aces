@@ -759,6 +759,7 @@ function checkArmCare(before, after){
 // outs already added) and made Undo restore garbage.
 var HISTORY = []
 var IN_LOGAB = false
+var _abAnchor = null   // clip-timing anchor set when an outcome modal opens
 
 function saveSnapshot(pitchId, atBatId) {
   HISTORY.push({
@@ -1734,7 +1735,12 @@ async function logAB(result, label, skipPitchLog, fromAuto, runnerId) {
   // those are the batter's doing.
   var noRbi=/(error|double_play|wp_advance|pb_advance|balk|stolen_base|caught_stealing|pickoff|out_advancing)/i.test(result)
   var rbi = (runs>0 && !noRbi) ? runs : 0
+  // Clip offset: prefer the modal-open anchor (the Ball-in-Play tap ≈ contact).
+  // Auto walk/K (fromAuto) are already stamped on the payoff pitch; anchors
+  // older than 90s are stale (abandoned modal) and fall back to now.
   var offset=currentClipOffset()
+  if(!fromAuto && _abAnchor && _abAnchor.off!=null && Date.now()-_abAnchor.t<90000) offset=_abAnchor.off
+  _abAnchor=null
   var abd={
     game_id:S.gameId,
     batter_id: acesUp() ? getCurrentBatterId() : null,  // our batter only when the Aces bat
@@ -1960,6 +1966,10 @@ function selType(t){
 /* ── MODAL ── */
 function openModal(type){
   var def=MODALS[type];if(!def)return
+  // Clip anchor: the "Ball in Play" / "Out-K" tap lands within a beat of
+  // contact, while the result pick can come 10-30s later. Stamp the offset
+  // NOW so the clip window brackets the play, not the scoring pause.
+  _abAnchor = { off: currentClipOffset(), t: Date.now() }
   document.getElementById('modal-title').textContent=def.title
   var html=''
   def.sections.forEach(function(sec){

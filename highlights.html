@@ -251,7 +251,7 @@ function render(){
     }
     var rbi = (!isDef && ab.rbi>0) ? '<span class="rbi">'+ab.rbi+' RBI</span>' : '';
     return '<div class="clip" id="clip-'+ab.id+'">'
-      + '<div class="clip-vid" data-embed="'+ytEmbed(g.youtube_stream_id, ab.yt_offset_sec)+'" onclick="playClip(this)">'
+      + '<div class="clip-vid" data-embed="'+ytEmbed(g.youtube_stream_id, ab.yt_offset_sec, ab.result)+'" onclick="playClip(this)">'
       +   '<img loading="lazy" src="'+ytThumb(g.youtube_stream_id)+'" alt="'+info.label+'"/>'
       +   '<div class="clip-play"><span></span></div>'
       + '</div>'

@@ -608,7 +608,7 @@ async function loadPlayerClips(playerId) {
       var rbi = (ab._kind !== 'pitching' && ab._kind !== 'defense' && ab.rbi > 0) ? '<span class="pclip-rbi">'+ab.rbi+' RBI</span>' : ''
       var half = ab.half === 'top' ? 'Top' : 'Bot'
       return '<div class="pclip">'
-        + '<div class="pclip-vid" data-embed="'+ytEmbed(g.youtube_stream_id, ab.yt_offset_sec)+'" onclick="playClip(this)">'
+        + '<div class="pclip-vid" data-embed="'+ytEmbed(g.youtube_stream_id, ab.yt_offset_sec, ab.result)+'" onclick="playClip(this)">'
         +   '<img loading="lazy" src="'+ytThumb(g.youtube_stream_id)+'" alt="'+(CLIP_LABEL[ab.result]||ab.result)+'"/>'
         +   '<div class="pclip-play"><span></span></div>'
         + '</div>'

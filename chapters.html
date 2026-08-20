@@ -89,7 +89,7 @@ var db = supabase.createClient(ACES_CONFIG.supabaseUrl, ACES_CONFIG.supabaseKey)
 
 // Chapter starts land slightly BEFORE the tap, same as clips: yt_offset_sec is
 // stamped when the scorer taps the result, a few seconds after the play.
-var CHAPTER_PRE = 20;
+var CHAPTER_PRE = 14;   // offsets are contact-anchored (Ball-in-Play tap)
 // YouTube's rules — break any of these and it silently renders no chapters.
 var MIN_GAP = 10, MIN_CHAPTERS = 3;
 

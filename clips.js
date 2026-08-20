@@ -14,19 +14,23 @@
 (function () {
   if (window.__acesClips) return; window.__acesClips = true;
 
-  var CLIP_PRE = 20, CLIP_POST = 10;
+  // Offsets are anchored at the scorer's Ball-in-Play tap (≈ contact), so the
+  // window is 14s back for the wind-up and delivery, then the play runs out in
+  // front. Home runs get a longer tail — the trot is half the clip.
+  var CLIP_PRE = 14, CLIP_POST = 16, CLIP_POST_HR = 25;
   var apiReady = false, apiRequested = false, queue = [];
 
   window.ytThumb = function (streamId) {
     return streamId ? 'https://i.ytimg.com/vi/' + streamId + '/hqdefault.jpg' : '';
   };
 
-  // Same signature and output as before — callers keep storing this in
-  // data-embed, and playClip() reads the numbers back out of it.
-  window.ytEmbed = function (streamId, offset) {
+  // Callers keep storing this in data-embed, and playClip() reads the numbers
+  // back out of it; the optional result widens the tail for home runs.
+  window.ytEmbed = function (streamId, offset, result) {
     if (!streamId) return '';
     var o = offset || 0;
-    var start = Math.max(0, o - CLIP_PRE), end = o + CLIP_POST;
+    var post = result === 'home_run' ? CLIP_POST_HR : CLIP_POST;
+    var start = Math.max(0, o - CLIP_PRE), end = o + post;
     return 'https://www.youtube.com/embed/' + streamId +
       '?start=' + start + '&end=' + end + '&rel=0&modestbranding=1';
   };
