@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<link rel="manifest" href="/manifest.json"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-title" content="Aces Guide"/>
+<link rel="apple-touch-icon" href="/icon-192.png"/>
+<meta name="theme-color" content="#E8530A"/>
+<meta name="robots" content="noindex"/>
+<title>Aces · User Guide</title>
+<script src="config.js"></script>
+<script src="/pin.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Oswald:wght@400;600;700&family=Inter:wght@400;500;600&family=Roboto+Mono:wght@400;500&display=swap');
+:root{
+  --orange:#E8530A;--black:#0A0C0E;--dark:#111418;--dark2:#181C22;--dark3:#1F242C;
+  --bdr:rgba(255,255,255,.08);--text:#F0EDE8;--muted:#7A8290;--green:#3DDC6A;
+  --mono:'Roboto Mono',monospace;--display:'Oswald',sans-serif;--body:'Inter',sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+html{scroll-behavior:smooth;scroll-padding-top:70px;}
+body{background:var(--black);color:var(--text);font-family:var(--body);min-height:100vh;padding:22px 16px 60px;font-size:14.5px;line-height:1.65;}
+.wrap{max-width:860px;margin:0 auto;}
+.head{display:flex;align-items:center;gap:13px;margin-bottom:4px;}
+.head img{width:44px;height:44px;object-fit:contain;filter:drop-shadow(0 0 12px rgba(232,83,10,.4));}
+h1{font-family:var(--display);font-size:24px;font-weight:700;letter-spacing:.5px;}
+h1 span{color:var(--orange);}
+.sub{font-family:var(--mono);font-size:11px;color:var(--muted);letter-spacing:1px;margin-bottom:20px;}
+
+/* jump chips */
+.toc{position:sticky;top:0;z-index:50;display:flex;gap:6px;overflow-x:auto;padding:10px 0;margin:0 -16px 22px;
+  padding-left:16px;padding-right:16px;background:rgba(10,12,14,.96);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
+  border-bottom:1px solid var(--bdr);scrollbar-width:none;}
+.toc::-webkit-scrollbar{display:none;}
+.toc a{font-family:var(--mono);font-size:10.5px;letter-spacing:.5px;text-transform:uppercase;white-space:nowrap;
+  color:var(--muted);text-decoration:none;border:1px solid var(--bdr);border-radius:20px;padding:5px 12px;transition:color .15s,border-color .15s;}
+.toc a:hover{color:var(--orange);border-color:rgba(232,83,10,.5);}
+
+.sec{margin-bottom:38px;}
+h2{font-family:var(--display);font-size:19px;font-weight:600;letter-spacing:.4px;margin-bottom:4px;
+  padding-top:8px;display:flex;align-items:baseline;gap:9px;}
+h2 .n{font-family:var(--mono);font-size:11px;color:var(--orange);letter-spacing:1px;}
+.sec-d{font-size:13px;color:var(--muted);margin-bottom:14px;max-width:64ch;}
+h3{font-family:var(--display);font-size:15px;font-weight:600;letter-spacing:.3px;margin:20px 0 6px;color:var(--text);}
+p{margin-bottom:10px;max-width:70ch;}
+p b, li b{color:var(--text);font-weight:600;}
+.mut{color:var(--muted);}
+ul,ol{margin:0 0 12px 20px;max-width:68ch;}
+li{margin-bottom:6px;}
+li::marker{color:var(--orange);}
+code,.k{font-family:var(--mono);font-size:.86em;background:var(--dark2);border:1px solid var(--bdr);
+  border-radius:5px;padding:1px 6px;color:#ffb38a;white-space:nowrap;}
+a.pg{color:var(--orange);text-decoration:none;border-bottom:1px dotted rgba(232,83,10,.5);}
+a.pg:hover{border-bottom-style:solid;}
+
+.card{background:var(--dark2);border:1px solid var(--bdr);border-radius:12px;padding:14px 16px;margin-bottom:12px;}
+.card .t{font-family:var(--display);font-size:14.5px;font-weight:600;margin-bottom:3px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+.card .t .path{font-family:var(--mono);font-size:10px;color:#586274;font-weight:400;}
+.card p:last-child{margin-bottom:0;}
+.pill{font-family:var(--mono);font-size:8.5px;letter-spacing:.5px;text-transform:uppercase;padding:2px 7px;border-radius:20px;
+  border:1px solid var(--bdr);color:var(--muted);}
+.pill.pin{border-color:rgba(232,83,10,.4);color:var(--orange);}
+.pill.live{border-color:rgba(61,220,106,.4);color:var(--green);}
+.pill.new{border-color:rgba(61,220,106,.4);color:var(--green);}
+
+.tbl-wrap{overflow-x:auto;margin:10px 0 14px;border:1px solid var(--bdr);border-radius:10px;}
+table{width:100%;border-collapse:collapse;font-size:13px;min-width:520px;}
+th{font-family:var(--mono);font-size:10px;letter-spacing:1px;text-transform:uppercase;color:var(--muted);
+  text-align:left;padding:9px 12px;background:var(--dark);border-bottom:1px solid var(--bdr);}
+td{padding:8px 12px;border-bottom:1px solid rgba(255,255,255,.05);vertical-align:top;}
+tr:last-child td{border-bottom:none;}
+td:first-child{white-space:nowrap;}
+
+.step{display:flex;gap:12px;margin-bottom:12px;}
+.step .num{font-family:var(--display);font-size:16px;font-weight:700;color:var(--orange);min-width:24px;
+  height:24px;border:1px solid rgba(232,83,10,.4);border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:2px;font-size:12px;}
+.step .body{flex:1;}
+.step .body .st{font-weight:600;margin-bottom:2px;}
+.step .body p{font-size:13.5px;color:var(--muted);margin-bottom:4px;}
+
+.callout{border:1px solid rgba(232,83,10,.35);background:rgba(232,83,10,.07);border-radius:10px;
+  padding:11px 14px;font-size:13px;margin:12px 0;max-width:70ch;}
+.callout b{color:var(--orange);}
+.foot{font-family:var(--mono);font-size:10px;color:var(--muted);text-align:center;margin-top:36px;line-height:1.8;}
+.foot a{color:var(--muted);}
+@media print{
+  body{background:#fff;color:#111;padding:0;}
+  .toc{display:none;}
+  .card,.callout{border-color:#ccc;background:#fff;}
+  code,.k{background:#f2f2f2;color:#333;border-color:#ddd;}
+  th{background:#f2f2f2;color:#333;}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="head">
+    <img src="/logo.png" alt="Aces"/>
+    <h1>Aces <span>User Guide</span></h1>
+  </div>
+  <div class="sub">EVERYTHING THE SITE DOES &amp; WHERE EVERY SWITCH LIVES · UPDATED AUG 2026</div>
+
+  <nav class="toc">
+    <a href="#gameday">Game day</a>
+    <a href="#scorer">The scorer</a>
+    <a href="#broadcast">Broadcast kit</a>
+    <a href="#switches">Every switch</a>
+    <a href="#after">After the game</a>
+    <a href="#scouting">Scouting</a>
+    <a href="#parents">Parent pages</a>
+    <a href="#stats">How plays count</a>
+    <a href="#fineprint">Fine print</a>
+  </nav>
+
+  <!-- ═══════════ 1. GAME DAY ═══════════ -->
+  <div class="sec" id="gameday">
+    <h2><span class="n">01</span>Game day, start to finish</h2>
+    <div class="sec-d">The whole broadcast runs off one phone. This is the order that works.</div>
+
+    <div class="step"><div class="num">1</div><div class="body">
+      <div class="st">Set the lineup — <a class="pg" href="/lineup.html">/lineup.html</a></div>
+      <p>Batting order (9 slots), starting pitcher (picked roster-wide — he doesn't have to be in the order), and the <b>Home / Away</b> radio (home bats the bottom). For a dry run, tick <b>Practice / test game</b> — a test game is invisible everywhere on the site and never pings families.</p>
+    </div></div>
+    <div class="step"><div class="num">2</div><div class="body">
+      <div class="st">Start the YouTube stream, then start scoring — <a class="pg" href="/score.html">/score.html</a></div>
+      <p>On setup, <b>⚡ Find live</b> auto-fills the live video ID. Start Scoring locks clip timing to the broadcast's real start time. If you scored earlier and got interrupted, the live game pre-selects with a <b>Resume Scoring</b> button — mid-game reload is safe.</p>
+    </div></div>
+    <div class="step"><div class="num">3</div><div class="body">
+      <div class="st">Put the scorebug on the stream</div>
+      <p>Paste the scorebug URL (copy it from <a class="pg" href="/tools.html">Coach HQ</a>) into the YoloBox as a Web URL Overlay, or into OBS as a browser source. It finds the live game by itself. Sponsors rotate beside it; between innings it plays a 3-sponsor card, then a Due Up panel with the next three hitters and their headshots.</p>
+    </div></div>
+    <div class="step"><div class="num">4</div><div class="body">
+      <div class="st">Optional: the AI booth — <a class="pg" href="/booth.html">/booth.html</a></div>
+      <p>Voice play-by-play that calls each play as you score it. Route its audio into the stream mix. Audition voices at <a class="pg" href="/tts-demo.html">/tts-demo.html</a>.</p>
+    </div></div>
+    <div class="step"><div class="num">5</div><div class="body">
+      <div class="st">Families follow along on their own</div>
+      <p>The gamecast (<a class="pg" href="/game.html">/game.html</a>) shows the stream, live field, and play feed. Every page shows a live strip under the nav. Families who tapped the 🔔 bell get a push at first pitch and at the final.</p>
+    </div></div>
+    <div class="step"><div class="num">6</div><div class="body">
+      <div class="st">End the game in the scorer</div>
+      <p>Final push goes out (real games only). Clips are already queued from scoring — see <a class="pg" href="#after">After the game</a>.</p>
+    </div></div>
+
+    <div class="callout"><b>First real game?</b> Run one Practice game end-to-end first — same flow, zero consequences, delete it afterwards in <a class="pg" href="/admin.html">Games Admin</a>.</div>
+  </div>
+
+  <!-- ═══════════ 2. THE SCORER ═══════════ -->
+  <div class="sec" id="scorer">
+    <h2><span class="n">02</span>The scorer</h2>
+    <div class="sec-d">One-thumb operation, built for the bleachers. Everything is undoable; nothing needs to be perfect in the moment.</div>
+
+    <h3>Pitches and outcomes</h3>
+    <ul>
+      <li><b>Ball / Strike / Foul</b> are raw pitch taps. Ball four logs the walk by itself; strike three logs the K by itself. A foul with two strikes stays at two. One Undo removes the pitch <i>and</i> the outcome it triggered, together.</li>
+      <li><b>Outcome buttons</b> (hits, outs, reach-on) end the at-bat and advance the order automatically. A same-button double-tap inside half a second is ignored — that's a phone bounce, not two plays.</li>
+      <li><b>Baserunner events</b> (steal, WP/PB, balk, caught stealing, pickoffs, out advancing) live behind their own button. They never advance the batter or reset his count. Steals and caught-stealings ask <b>who ran</b> — that's how the kid gets SB credit.</li>
+      <li><b>Velocity</b>: nudge the number before the pitch; it rides on that pitch's row and feeds the scorebug and bullpen.</li>
+    </ul>
+
+    <h3>The helper chips (all optional, all off-ignorable)</h3>
+    <ul>
+      <li><b>Dropped 3rd</b> — after a legal-D3K strikeout (1st open, or two outs), a chip offers <i>Safe at 1st / Out at 1st</i>. Either way it counts as a strikeout in the stats.</li>
+      <li><b>Base check</b> — after a ball in play with runners on, confirms the by-the-book advance actually matched the field. The Fix sheet corrects bases, runs, <i>and</i> the at-bat row.</li>
+      <li><b>🧤 Fielder tag</b> — when the Aces record an out, tag the glove(s) in play order. Feeds the Defense filter in Highlights and each kid's reel.</li>
+      <li><b>Spray tap</b> — after any batted ball, the field diagram arms; tap where it landed. Builds each kid's spray chart on his player page.</li>
+    </ul>
+
+    <h3>Mid-game management</h3>
+    <ul>
+      <li><b>⇄ Subs</b>: pitching change, pinch hitter / runner, position change, opponent pitcher and batters.</li>
+      <li><b>⇄ HOME/AWAY</b> chip in the count bar if the sides were set wrong at lineup time.</li>
+      <li><b>Skip batter</b> (the de-emphasised button) names exactly who it will skip and asks first. The order advances by itself after every at-bat — you almost never need this.</li>
+      <li><b>Manual corrections</b> (score, count pips, outs, bases, inning) are all undoable, and Undo always names what it's about to take back.</li>
+      <li><b>Arm care</b>: your pitcher's live pitch count wears Pitch Smart tier colors and toasts at each rest threshold.</li>
+    </ul>
+
+    <h3>It's built to survive the field</h3>
+    <ul>
+      <li>Works offline — plays queue locally and sync when signal returns. The sync dot tells you which mode you're in.</li>
+      <li>Screen wake lock while scoring; pull-to-refresh and accidental-close are guarded.</li>
+      <li>The video panel collapses on phones (your choice is remembered); every spare pixel goes to the buttons.</li>
+    </ul>
+  </div>
+
+  <!-- ═══════════ 3. BROADCAST KIT ═══════════ -->
+  <div class="sec" id="broadcast">
+    <h2><span class="n">03</span>Broadcast kit</h2>
+    <div class="sec-d">Everything that draws on the stream.</div>
+
+    <div class="card">
+      <div class="t">Scorebug <span class="path">/scorebug.html</span> <span class="pill live">Overlay</span></div>
+      <p>Transparent scoreboard for YoloBox / OBS. Auto-detects the live game. Logo, score, count, bases, plus a Pitching line (pitch count + velo) and At-bat line (batter's game line). Sponsor plate docks beside it; between innings: sponsor card → Due Up with headshots → back to play. Test it any time with <code>?debug=1</code>.</p>
+    </div>
+    <div class="card">
+      <div class="t">Overlay Control <span class="path">/overlay.html</span> <span class="pill pin">PIN</span></div>
+      <p>Phone remote for the bug's Pitching / At-bat lines, live, mid-game — no touching the YoloBox.</p>
+    </div>
+    <div class="card">
+      <div class="t">AI Booth <span class="path">/booth.html</span> <span class="pill pin">PIN</span></div>
+      <p>Live AI voice play-by-play (OpenAI <i>verse</i>). Calls each play as it's scored. Route the audio into the stream.</p>
+    </div>
+    <div class="card">
+      <div class="t">Sponsors <span class="path">/sponsors.html</span> <span class="pill pin">PIN</span></div>
+      <p>Upload logos, drag the order, pause or remove one. The same rows drive the scorebug plate, the between-innings card, and the sponsor wall on the home page — upload once, it's everywhere.</p>
+    </div>
+    <div class="card">
+      <div class="t">Live Gamecast <span class="path">/game.html</span> <span class="pill live">Public</span></div>
+      <p>What families watch: stream, true-proportion field with runner headshots, pitch animation, spray-chart landing dots (home runs land over the fence), play feed with each batter's line. <code>?demo=1</code> runs a scripted fake game for testing animations — no data is touched.</p>
+    </div>
+  </div>
+
+  <!-- ═══════════ 4. EVERY SWITCH ═══════════ -->
+  <div class="sec" id="switches">
+    <h2><span class="n">04</span>Every switch</h2>
+    <div class="sec-d">The page you're thinking of is <a class="pg" href="/controls.html"><b>/controls.html</b></a> — every toggle in one place, applied to the live broadcast within seconds. Here's what each one does.</div>
+
+    <h3>Controls page — broadcast</h3>
+    <div class="tbl-wrap"><table>
+      <tr><th>Switch</th><th>What it does</th></tr>
+      <tr><td>Sponsor dock</td><td>Rotating sponsor plate beside the bug during play</td></tr>
+      <tr><td>Sponsor break card</td><td>Three sponsors on every half-inning change</td></tr>
+      <tr><td>"Due up" card</td><td>Next three hitters (with headshots) after the sponsor break</td></tr>
+      <tr><td>Sponsor seconds − / +</td><td>How long each sponsor holds beside the bug</td></tr>
+      <tr><td>Base diamond</td><td>Bases graphic on the bug</td></tr>
+      <tr><td>Screen corner</td><td>Which corner of the frame the bug and plate sit in</td></tr>
+      <tr><td>Pitching line / At-bat line</td><td>Per-game (needs a live game) — same switches as Overlay Control</td></tr>
+    </table></div>
+
+    <h3>Controls page — scorer &amp; home</h3>
+    <div class="tbl-wrap"><table>
+      <tr><th>Switch</th><th>What it does</th></tr>
+      <tr><td>Base check prompt</td><td>Post-play "did the runners really end up there?" chip</td></tr>
+      <tr><td>Fielder tag prompt</td><td>🧤 defensive credit chip on Aces outs</td></tr>
+      <tr><td>Spray chart prompt</td><td>Field arms for a landing-spot tap after batted balls</td></tr>
+      <tr><td>Dropped-3rd prompt</td><td>D3K conversion chip after legal strike-three drops</td></tr>
+      <tr><td>Home squad section</td><td>"The Squad" photo strip on the home page</td></tr>
+    </table></div>
+    <p class="mut" style="font-size:12.5px;">Scorer prompts are read once at Start Scoring, so they never vanish mid-inning. Broadcast switches apply live (~3s).</p>
+
+    <h3>Scorebug URL overrides</h3>
+    <p>Anything in the URL is a <b>hard override</b> — it beats the Controls page. Useful when one particular stream setup needs an exception.</p>
+    <div class="tbl-wrap"><table>
+      <tr><th>Add to URL</th><th>Effect</th></tr>
+      <tr><td><code>?sponsors=off</code></td><td>No sponsor plate or break card on this overlay</td></tr>
+      <tr><td><code>?dueup=off</code> / <code>?dueupsecs=N</code></td><td>Kill or re-time the Due Up card</td></tr>
+      <tr><td><code>?pitching=on|off</code> · <code>?atbat=on|off</code> · <code>?matchup=on|off</code></td><td>Force the info lines either way</td></tr>
+      <tr><td><code>?bases=off</code> · <code>?pos=tl|tr|bl|br</code></td><td>Diamond off · pick the corner</td></tr>
+      <tr><td><code>?game=ID</code></td><td>Pin the overlay to one specific game</td></tr>
+      <tr><td><code>?debug=1</code></td><td>Fake data so you can style the shot with nothing live</td></tr>
+    </table></div>
+  </div>
+
+  <!-- ═══════════ 5. AFTER THE GAME ═══════════ -->
+  <div class="sec" id="after">
+    <h2><span class="n">05</span>After the game</h2>
+    <ul>
+      <li><b>Highlights are already made.</b> Scoring queued a clip for every big play, deep-linked into the VOD. <a class="pg" href="/highlights.html">/highlights.html</a> has the gallery, per-player reels, pitching Ks, a Defense filter, and 🔗 share links per clip.</li>
+      <li><b>Replay Chapters</b> — <a class="pg" href="/chapters.html">/chapters.html</a> turns the scored plays into YouTube chapter timestamps; paste into the video description.</li>
+      <li><b>Box score</b> — linked from the schedule; batting and pitching lines build themselves from the scored plays.</li>
+      <li><b>Games Admin</b> — <a class="pg" href="/admin.html">/admin.html</a> resets a game's plays or deletes a test game entirely.</li>
+      <li><b>Stats update themselves.</b> Roster, leaders, awards, player pages — all recompute from the season's real at-bats. Test games never count.</li>
+    </ul>
+  </div>
+
+  <!-- ═══════════ 6. SCOUTING ═══════════ -->
+  <div class="sec" id="scouting">
+    <h2><span class="n">06</span>Scouting</h2>
+    <div class="tbl-wrap"><table>
+      <tr><th>Page</th><th>What you get</th></tr>
+      <tr><td><a class="pg" href="/report.html">/report.html</a></td><td>Pre-game report: opponent record, threat tier, game-plan bullets, top bats to contain — plus a one-tap generated game plan. Print button for the dugout.</td></tr>
+      <tr><td><a class="pg" href="/threat-board.html">/threat-board.html</a></td><td>Field ranked by ThreatScore. The head-to-head section leads with a ledger — each team vs the field and vs shared opponents — with the raw grid and opponent-by-opponent detail one tap away.</td></tr>
+      <tr><td><a class="pg" href="/scout.html">/scout.html</a></td><td>Opponent hitters, broken down.</td></tr>
+      <tr><td><a class="pg" href="/pitching-scout.html">/pitching-scout.html</a></td><td>Opponent arms.</td></tr>
+      <tr><td><a class="pg" href="/bullpen.html">/bullpen.html</a></td><td>Our arm care and velocity tracking.</td></tr>
+    </table></div>
+  </div>
+
+  <!-- ═══════════ 7. PARENT PAGES ═══════════ -->
+  <div class="sec" id="parents">
+    <h2><span class="n">07</span>What families see</h2>
+    <ul>
+      <li><b>Home</b> — squad hero, season leaders, team awards, recent results, sponsor wall. A parent can star "my player" on a kid's page and get a shortcut card here.</li>
+      <li><b>Schedule</b> — results with the Aces score always first (orange = win), box-score links, upcoming games with add-to-calendar and Maps.</li>
+      <li><b>Roster</b> — photo cards → full player pages: stats, badges, spray chart, highlight reel, shareable player card.</li>
+      <li><b>Highlights / Rafters / Photos</b> — clip gallery and watch hub · the ten championship banners with recaps · the team photo gallery (family uploads welcome, coach-gated).</li>
+      <li><b>Live Game</b> — the gamecast. The strip under the nav on every page says live score / today's game / next game.</li>
+      <li><b>🔔 bell</b> — push notifications at first pitch and final. <b>Install as app</b> — the site prompts once; it runs full-screen like a native app.</li>
+    </ul>
+  </div>
+
+  <!-- ═══════════ 8. HOW PLAYS COUNT ═══════════ -->
+  <div class="sec" id="stats">
+    <h2><span class="n">08</span>How plays count <span class="pill new">audited Aug 2026</span></h2>
+    <div class="sec-d">The scoring engine was audited play-by-play against the rulebook (71 checks). The short version:</div>
+    <ul>
+      <li><b>At-bats</b>: walks, HBP, sacrifices, and baserunner events are <i>not</i> ABs. Errors, fielder's choices, and dropped-third strikes are.</li>
+      <li><b>Strikeouts</b>: dropped 3rd counts as a K — batter and pitcher — whether or not the kid reached.</li>
+      <li><b>RBI</b>: credited on hits, sacs, and bases-loaded walks; never on errors, double plays, or runner events.</li>
+      <li><b>Forces &amp; timing</b>: fielder's choice models the real force chain; a run never scores on a play whose out ends the inning.</li>
+      <li><b>Steals</b>: SB/CS credit goes to the runner you picked, not the batter at the plate.</li>
+      <li><b>OBP</b> uses the rulebook denominator (AB+BB+HBP+SF).</li>
+      <li><b>The one honest proxy</b>: "R" is runs that scored <i>on a kid's plays</i>, not runs he personally scored — individual runner crossings aren't tracked.</li>
+    </ul>
+  </div>
+
+  <!-- ═══════════ 9. FINE PRINT ═══════════ -->
+  <div class="sec" id="fineprint">
+    <h2><span class="n">09</span>Fine print</h2>
+    <ul>
+      <li><b>PIN</b>: coach pages ask once and remember the device for 7 days.</li>
+      <li><b>Coach HQ</b> — <a class="pg" href="/tools.html">/tools.html</a> links every tool on this page. Bookmark it; it's deliberately not in the parent nav.</li>
+      <li><b>Seasons</b>: the Spring 2026 archive (62–2) is frozen; Fall fills from live scoring. Test games (<span class="k">Practice</span> checkbox) are invisible everywhere and send no pushes.</li>
+      <li><b>Kids first</b>: photo gallery and this guide are noindex; nothing on the site collects family data beyond the push opt-in.</li>
+    </ul>
+  </div>
+
+  <div class="foot">
+    DELMARVA ACES · COACH GUIDE · <a href="/tools.html">BACK TO COACH HQ</a><br>
+    printing this page gives you a clean paper copy
+  </div>
+</div>
+</body>
+</html>
