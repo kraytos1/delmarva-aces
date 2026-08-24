@@ -128,7 +128,32 @@ h1 span{color:var(--orange);}
         <button class="seg" data-v="br" onclick="setPos('br')">↘</button>
       </div>
     </div>
-    <div class="note">A URL switch on the scorebug (like <b>?sponsors=off</b>) is a hard override and still beats these.</div>
+    <div class="row">
+      <div class="row-txt"><div class="row-n">Scorebug size</div>
+        <div class="row-s">Scales the whole bug (and the plate while docked). 100% = default.</div></div>
+      <div class="num"><button onclick="bumpScale('bug_scale',-0.1)">−</button>
+        <span id="v-bug_scale">100%</span>
+        <button onclick="bumpScale('bug_scale',0.1)">+</button></div>
+    </div>
+    <div class="row">
+      <div class="row-txt"><div class="row-n">Sponsor plate corner</div>
+        <div class="row-s">Docked = beside the bug. Pick a corner to float it on its own.</div></div>
+      <div class="segs" id="segs-sppos">
+        <button class="seg" data-v="dock" onclick="setSpPos('dock')" style="font-size:10px;">DOCK</button>
+        <button class="seg" data-v="tl" onclick="setSpPos('tl')">↖</button>
+        <button class="seg" data-v="tr" onclick="setSpPos('tr')">↗</button>
+        <button class="seg" data-v="bl" onclick="setSpPos('bl')">↙</button>
+        <button class="seg" data-v="br" onclick="setSpPos('br')">↘</button>
+      </div>
+    </div>
+    <div class="row">
+      <div class="row-txt"><div class="row-n">Sponsor plate size</div>
+        <div class="row-s">Only applies while the plate is floated in its own corner.</div></div>
+      <div class="num"><button onclick="bumpScale('sponsor_scale',-0.1)">−</button>
+        <span id="v-sponsor_scale">100%</span>
+        <button onclick="bumpScale('sponsor_scale',0.1)">+</button></div>
+    </div>
+    <div class="note">A URL switch on the scorebug (like <b>?sponsors=off</b> or <b>?scale=1.3</b>) is a hard override and still beats these.</div>
   </div>
 
   <!-- THIS GAME -->
@@ -227,8 +252,13 @@ function paint(){
     var el = document.getElementById('sw-'+k); if(el) el.classList.toggle('on', !!S[k]);
   });
   document.getElementById('v-sponsor_secs').textContent = S.sponsor_secs + 's';
+  document.getElementById('v-bug_scale').textContent = Math.round((S.bug_scale||1)*100) + '%';
+  document.getElementById('v-sponsor_scale').textContent = Math.round((S.sponsor_scale||1)*100) + '%';
   Array.prototype.forEach.call(document.querySelectorAll('#segs-pos .seg'), function(b){
     b.classList.toggle('on', b.dataset.v === S.bug_pos);
+  });
+  Array.prototype.forEach.call(document.querySelectorAll('#segs-sppos .seg'), function(b){
+    b.classList.toggle('on', b.dataset.v === (S.sponsor_pos || 'dock'));
   });
   // per-game switches only make sense while a game is live
   ['bug_show_pitching','bug_show_atbat'].forEach(function(k){
@@ -258,6 +288,12 @@ async function save(patch){
 }
 function flip(key){ if(S) save(defineOne(key, !S[key])); }
 function setPos(v){ if(S && S.bug_pos !== v) save({bug_pos: v}); }
+function setSpPos(v){ if(S && (S.sponsor_pos||'dock') !== v) save({sponsor_pos: v}); }
+function bumpScale(key, by){
+  if(!S) return;
+  var v = Math.round(Math.max(0.5, Math.min(2, (S[key]||1) + by)) * 10) / 10;
+  if(v !== (S[key]||1)) save(defineOne(key, v));
+}
 function bump(key, by){
   if(!S) return;
   var v = Math.max(8, Math.min(180, (S[key]||40) + by));

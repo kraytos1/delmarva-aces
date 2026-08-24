@@ -23,10 +23,12 @@
      side it docks on, so the pair always grows toward the middle of frame. */
   .bug-wrap{ position:fixed; z-index:10; display:none; align-items:flex-end; gap:11px; }
   .bug-wrap.show{ display:flex; }
-  .bug-wrap.pos-bl{ left:26px; bottom:26px; }
-  .bug-wrap.pos-br{ right:26px; bottom:26px; flex-direction:row-reverse; }
-  .bug-wrap.pos-tl{ left:26px; top:26px; align-items:flex-start; }
-  .bug-wrap.pos-tr{ right:26px; top:26px; align-items:flex-start; flex-direction:row-reverse; }
+  /* transform-origin pins scaling to the anchored corner, so a resized bug
+     grows into the frame instead of drifting off-screen */
+  .bug-wrap.pos-bl{ left:26px; bottom:26px; transform-origin:left bottom; }
+  .bug-wrap.pos-br{ right:26px; bottom:26px; flex-direction:row-reverse; transform-origin:right bottom; }
+  .bug-wrap.pos-tl{ left:26px; top:26px; align-items:flex-start; transform-origin:left top; }
+  .bug-wrap.pos-tr{ right:26px; top:26px; align-items:flex-start; flex-direction:row-reverse; transform-origin:right top; }
 
   .bug{ display:flex; flex-direction:column; min-width:322px;
     background:linear-gradient(180deg,#12161c,#0c0f14); border:1px solid var(--line); border-radius:12px;
@@ -43,6 +45,13 @@
   .sp-dock img{ max-width:100%; max-height:100%; object-fit:contain;
     opacity:0; transition:opacity .5s ease; }
   .sp-dock img.in{ opacity:1; }
+  /* floated plate: its own corner + its own scale, independent of the bug.
+     Docked (default) it stays in the wrap and shares the bug's scale. */
+  .sp-dock.float{ position:fixed; z-index:10; }
+  .sp-dock.float.fp-bl{ left:26px; bottom:26px; transform-origin:left bottom; }
+  .sp-dock.float.fp-br{ right:26px; bottom:26px; transform-origin:right bottom; }
+  .sp-dock.float.fp-tl{ left:26px; top:26px; transform-origin:left top; }
+  .sp-dock.float.fp-tr{ right:26px; top:26px; transform-origin:right top; }
 
   /* Between-innings card: bigger, centred low, still not a full takeover —
      the game stays visible underneath because we're covering, not cutting. */
@@ -213,8 +222,10 @@ var db = supabase.createClient(ACES_CONFIG.supabaseUrl, ACES_CONFIG.supabaseKey)
 // ?pitching=off  hide the pitching line     ?atbat=off  hide the at-bat line
 // ?matchup=off   hide both (scoreline only)  ?bases=off  hide the base diamond
 // ?pos=bl|br|tl|tr   corner (default bl)     ?debug=1    show even with no live game
+// ?scale=N       bug size, 0.5–2 (1 = default; scales the plate too while docked)
 // ?sponsors=off  kill both sponsor placements   ?sponsordock=off / ?sponsorbreak=off
-// ?sponsorsecs=N dock rotation seconds (default 40)
+// ?sponsorpos=dock|bl|br|tl|tr  float the plate in its own corner (default dock)
+// ?sponsorscale=N  floated-plate size, 0.5–2   ?sponsorsecs=N dock rotation seconds
 // ?dueup=off     no due-up card between innings ?dueupsecs=N (default 9)
 // The pitching and at-bat lines can each be flipped live from overlay.html via
 // the game's bug_show_pitching / bug_show_atbat flags. A URL "off" is a hard
@@ -232,6 +243,29 @@ function applyTiers(pitOn, abOn){
   document.getElementById('bugBot').classList.toggle('hide', !showPit && !showAB);
 }
 
+// Size + sponsor-plate placement. URL values are hard overrides; otherwise
+// the Controls page (app_settings) drives them live via applyCfg.
+var urlScale   = parseFloat(Q.get('scale'))        || null;
+var urlSpScale = parseFloat(Q.get('sponsorscale')) || null;
+var urlSpPos   = (Q.get('sponsorpos')||'').toLowerCase() || null;
+function clampScale(v){ return Math.min(2, Math.max(.5, v)); }
+function applyBugScale(v){
+  document.getElementById('bugwrap').style.transform =
+    (v && v !== 1) ? 'scale(' + clampScale(v) + ')' : '';
+}
+function applySponsorPlace(pos, scale){
+  var d = document.getElementById('spDock');
+  var corner = ['bl','br','tl','tr'].indexOf(pos) >= 0 ? pos : null;
+  d.classList.toggle('float', !!corner);
+  d.classList.remove('fp-bl','fp-br','fp-tl','fp-tr');
+  if (corner){
+    d.classList.add('fp-' + corner);
+    d.style.transform = (scale && scale !== 1) ? 'scale(' + clampScale(scale) + ')' : '';
+  } else {
+    d.style.transform = '';   // docked: rides the wrap and its scale
+  }
+}
+
 (function initToggles(){
   var pos = (Q.get('pos')||'bl').toLowerCase();
   // position lives on the wrap now (bug + sponsor plate travel together);
@@ -240,6 +274,8 @@ function applyTiers(pitOn, abOn){
   var wasShown = wrap.classList.contains('show');
   wrap.className = 'bug-wrap pos-' + (['bl','br','tl','tr'].indexOf(pos)>=0?pos:'bl') + (wasShown?' show':'');
   if (Q.get('bases')==='off') document.querySelector('.bases').style.display='none';
+  if (urlScale) applyBugScale(urlScale);
+  if (urlSpPos || urlSpScale) applySponsorPlace(urlSpPos, urlSpScale);
   applyTiers(true, true); // default until the first poll reads the live flags
 })();
 
@@ -492,6 +528,10 @@ function applyCfg(){
       wrap.className = 'bug-wrap pos-' + want + (shown ? ' show' : '');
     }
   }
+  // size + sponsor placement: URL wins per field, settings fill the rest
+  if (!urlScale) applyBugScale(CFG.bug_scale || 1);
+  applySponsorPlace(urlSpPos || CFG.sponsor_pos || 'dock',
+                    urlSpScale || CFG.sponsor_scale || 1);
 }
 function spUrl(path){
   return ACES_CONFIG.supabaseUrl + '/storage/v1/object/public/sponsors/' + path;
