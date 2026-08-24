@@ -271,13 +271,19 @@ function applyBugScale(v){
 }
 function applySponsorPlace(pos, scale){
   var d = document.getElementById('spDock');
+  var wrap = document.getElementById('bugwrap');
   var corner = ['bl','br','tl','tr'].indexOf(pos) >= 0 ? pos : null;
   d.classList.toggle('float', !!corner);
   d.classList.remove('fp-bl','fp-br','fp-tl','fp-tr');
   if (corner){
+    // A transformed ancestor hijacks position:fixed — with the wrap scaled,
+    // the "floated" plate anchored to the wrap's corner and sat on top of
+    // the bug. Floating means living on <body>, fixed to the real viewport.
+    if (d.parentElement !== document.body) document.body.appendChild(d);
     d.classList.add('fp-' + corner);
     d.style.transform = (scale && scale !== 1) ? 'scale(' + clampScale(scale) + ')' : '';
   } else {
+    if (d.parentElement !== wrap) wrap.appendChild(d);
     d.style.transform = '';   // docked: rides the wrap and its scale
   }
 }
@@ -478,7 +484,12 @@ function setPips(prefix, n, cls, max){
   for (var k=0;k<max;k++){ document.getElementById(prefix+k).className = 'pip'+(k<n?' '+cls:''); }
 }
 function showBug(){ document.getElementById('bugwrap').classList.add('show'); document.getElementById('standby').classList.remove('show'); }
-function hideBug(){ document.getElementById('bugwrap').classList.remove('show'); }
+function hideBug(){
+  document.getElementById('bugwrap').classList.remove('show');
+  // a floated plate lives on <body>, outside the wrap — hide it now rather
+  // than letting it linger until spinDock's next rotation notices
+  document.getElementById('spDock').classList.remove('show');
+}
 
 // ── SPONSORS ────────────────────────────────────────────────────────────────
 // Two placements, both automatic:
