@@ -53,6 +53,12 @@
   .velo-big{font-family:var(--display);font-size:32px;font-weight:700;color:var(--orange);line-height:1;}
   .velo-big small{font-family:var(--mono);font-size:11px;color:var(--muted);font-weight:400;margin-left:3px;}
   .velo-sub{font-family:var(--mono);font-size:11px;color:var(--muted);}
+  .ptypes{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;}
+  .ptype{font-family:var(--mono);font-size:10.5px;color:var(--muted);border:1px solid var(--bdr);
+    border-radius:6px;padding:3px 8px;white-space:nowrap;}
+  .ptype b{color:var(--text);font-weight:600;}
+  .ptype.tight{border-color:rgba(232,83,10,.5);color:var(--orange);}
+  .ptype.tight b{color:var(--orange);}
   .spark{display:block;width:100%;height:40px;margin-top:4px;}
   .spark-lbl{font-family:var(--mono);font-size:9px;color:var(--muted);letter-spacing:.5px;text-transform:uppercase;}
 
@@ -115,12 +121,27 @@ function card(p){
   var restMet = p.available ? 'met' : ('need '+p.restReq+'d');
   var availOn = p.available ? '' : (' · back '+fmtDate(addDays(p.last.date, p.restReq)));
   var last = p.last;
+  // Per-type chips: what each pitch actually runs. The FB–CH gap gets its own
+  // chip — a changeup living within ~6 mph of the fastball isn't fooling
+  // anyone, and that's the number this row exists to surface.
+  var TYPE_ORDER=['FB','CB','SL','CH'], TYPE_LBL={FB:'Fastball',CB:'Curve',SL:'Slider',CH:'Change'};
+  var ts = p.typeStats || {};
+  var chips = TYPE_ORDER.filter(function(t){return ts[t];}).map(function(t){
+    return '<span class="ptype" title="'+TYPE_LBL[t]+' · '+ts[t].n+' pitches">'
+      + t+' <b>'+ts[t].avg+'</b> avg · '+ts[t].top+' top</span>';
+  }).join('');
+  if (ts.FB && ts.CH){
+    var gap = ts.FB.avg - ts.CH.avg;
+    chips += '<span class="ptype'+(gap<7?' tight':'')+'" title="Fastball minus changeup average — 8+ mph is doing its job">'
+      + 'FB–CH gap <b>'+gap+'</b>'+(gap<7?' · tight':'')+'</span>';
+  }
   var veloBlock = (p.maxVelo!=null)
     ? '<div class="velo">'
       + '<div class="velo-top"><div class="velo-big">'+p.maxVelo+'<small>MPH TOP</small></div>'
-      + '<div class="velo-sub">avg '+(p.avgVelo!=null?p.avgVelo:'—')+' mph<br>last game '+(last.avgVelo!=null?last.avgVelo+' avg':'—')+'</div></div>'
-      + '<div class="spark-lbl">Velocity by game (avg)</div>'
+      + '<div class="velo-sub">FB avg '+(p.avgVelo!=null?p.avgVelo:'—')+' mph<br>last game '+(last.avgVelo!=null?last.avgVelo+' FB avg':'—')+'</div></div>'
+      + '<div class="spark-lbl">Fastball velocity by game (avg)</div>'
       + (sparkline(p.games.map(function(g){return g.avgVelo;})) || '<div class="velo-sub">need 2+ games for trend</div>')
+      + (chips ? '<div class="ptypes">'+chips+'</div>' : '')
       + '</div>'
     : '<div class="velo"><div class="velo-sub">No velocity readings logged yet.</div></div>';
 
@@ -145,35 +166,56 @@ function addDays(dateStr, n){
 async function init(){
   try{
     var {data,error} = await db.from('pitches')
-      .select('pitcher_id, velocity_mph, game_id, players!pitcher_id(first_name,last_name,jersey_num), games(game_date, opponents(name))')
+      .select('pitcher_id, velocity_mph, pitch_type, game_id, players!pitcher_id(first_name,last_name,jersey_num), games(game_date, season, opponents(name))')
       .not('pitcher_id','is',null);
     if(error) throw error;
 
     var byP = {};
     (data||[]).forEach(function(p){
       if(!p.players || !p.games || !p.games.game_date) return;
+      // practice/test games never count — a dry run must not set a kid's
+      // rest clock or leak nudger velocities into his trend
+      if(p.games.season === '__test__') return;
       var o = byP[p.pitcher_id] || (byP[p.pitcher_id]={num:p.players.jersey_num, name:(p.players.first_name+' '+p.players.last_name).trim(), games:{}});
-      var g = o.games[p.game_id] || (o.games[p.game_id]={date:p.games.game_date, opp:(p.games.opponents&&p.games.opponents.name)||'opponent', count:0, velos:[]});
+      var g = o.games[p.game_id] || (o.games[p.game_id]={date:p.games.game_date, opp:(p.games.opponents&&p.games.opponents.name)||'opponent', count:0, velos:[], byType:{}});
       g.count++;
-      if(p.velocity_mph!=null) g.velos.push(p.velocity_mph);
+      if(p.velocity_mph!=null){
+        g.velos.push(p.velocity_mph);
+        var ty=(p.pitch_type||'FB');
+        (g.byType[ty]=g.byType[ty]||[]).push(p.velocity_mph);
+      }
     });
 
     var pitchers = Object.keys(byP).map(function(pid){
       var o=byP[pid];
       var gArr=Object.keys(o.games).map(function(k){return o.games[k];}).sort(function(a,b){return a.date<b.date?-1:1;});
       gArr.forEach(function(g){
-        g.avgVelo = g.velos.length ? Math.round(g.velos.reduce(function(a,b){return a+b;},0)/g.velos.length) : null;
+        // per-game avg is FASTBALLS only — off-speed dragged the trend line
+        var fb = g.byType.FB || [];
+        var base = fb.length ? fb : g.velos;
+        g.avgVelo = base.length ? Math.round(base.reduce(function(a,b){return a+b;},0)/base.length) : null;
         g.maxVelo = g.velos.length ? Math.max.apply(null,g.velos) : null;
       });
       var allVelos=[]; gArr.forEach(function(g){ allVelos=allVelos.concat(g.velos); });
+      // season per-type rollup (avg + top per pitch type, for the chips row)
+      var types={};
+      gArr.forEach(function(g){ Object.keys(g.byType||{}).forEach(function(ty){
+        (types[ty]=types[ty]||[]).push.apply(types[ty], g.byType[ty]); }); });
+      var typeStats={};
+      Object.keys(types).forEach(function(ty){
+        var v=types[ty];
+        typeStats[ty]={ n:v.length, avg:Math.round(v.reduce(function(a,b){return a+b;},0)/v.length), top:Math.max.apply(null,v) };
+      });
       var last=gArr[gArr.length-1];
       var totalPitches=gArr.reduce(function(a,g){return a+g.count;},0);
       var req=restDaysRequired(last.count);
       var daysSince=Math.floor((Date.now()-new Date(last.date+'T00:00:00').getTime())/86400000);
+      var fbAll = types.FB || allVelos;
       return { num:o.num, name:o.name, games:gArr, appearances:gArr.length, totalPitches:totalPitches,
         last:last, restReq:req, daysSince:daysSince, available:(daysSince>=req), daysLeft:Math.max(0,req-daysSince),
         maxVelo: allVelos.length?Math.max.apply(null,allVelos):null,
-        avgVelo: allVelos.length?Math.round(allVelos.reduce(function(a,b){return a+b;},0)/allVelos.length):null };
+        avgVelo: fbAll.length?Math.round(fbAll.reduce(function(a,b){return a+b;},0)/fbAll.length):null,
+        typeStats:typeStats };
     });
 
     if(!pitchers.length){
