@@ -113,6 +113,10 @@ button,select,input,textarea{font-family:var(--body);}
 /* velo row */
 .velo-row{display:flex;align-items:center;gap:8px;background:var(--dark2);border-radius:8px;padding:6px 10px;margin-top:6px;}
 .velo-val{font-family:var(--display);font-size:22px;font-weight:700;color:var(--orange);min-width:44px;text-align:center;cursor:pointer;line-height:1;}
+.velo-quick{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px;}
+.vq{flex:1 1 30%;font-family:var(--mono);font-size:11.5px;padding:7px 0;border-radius:6px;border:1px solid var(--bdr);
+  background:var(--dark2);color:var(--muted);cursor:pointer;-webkit-tap-highlight-color:transparent;}
+.vq.sel{border-color:var(--orange);color:var(--orange);background:rgba(232,83,10,.12);}
 .velo-unit{font-family:var(--mono);font-size:10px;color:var(--muted);}
 .velo-nudge{width:34px;height:34px;border-radius:7px;border:1px solid var(--bdr);background:var(--dark3);color:var(--text);font-size:20px;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;}
 .velo-nudge:active{background:var(--dark2);}
@@ -535,6 +539,8 @@ html,body{overscroll-behavior-y:none;}
           </div>
           <button class="velo-nudge" onclick="nudgeVelo(1)">+</button>
         </div>
+        <!-- one-tap presets over the team's typical FB band; − / + fine-tunes -->
+        <div class="velo-quick" id="velo-quick"></div>
         <div class="velo-type-row">
           <button class="vt-btn sel" id="vt-FB" onclick="selType('FB')">FB</button>
           <button class="vt-btn" id="vt-CB" onclick="selType('CB')">CB</button>
@@ -1938,10 +1944,32 @@ async function pushState() {
 }
 
 /* ── VELO ── */
+// One-tap presets spanning the team's typical FB band (63-73 per Chris,
+// Aug 2026). Edit the list as arms grow season to season; the −/+ nudger
+// and the numpad still cover anything outside it.
+var VELO_QUICK = [63,65,67,69,71,73]
+;(function(){
+  var el=document.getElementById('velo-quick')
+  if(el) el.innerHTML = VELO_QUICK.map(function(v){
+    return '<button class="vq" id="vq-'+v+'" onclick="quickVelo('+v+')">'+v+'</button>'
+  }).join('')
+})()
+function paintVeloQuick(){
+  VELO_QUICK.forEach(function(v){
+    var b=document.getElementById('vq-'+v)
+    if(b) b.classList.toggle('sel', S.velo===v)
+  })
+}
+function quickVelo(v){
+  S.velo=v
+  document.getElementById('velo-val').textContent=v
+  paintVeloQuick()
+}
 function nudgeVelo(d){
   if(S.velo===null)S.velo=65
   S.velo=Math.max(40,Math.min(105,S.velo+d))
   document.getElementById('velo-val').textContent=S.velo
+  paintVeloQuick()
 }
 function openNumpad(){
   document.getElementById('np-display').textContent=S.velo||'—'
@@ -1953,7 +1981,7 @@ function npTap(d){if(S.npInput.length>=3)return;S.npInput+=d;document.getElement
 function npClear(){S.npInput='';document.getElementById('np-display').textContent='—'}
 function npConfirm(){
   var v=parseInt(S.npInput)
-  if(v&&v>=40&&v<=105){S.velo=v;document.getElementById('velo-val').textContent=v}
+  if(v&&v>=40&&v<=105){S.velo=v;document.getElementById('velo-val').textContent=v;paintVeloQuick()}
   document.getElementById('numpad-sheet').style.display='none'
 }
 function selType(t){
@@ -2082,7 +2110,7 @@ function skipBatter(){
   var order = acesOrder()
   if(!acesUp() || !order.length){
     // Opponent's half: nothing to skip, just clear the count.
-    S.balls=0;S.strikes=0;S.pitchCount=0;S.velo=null
+    S.balls=0;S.strikes=0;S.pitchCount=0;S.velo=null;paintVeloQuick()
     document.getElementById('velo-val').textContent='—'
     renderCount()
     return
@@ -2093,7 +2121,7 @@ function skipBatter(){
   if(S.pitchCount===0 && S.balls===0 && S.strikes===0){
     if(!confirm('Skip '+ (fromName||'this batter') +'?\n\nThe order already moves on its own after each play — you only need this if '+(fromName||'he')+' genuinely did not bat.')) return
   }
-  S.balls=0;S.strikes=0;S.pitchCount=0;S.velo=null
+  S.balls=0;S.strikes=0;S.pitchCount=0;S.velo=null;paintVeloQuick()
   document.getElementById('velo-val').textContent='—'
   renderCount()
   S.currentBatterIdx=(S.currentBatterIdx+1)%order.length
@@ -2125,7 +2153,7 @@ async function swapSides(){
 
 function newHalf(){
   hideD3K(); hideBaseCheck()
-  S.balls=0;S.strikes=0;S.outs=0;S.bases=[false,false,false];S.pitchCount=0;S.velo=null
+  S.balls=0;S.strikes=0;S.outs=0;S.bases=[false,false,false];S.pitchCount=0;S.velo=null;paintVeloQuick()
   // NOTE: acesPitchCount/oppPitchCount are per-pitcher game totals and are NOT
   // reset on a half change — each side's counter keeps accumulating across the
   // innings that pitcher works. (On a pitching change, applyAcePitch recomputes
