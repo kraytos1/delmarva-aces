@@ -1,4 +1,5 @@
 <meta charset="utf-8">
+<meta name="robots" content="noindex,nofollow">
 <title>Aces Combine</title>
 <!--
 THESIS: A broadcast control-room stat wall for a youth training facility — the room's own
@@ -538,7 +539,7 @@ function renderLB({s, div}){
       <div class="who">
         <div class="rk">Facility Leader</div>
         <div class="nm">${esc(top.p.name)}</div>
-        <div class="tm">${esc(top.p.team.toUpperCase())} · #${top.p.num}</div>
+        <div class="tm">${esc(top.p.team.toUpperCase())} · #${esc(top.p.num)}</div>
       </div>
       <div class="val"><b class="num" data-count="${top.v}" data-dec="${s.dec}">${fmt(top.v,s)}</b>
         <span class="unit">${s.unit}</span></div>
@@ -595,7 +596,7 @@ function renderCC({p}){
   return el(`<section class="board cc">
     <div class="id">
       <img class="wm" alt="" src="${LOGO}">
-      <div class="no num"><small>#</small>${p.num}</div>
+      <div class="no num"><small>#</small>${esc(p.num)}</div>
       <div class="nm">${esc(p.name)}</div>
       <div class="meta"><span class="chip">${divByKey[p.div].label}</span><span class="chip org">${esc(p.team.toUpperCase())}</span>${young?'<span class="chip">YOUTH BATTERY</span>':''}</div>
       <div class="foot">Combine Card · Percentile vs ${divByKey[p.div].label}</div>
@@ -744,6 +745,49 @@ function parseCSV(text){
 }
 
 const divByLabel = Object.fromEntries(DIVS.map(d=>[d.label, d]));
+
+/* ── Roster single-sourcing ──
+   When the sheet's Rosters tab is published (same dialog as Results, CSV),
+   paste its URL here and the SHEET becomes the source of truth for rosters —
+   the embedded TEAMS list is only the fallback. ?roster= overrides for testing. */
+const ROSTER_SRC = params.get('roster') || '';
+function teamShort(team){
+  if (team.indexOf('American') >= 0) return 'AMERICAN';
+  if (team.indexOf('DCP') === 0) return 'DCP';
+  const sp = team.indexOf(' ');
+  return (sp > 0 ? team.slice(sp+1) : team).toUpperCase();
+}
+async function loadRoster(){
+  if (!ROSTER_SRC) return;
+  try {
+    const url = ROSTER_SRC + (ROSTER_SRC.includes('?') ? '&' : '?') + 'cb=' + Date.now();
+    const r = await fetch(url, { cache: 'no-store' });
+    if (!r.ok) return;
+    const rows = parseCSV(await r.text());
+    if (!rows.length) return;
+    const head = rows[0].map(h => String(h).trim());
+    const iD = head.indexOf('Division'), iT = head.indexOf('Team'),
+          iJ = head.indexOf('Jersey'), iP = head.indexOf('Player');
+    if (iD < 0 || iT < 0 || iJ < 0 || iP < 0) return;
+    const list = [];
+    for (let i = 1; i < rows.length; i++){
+      const row = rows[i];
+      if (!row || !row[iP] || !divByKey[String(row[iD]).trim()]) continue;
+      list.push({ div: String(row[iD]).trim(), team: String(row[iT]).trim(),
+                  num: String(row[iJ]).trim(), full: String(row[iP]).trim() });
+    }
+    if (list.length < 50) return;   // refuse a suspiciously small roster — keep the fallback
+    PLAYERS.length = 0;
+    for (const x of list){
+      const parts = x.full.replace(/\s+(Jr\.?|Sr\.?|II|III)$/i,'').trim().split(/\s+/);
+      const lastw = parts[parts.length-1] || x.full;
+      PLAYERS.push({ id:'p'+PLAYERS.length, full: x.full, name: `${parts[0]} ${lastw[0]}.`,
+        lastw, num: x.num, div: x.div, team: x.team, short: teamShort(x.team),
+        age: divByKey[x.div].age });
+    }
+  } catch (e){}
+}
+
 const extraPlayers = {};
 /* Results rows carry full names; match them to the embedded roster (which owns
    the privacy-safe display names). Unknown names (roster changes) still work. */
@@ -771,13 +815,13 @@ function whenLabel(t){
 }
 
 function applyRows(rows){
-  if (!rows.length) return;
+  if (!rows.length) return false;
   const head = rows[0].map(h => String(h).trim());
   const iT = head.indexOf('Timestamp'), iD = head.indexOf('Division'),
         iTeam = head.indexOf('Team'), iJ = head.indexOf('Jersey'),
         iP = head.indexOf('Player'), iS = head.indexOf('Station'),
         iV = head.indexOf('Value');
-  if (iT < 0 || iD < 0 || iP < 0 || iS < 0 || iV < 0) return;
+  if (iT < 0 || iD < 0 || iP < 0 || iS < 0 || iV < 0) return false;
 
   const entries = [];
   for (let r = 1; r < rows.length; r++){
@@ -794,7 +838,8 @@ function applyRows(rows){
 
   // history per player+station → all-time best + pre-window baseline
   const hist = {};
-  for (const e of entries){ (hist[e.p.id + '|' + e.s.id] ??= []).push(e); }
+  for (const e of entries){ const k = e.p.id + '|' + e.s.id;
+    (hist[k] = hist[k] || []).push(e); }
   const cutoff = Date.now() - IMPROVE_DAYS * 864e5;
   const newData = {};
   for (const key in hist){
@@ -802,7 +847,7 @@ function applyRows(rows){
     const s = list[0].s, pid = list[0].p.id;
     const bestOf = arr => arr.reduce((m,e) => (e.v - m) * s.dir > 0 ? e.v : m, arr[0].v);
     const older = list.filter(e => e.t.getTime() < cutoff);
-    (newData[pid] ??= {})[s.id] = { best: bestOf(list), prev: older.length ? bestOf(older) : null };
+    (newData[pid] = newData[pid] || {})[s.id] = { best: bestOf(list), prev: older.length ? bestOf(older) : null };
   }
 
   // recent feed with true PR detection (a PR needs at least one earlier mark to beat)
@@ -822,6 +867,7 @@ function applyRows(rows){
   if (cur && cur.classList.contains('wait') && lbCombos().length){
     elapsed = 0; show(gen.next().value);
   }
+  return true;
 }
 
 const statusEl = document.getElementById('status');
@@ -830,7 +876,9 @@ function setStatus(mode){
   if (mode === 'live'){
     const d = new Date(); let h = d.getHours() % 12 || 12;
     statusEl.textContent = 'LIVE · ' + h + ':' + String(d.getMinutes()).padStart(2,'0');
-  } else statusEl.textContent = 'OFFLINE · LAST KNOWN DATA';
+  }
+  else if (mode === 'badfeed') statusEl.textContent = 'CHECK FEED · LAST KNOWN DATA';
+  else statusEl.textContent = 'OFFLINE · LAST KNOWN DATA';
 }
 
 async function refresh(){
@@ -838,8 +886,8 @@ async function refresh(){
     const url = SRC + (SRC.includes('?') ? '&' : '?') + 'cb=' + Date.now();
     const r = await fetch(url, { cache: 'no-store' });
     if (!r.ok) throw new Error('HTTP ' + r.status);
-    applyRows(parseCSV(await r.text()));
-    setStatus('live');
+    // an HTML error page or renamed columns must not masquerade as LIVE
+    setStatus(applyRows(parseCSV(await r.text())) ? 'live' : 'badfeed');
   } catch (e){ setStatus('offline'); }
 }
 
@@ -875,5 +923,8 @@ if (DEMO) buildDemo();
 renderTicker();
 setStatus(DEMO ? 'demo' : 'offline');
 setZone(ZONE);
-if (!DEMO){ refresh(); setInterval(refresh, 60000); }
+if (!DEMO){
+  // roster first so results match against the freshest player list
+  loadRoster().then(() => { refresh(); setInterval(refresh, 60000); });
+}
 </script>
