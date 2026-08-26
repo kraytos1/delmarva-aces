@@ -1,0 +1,574 @@
+<meta charset="utf-8">
+<meta name="robots" content="noindex,nofollow">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Aces Head to Head</title>
+<!--
+Facility kiosk companion to combine.html: kids pick themselves and a rival and
+get a broadcast tale-of-the-tape from the same live Results feed. Interactive,
+touch-first, idle-resets for the next kid in line.
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Inter:wght@400;600;700;800&family=Roboto+Mono:wght@500;700&display=swap">
+<style>
+  :root{
+    --ink:#07090C; --panel-a:#12161C; --panel-b:#0C0F14;
+    --line:rgba(255,255,255,.10); --line-soft:rgba(255,255,255,.06);
+    --orange:#E8530A; --orange-hot:#FF7A33; --orange-deep:#B23C05;
+    --cream:#F2EEE6; --muted:#8A94A3; --navy:#233566; --navy-hi:#93A9E4;
+    --display:'Oswald',ui-sans-serif,system-ui,sans-serif;
+    --body:'Inter',ui-sans-serif,system-ui,sans-serif;
+    --mono:'Roboto Mono',ui-monospace,monospace;
+  }
+  *{ box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent; }
+  html,body{ min-height:100%; }
+  body{ background:var(--ink); color:var(--cream); font-family:var(--body);
+    -webkit-font-smoothing:antialiased; }
+  body::before{ content:''; position:fixed; inset:0; pointer-events:none; z-index:0;
+    background:radial-gradient(900px 420px at 20% -6%, rgba(232,83,10,.10), transparent 62%),
+               radial-gradient(800px 500px at 105% 108%, rgba(35,53,102,.20), transparent 60%); }
+
+  header{ position:relative; z-index:2; display:flex; align-items:center; gap:16px;
+    padding:14px 26px; background:linear-gradient(180deg,var(--panel-a),var(--panel-b));
+    border-bottom:1px solid var(--line); }
+  header img{ width:44px; height:44px; object-fit:contain; }
+  header .t1{ font-family:var(--display); font-weight:700; font-size:22px; letter-spacing:.06em;
+    text-transform:uppercase; }
+  header .t1 em{ font-style:normal; color:var(--orange-hot); }
+  header .status{ margin-left:auto; font-family:var(--mono); font-size:11px; font-weight:700;
+    letter-spacing:.16em; color:#FFB58A; border:1px solid rgba(232,83,10,.5); border-radius:6px;
+    padding:6px 10px; background:rgba(232,83,10,.12); }
+
+  main{ position:relative; z-index:1; max-width:1240px; margin:0 auto; padding:22px 22px 60px; }
+
+  .chip{ display:inline-flex; align-items:center; font-weight:800; font-size:12px;
+    letter-spacing:.2em; text-transform:uppercase; padding:6px 12px; border-radius:6px;
+    background:var(--navy); color:#DDE6FA; }
+  .chip.org{ background:var(--orange-deep); color:#FFE2CF; }
+  .num{ font-variant-numeric:tabular-nums; }
+
+  /* ── Attract ── */
+  #attract{ min-height:calc(100vh - 160px); display:flex; flex-direction:column;
+    align-items:center; justify-content:center; text-align:center; gap:14px; }
+  #attract img{ width:150px; height:150px; object-fit:contain;
+    filter:drop-shadow(0 16px 36px rgba(0,0,0,.55)); }
+  #attract h1{ font-family:var(--display); font-weight:700; font-size:clamp(44px,7vw,84px);
+    line-height:1; text-transform:uppercase; letter-spacing:.02em; }
+  #attract h1 em{ font-style:normal; color:var(--orange-hot); }
+  #attract p{ color:var(--muted); font-size:17px; font-weight:600; max-width:560px; line-height:1.55; }
+  #attract button{ margin-top:16px; font:700 18px var(--body); letter-spacing:.14em;
+    text-transform:uppercase; color:#FFF3E9; border:0; border-radius:12px; cursor:pointer;
+    padding:20px 44px; background:linear-gradient(115deg,var(--orange-deep),var(--orange));
+    box-shadow:0 14px 40px rgba(232,83,10,.35); }
+  #attract button:active{ transform:translateY(1px); }
+
+  /* ── Slots ── */
+  #slots{ display:grid; grid-template-columns:1fr 90px 1fr; align-items:stretch; gap:10px;
+    margin-bottom:14px; }
+  .slot{ background:linear-gradient(180deg,var(--panel-a),var(--panel-b));
+    border:1px solid var(--line); border-radius:14px; padding:16px 20px; min-height:104px;
+    display:flex; flex-direction:column; justify-content:center; gap:6px; cursor:pointer;
+    position:relative; }
+  .slot:hover{ border-color:rgba(232,83,10,.5); }
+  .slot.empty{ border-style:dashed; align-items:center; text-align:center;
+    color:var(--muted); font-weight:800; letter-spacing:.2em; text-transform:uppercase; font-size:14px; }
+  .slot .nm{ font-family:var(--display); font-weight:700; font-size:34px; line-height:1;
+    text-transform:uppercase; }
+  .slot .sub{ display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+  .slot .tm{ font-size:12px; font-weight:800; letter-spacing:.16em; color:var(--muted);
+    text-transform:uppercase; }
+  .slot .x{ position:absolute; top:10px; right:12px; color:var(--muted); font:700 13px var(--body); }
+  .slot.b .nm{ text-align:right; } .slot.b{ align-items:flex-end; } .slot.b .sub{ justify-content:flex-end; }
+  #vs{ display:flex; align-items:center; justify-content:center; font-family:var(--display);
+    font-weight:700; font-size:34px; color:var(--orange-hot); text-transform:uppercase; }
+
+  #tally{ text-align:center; font-family:var(--display); font-weight:600; font-size:22px;
+    letter-spacing:.08em; text-transform:uppercase; color:var(--muted); margin-bottom:18px; }
+  #tally b{ color:var(--orange-hot); font-weight:700; }
+
+  /* ── Tape ── */
+  .ghead{ font-family:var(--display); font-weight:600; font-size:17px; letter-spacing:.26em;
+    text-transform:uppercase; color:var(--orange-hot); margin:26px 4px 8px; text-align:center; }
+  .row{ display:grid; grid-template-columns:1fr 190px 1fr; align-items:center; gap:14px;
+    padding:12px 10px; border-top:1px solid var(--line-soft); }
+  .row:last-child{ border-bottom:1px solid var(--line-soft); }
+  .row .mid{ text-align:center; }
+  .row .mid .lab{ font-size:13px; font-weight:800; letter-spacing:.14em; text-transform:uppercase;
+    color:#AEB6C2; }
+  .row .mid .un{ font-size:11px; font-weight:700; letter-spacing:.2em; color:var(--muted);
+    margin-top:3px; text-transform:uppercase; }
+  .cellv{ display:flex; flex-direction:column; gap:7px; }
+  .cellv.a{ align-items:flex-end; } .cellv.b{ align-items:flex-start; }
+  .cellv .v{ font-family:var(--display); font-weight:600; font-size:38px; line-height:1;
+    color:var(--cream); }
+  .cellv .v.win{ color:var(--orange-hot); font-weight:700; }
+  .cellv .v.none{ color:var(--muted); font-weight:400; }
+  .cellv .bar{ width:min(100%,300px); height:6px; background:var(--line-soft);
+    border-radius:99px; overflow:hidden; }
+  .cellv .bar i{ display:block; height:100%; width:100%;
+    background:linear-gradient(90deg,var(--orange-deep),var(--orange-hot)); border-radius:99px; }
+  .cellv.a .bar i{ transform-origin:right; }
+  .cellv.b .bar i{ transform-origin:left; }
+  .cellv .bar i.cold{ background:var(--navy-hi); }
+  .cellv .pc{ font-family:var(--mono); font-size:11px; color:var(--muted); letter-spacing:.08em; }
+
+  .note{ text-align:center; color:var(--muted); font-size:14px; font-weight:600; margin:26px 0 0;
+    line-height:1.6; }
+
+  /* ── Picker ── */
+  #picker{ position:fixed; inset:0; z-index:10; background:rgba(4,6,9,.92);
+    -webkit-backdrop-filter:blur(6px); backdrop-filter:blur(6px);
+    display:none; flex-direction:column; padding:26px min(5vw,48px); }
+  #picker.open{ display:flex; }
+  #picker .ph{ display:flex; align-items:center; gap:18px; margin-bottom:16px; }
+  #picker .ph h2{ font-family:var(--display); font-weight:700; font-size:30px;
+    text-transform:uppercase; letter-spacing:.04em; }
+  #picker .ph h2 em{ font-style:normal; color:var(--orange-hot); }
+  #picker .close{ margin-left:auto; font:700 14px var(--body); letter-spacing:.14em;
+    text-transform:uppercase; color:var(--cream); background:none; border:1px solid var(--line);
+    border-radius:8px; padding:10px 18px; cursor:pointer; }
+  #divchips{ display:flex; gap:8px; flex-wrap:wrap; margin-bottom:14px; }
+  #divchips button{ font:800 13px var(--body); letter-spacing:.14em; text-transform:uppercase;
+    color:var(--cream); background:var(--panel-a); border:1px solid var(--line); border-radius:99px;
+    padding:10px 18px; cursor:pointer; }
+  #divchips button[aria-pressed="true"]{ background:var(--orange-deep); border-color:var(--orange);
+    color:#FFE2CF; }
+  #psearch{ width:100%; font:600 18px var(--body); color:var(--cream);
+    background:var(--panel-b); border:1px solid var(--line); border-radius:10px;
+    padding:14px 18px; margin-bottom:14px; outline:none; }
+  #psearch:focus{ border-color:var(--orange); }
+  #plist{ flex:1; overflow-y:auto; display:grid; gap:8px;
+    grid-template-columns:repeat(auto-fill,minmax(240px,1fr)); align-content:start; }
+  .pbtn{ display:flex; align-items:center; gap:12px; text-align:left; cursor:pointer;
+    background:linear-gradient(180deg,var(--panel-a),var(--panel-b)); border:1px solid var(--line);
+    border-radius:10px; padding:12px 14px; color:var(--cream); }
+  .pbtn:hover{ border-color:rgba(232,83,10,.55); }
+  .pbtn .no{ font-family:var(--display); font-weight:700; font-size:20px; color:var(--orange-hot);
+    width:40px; flex:none; }
+  .pbtn .pn{ font-family:var(--display); font-weight:600; font-size:19px; text-transform:uppercase; }
+  .pbtn .pt{ font-size:11px; font-weight:800; letter-spacing:.14em; color:var(--muted);
+    text-transform:uppercase; margin-top:2px; }
+  .pbtn .nd{ margin-left:auto; font-size:10px; font-weight:800; letter-spacing:.1em;
+    color:var(--muted); text-transform:uppercase; border:1px solid var(--line-soft);
+    border-radius:5px; padding:3px 7px; flex:none; }
+
+  @media (max-width:820px){
+    #slots{ grid-template-columns:1fr 44px 1fr; }
+    .slot .nm{ font-size:22px; }
+    #vs{ font-size:20px; }
+    .row{ grid-template-columns:1fr 110px 1fr; }
+    .cellv .v{ font-size:26px; }
+  }
+</style>
+
+<header>
+  <img src="logo.png" alt="Delmarva Aces logo">
+  <div class="t1">ACES <em>HEAD TO HEAD</em></div>
+  <span class="status" id="status">&#8230;</span>
+</header>
+<main id="main"></main>
+<div id="picker" role="dialog" aria-label="Pick a player">
+  <div class="ph"><h2 id="ptitle">Pick <em>Player A</em></h2>
+    <button class="close" id="pclose">Close</button></div>
+  <div id="divchips"></div>
+  <input id="psearch" type="search" placeholder="Type a name&#8230;" autocomplete="off">
+  <div id="plist"></div>
+</div>
+
+<script>
+'use strict';
+/* ════════ Config + catalog (shared shape with combine.html) ════════ */
+const params = new URLSearchParams(location.search);
+const CONFIG_SRC = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTOx0py80kbfpe43IlhJFlMnZT2ZO38KYffmwLZBcSaMEHG_GPUoRBzLXOMLJAonQ3syTDL0Fui4EBU/pub?gid=0&single=true&output=csv';
+const SRC = params.get('src') || CONFIG_SRC;
+const DEMO = params.get('demo') === '1' || !SRC;
+const ROSTER_SRC = params.get('roster') || '';
+
+const GROUPS = { pitch:'Pitching', hit:'Hitting', ath:'Athletic Testing' };
+const MIN_TM = 11;
+const STATIONS = [
+  { id:'fb',    g:'pitch', young:true, name:'Pitch Velocity',  unit:'MPH', dec:1, dir:+1, rng:{8:[36,50],18:[76,92]} },
+  { id:'spin',  g:'pitch', name:'Spin Rate',           unit:'RPM', dec:0, dir:+1, rng:{11:[1450,1950],18:[2000,2500]} },
+  { id:'ivb',   g:'pitch', name:'Induced Vert Break',  unit:'IN',  dec:1, dir:+1, rng:{11:[7,13],18:[13,20]} },
+  { id:'mvmt',  g:'pitch', name:'Pitch Movement',      unit:'IN',  dec:1, dir:+1, rng:{11:[9,17],18:[16,26]} },
+  { id:'ev',    g:'hit',   name:'Exit Velocity',       unit:'MPH', dec:1, dir:+1, rng:{11:[52,70],18:[82,102]} },
+  { id:'bat',   g:'hit',   name:'Bat Speed',           unit:'MPH', dec:1, dir:+1, rng:{11:[42,58],18:[64,78]} },
+  { id:'la',    g:'hit',   name:'Best Launch Angle',   unit:'DEG', dec:0, dir:+1, rng:{11:[8,24],18:[12,28]} },
+  { id:'dist',  g:'hit',   name:'Max Distance',        unit:'FT',  dec:0, dir:+1, rng:{11:[130,210],18:[270,380]} },
+  { id:'push',  g:'ath', young:true, name:'Push-Ups &#183; 30 Sec', unit:'REPS',dec:0, dir:+1, rng:{8:[10,24],18:[28,46]} },
+  { id:'pull',  g:'ath', young:true, name:'Pull-Ups &#183; Max',    unit:'REPS',dec:0, dir:+1, rng:{8:[0,8],18:[6,20]} },
+  { id:'grip',  g:'ath', young:true, name:'Grip Strength',     unit:'LBS', dec:0, dir:+1, rng:{8:[30,55],18:[100,145]} },
+  { id:'broad', g:'ath', young:true, name:'Broad Jump',        unit:'IN',  dec:0, dir:+1, rng:{8:[45,66],18:[85,110]} },
+  { id:'vert',  g:'ath', young:true, name:'Vertical Jump',     unit:'IN',  dec:1, dir:+1, rng:{8:[9,16],18:[22,32]} },
+  { id:'shut',  g:'ath', young:true, name:'5-10-5 Shuttle',    unit:'SEC', dec:2, dir:-1, rng:{8:[5.7,6.6],18:[4.2,4.9]} },
+  { id:'dash',  g:'ath', young:true, name:'30-Yard Dash',      unit:'SEC', dec:2, dir:-1, rng:{8:[5.0,5.9],18:[3.7,4.4]} },
+  { id:'split', g:'ath', young:true, name:'10-Yard Split',     unit:'SEC', dec:2, dir:-1, rng:{8:[1.9,2.4],18:[1.45,1.8]} },
+];
+const stationById = {}; STATIONS.forEach(s => stationById[s.id] = s);
+const eligible = (s, age) => !!s.young || age >= MIN_TM;
+const rangeFor = (s, age) => {
+  const ks = Object.keys(s.rng).map(Number).sort((x,y)=>x-y);
+  const a = ks[0], b = ks[1];
+  const t = Math.min(1, Math.max(0, (age-a)/(b-a)));
+  return [ s.rng[a][0] + t*(s.rng[b][0]-s.rng[a][0]),
+           s.rng[a][1] + t*(s.rng[b][1]-s.rng[a][1]) ];
+};
+
+const DIVS = [
+  {key:'8U',  label:'8U',  age:8},  {key:'9U',  label:'9U',  age:9},
+  {key:'10U', label:'10U', age:10}, {key:'11U', label:'11U', age:11},
+  {key:'12U', label:'12U', age:12}, {key:'13U', label:'13U', age:13},
+  {key:'14U', label:'14U', age:14}, {key:'15U', label:'15U', age:15},
+  {key:'DCP2028', label:'DCP 2028', age:16}, {key:'DCP17U', label:'DCP 17U', age:17},
+];
+const divByKey = {}; DIVS.forEach(d => divByKey[d.key] = d);
+const divByLabel = {}; DIVS.forEach(d => divByLabel[d.label] = d);
+const TEAMS = [
+  {team:"8U East", short:"EAST", div:"8U", players:[["1","Sonny Ward"],["2","Beckett Hearne"],["4","Logan Grier"],["5","Nolan Fox"],["7","Jackson McAllister"],["10","Chase Hutton"],["12","Rafe Aiello"],["13","Brooks Ennis"],["16","Remington Booth"],["17","Ridge Davis"],["34","Nash Allen"],["67","Cole Jensen"]]},
+  {team:"8U Coastal", short:"COASTAL", div:"8U", players:[["1","Hudson Sockriter"],["2","Brady Johnson"],["3","Waylon Lambert"],["10","Blayne Lewis"],["7","Alston Spence"],["8","Thomas Salvatore"],["16","Gael Rincon-Rios"],["19","Leo Wells"],["24","Theodore Vilkoski"],["44","Owen Sinclair"]]},
+  {team:"9U East", short:"EAST", div:"9U", players:[["1","Liam Cognetta"],["2","Landon Hensley"],["3","Huk O'Brien"],["4","William Rafinski"],["5","Ayden Bailey"],["7","Maverick Collins"],["8","Asher Adams"],["13","Patrick Baker"],["17","DJ Coppock"],["27","Nash Dickerson"],["28","Waylon Bledsoe"],["99","Josh Cordeaux"]]},
+  {team:"9U Coastal", short:"COASTAL", div:"9U", players:[["1","Weston Coleman"],["3","Rhett Richards"],["10","Gavin Ralph"],["12","Lincoln Miller"],["15","Jase Efford"],["17","Jozyiah Oney"],["20","Asa Cosby"],["21","Slate Smith"],["22","Jonathan Ricketts Jr"],["60","Mason Levin"],["67","Jayden Gonzalez"]]},
+  {team:"10U Beach", short:"BEACH", div:"10U", players:[["2","Zac Swayngim"],["3","Colton Seymour"],["4","Kaycen Davis"],["6","Owen Behrens"],["7","Dylan White"],["8","Samuel Stull"],["10","Mason Gottschalk"],["11","Jackson Wells"],["13","Cullen Martin"],["17","Asher Johnson"],["20","Nolan Clark"]]},
+  {team:"11U Beach", short:"BEACH", div:"11U", players:[["1","Luke Ennis"],["2","Jaxson Fisher"],["3","Nixon Miller"],["4","Dylan McAllister"],["5","Johnathan Webster"],["7","Caleb Russo"],["9","Jonathan Webster"],["11","Raylan Windsor"],["14","Reeve Moore"],["17","Jayden Hayes"],["35","Teague Hammond"]]},
+  {team:"11U East", short:"EAST", div:"11U", players:[["3","Sam Hevner"],["6","Gavin Braniff"],["7","Anderson Callaway"],["8","Brycen Young"],["10","Cameron Johnson"],["11","Ledger Updike"],["14","Christopher Martinez"],["17","Clayton Pusey"],["22","Wyatt Brown"],["23","JJ Dunlap"],["31","Grayson Ennis"],["34","Jace Hart"]]},
+  {team:"11U Coastal", short:"COASTAL", div:"11U", players:[["7","Lucas Goodspeed"],["8","Clay Beauchamp"],["9","Garrett Short"],["10","Avion Spence"],["11","Owen White"],["13","Liam Reed"],["14","Beau Goff"],["21","Carson Kirby"],["23","Declan Parks"],["29","Cullen Kaufman"],["30","Dillion Soares"]]},
+  {team:"10U East", short:"EAST", div:"10U", players:[["2","Reid Plugge"],["4","Owen Leibforth"],["5","James Kirk"],["11","Finn Lubach"],["13","Matthew O'Malley"],["14","Dylan Otwell"],["26","Carter Bounds"],["29","Charlie Churchill"],["35","Reece Bradford"],["47","Zachary Hopkins"],["97","Jax Neal"],["99","Colton Richardson"]]},
+  {team:"10U Coastal", short:"COASTAL", div:"10U", players:[["1","Jackson Brooks"],["2","Colton Searcey"],["3","Cobie Allen"],["5","Lincoln Metcalf"],["7","Carter Gray"],["11","Landon Givens"],["12","Carter Coveleski"],["13","Cash Forbes"],["17","Skyler Dero"],["30","Asher Metcalf"],["99","Ethan West"]]},
+  {team:"12U Coastal", short:"COASTAL", div:"12U", players:[["2","Crockett Holland"],["3","Frank Outten"],["12","David Cooper"],["15","Jace Futrell"],["17","Michael Blankenship Jr."],["19","Miles Horsey"],["20","Asher Freeman"],["24","Quinn Pitts"],["29","Dawson Wells"],["52","Nathan Jackson"],["55","Willie Hearn"]]},
+  {team:"12U East", short:"EAST", div:"12U", players:[["1","Jonathan Foster"],["3","Bodhi Brabitz"],["8","KJ Daisey"],["11","AJ Grubb"],["12","Nicholas Furrow"],["20","MJ Martin"],["22","Aidan Torres"],["23","Jude Matthews"],["26","Cash Helgason"],["33","Reed McPhail"],["44","Mason Drollette"],["50","Deacon Cook"],["52","Kolten Hoffman"]]},
+  {team:"12U Beach", short:"BEACH", div:"12U", players:[["1","River Howard"],["6","Clayton Hocker"],["9","Austin Powell"],["13","Cooper Wright"],["19","Elliot Seman"],["21","Harrison Heckscher"],["27","Jacob Henry"],["99","Hayden Betts"],["00","Xavier Smith"]]},
+  {team:"13U East", short:"EAST", div:"13U", players:[["2","Declan Soares"],["3","Jackson Booher"],["5","Brody Pegelow"],["7","Cayden White"],["11","Hudson Hartstein"],["23","Jake Coulbourne"],["24","Jaxson May"],["27","Wyatt Wiltbank"],["44","Braden Franssen"],["47","Mason Maloney"],["54","Ayden Jester"],["99","Logan May"]]},
+  {team:"13U Beach", short:"BEACH", div:"13U", players:[["1","Colton Penny"],["2","Jaxon Miller"],["5","Brock Martin"],["8","Brandon Hudson"],["10","Everett Reid"],["13","Austin Wynn"],["17","Max Payne"],["22","Ian Cole"],["27","Jackson Burks"],["47","Jackson Howell"],["99","Jayden Pina-Molina"]]},
+  {team:"13U Coastal", short:"COASTAL", div:"13U", players:[["1","Jack Parks"],["2","Wesley Heiser"],["3","Jase Blizzard"],["4","Mason Dorn"],["5","Corbin Derr"],["7","Cole Brown"],["10","Colby Laird"],["11","Asher Carey"],["12","Aj Nelson"],["16","Vincent Calabrese"],["23","Callum Hales"],["27","Cirio Sanchez"],["35","Jackson Baraby"],["99","Theo Buckley"]]},
+  {team:"14U Beach", short:"BEACH", div:"14U", players:[["2","Evan Donaway"],["3","Cole Horsman"],["5","Frederick Senger"],["8","Nathan Simm"],["9","Brycen Lattimore"],["12","Ayden Pi"],["18","Matthew Reed"],["28","Graison Kral"],["33","TJ Drejka"],["42","Hunter Zencak"],["55","Landen Collins"],["74","Samuel Cuffy"]]},
+  {team:"14U North", short:"NORTH", div:"14U", players:[["1","Tayton Dietrick"],["3","Bennett Erbe"],["7","Diego Foster"],["9","Brayden Jackson"],["11","Hunter Shrieves"],["19","Foster Raska"],["20","Brayden Steele"],["23","Bryce Bauer"],["26","Camden Helgason"],["27","Coleson Wiggins"],["55","Cash Foster"]]},
+  {team:"14U East", short:"EAST", div:"14U", players:[["3","Ben Green"],["4","Dylan DeLoy"],["7","Benny Maldonado"],["12","Colton Stoltzfus"],["13","Mateo Tressler"],["15","James Runkles"],["21","Colin Clingan"],["26","Landon Bounds"],["27","Luke Dickerson"],["28","Brooks Huyett"],["33","Ryan Otwell"],["55","Marquise Blake"]]},
+  {team:"14U Coastal", short:"COASTAL", div:"14U", players:[["1","Hoyt Kapp"],["2","Chance Nichols"],["3","Vincent Delgado"],["5","Kam Anvar"],["7","Gabriel Willey"],["9","Landon Facemire"],["10","Nathan Gaull"],["11","Cole Beauchamp"],["21","Ashton Esham"],["22","Brantley Collins"],["29","Gabe Fisher"]]},
+  {team:"15U East", short:"EAST", div:"15U", players:[["8","Brody Bradley"],["9","Gavin Short"],["12","Deegan Griffith"],["13","Mathias Zapata"],["17","Jullian James"],["20","Liam Efford"],["22","Starlin Herrera"],["27","Nate Powell"],["31","Ethan Seman"],["44","Hunter Hall"],["99","Mason Conran"]]},
+  {team:"DCP 2028", short:"DCP", div:"DCP2028", players:[["0","Cameron Deiter"],["1","Caleb Sutch"],["3","Lane Mears"],["7","Brandon Toadvine"],["8","Tanner Edelmann"],["10","Lukin Jones"],["12","Nicky Soares"],["13","Luke Luzader"],["17","Kole Vodvarka"],["21","Kade Willey"],["22","Ben Tollett"],["33","Mason Glover"],["34","Dylan Legum"],["45","Austin Kinhart"],["48","Conner Calloway"]]},
+  {team:"DCP 2028 American", short:"AMERICAN", div:"DCP2028", players:[["0","Jermaine Logan"],["1","Bryce Luck"],["2","Gavin Smith"],["3","Kalib Thompson"],["4","Uriah Taylor-Brown"],["5","Jason Ryan"],["7","Deven West"],["8","Jordan Workman Jr"],["9","Max Behornar"],["10","Anthony Brittingham"],["13","Austin Carter"],["16","Coy Collins"],["17","Rex Cordrey"],["20","Shane Campbell"],["23","Ascher Mitchell"]]},
+  {team:"DCP 17U", short:"DCP", div:"DCP17U", players:[["1","Bradley Chatham"],["3","John Wayne Dize Jr."],["4","Blake Riley"],["6","Noah Downin"],["7","Colby Rathel"],["8","Gavin Luffman"],["10","James Adams"],["11","Caleb McFarland"],["13","Caleb Dufresne"],["23","Bryce Baker"],["27","Noah Bounds"],["34","Hunter Kissinger"],["35","Maxx Pusey"],["42","Drake Trotter"],["99","Trent Hall"]]},
+];
+const PLAYERS = [];
+for (const t of TEAMS){ for (const pr of t.players){
+  const num = pr[0], full = pr[1];
+  const parts = full.replace(/\s+(Jr\.?|Sr\.?|II|III)$/i,'').trim().split(/\s+/);
+  const lastw = parts[parts.length-1];
+  PLAYERS.push({ id:'p'+PLAYERS.length, full, name:parts[0]+' '+lastw[0]+'.', lastw,
+    num, div:t.div, team:t.team, short:t.short, age: divByKey[t.div].age });
+} }
+function teamShort(team){
+  if (team.indexOf('American') >= 0) return 'AMERICAN';
+  if (team.indexOf('DCP') === 0) return 'DCP';
+  const sp = team.indexOf(' ');
+  return (sp > 0 ? team.slice(sp+1) : team).toUpperCase();
+}
+
+/* ════════ Data ════════ */
+let STATS = {};   // pid -> sid -> {best, n, last}
+const hasData = (p, sid) => !!(STATS[p.id] && STATS[p.id][sid]);
+const tested = p => STATS[p.id] && Object.keys(STATS[p.id]).length;
+const fmt = (v, s) => (+v).toFixed(s.dec);
+
+function pct(p, sid){
+  const board = PLAYERS.filter(x => x.div === p.div && hasData(x, sid))
+    .map(x => STATS[x.id][sid].best)
+    .sort((a,b) => (b-a) * stationById[sid].dir);
+  if (board.length < 2) return 100;
+  const i = board.indexOf(STATS[p.id][sid].best);
+  return Math.round(100 * (board.length-1-i) / (board.length-1));
+}
+
+function parseCSV(text){
+  const rows = []; let row = [], cur = '', inQ = false;
+  for (let i = 0; i < text.length; i++){
+    const ch = text[i];
+    if (inQ){
+      if (ch === '"'){ if (text[i+1] === '"'){ cur += '"'; i++; } else inQ = false; }
+      else cur += ch;
+    }
+    else if (ch === '"') inQ = true;
+    else if (ch === ','){ row.push(cur); cur = ''; }
+    else if (ch === '\n'){ row.push(cur); rows.push(row); row = []; cur = ''; }
+    else if (ch !== '\r') cur += ch;
+  }
+  if (cur !== '' || row.length){ row.push(cur); rows.push(row); }
+  return rows;
+}
+
+const extraPlayers = {};
+function playerFor(divKey, fullName, team, jersey){
+  const norm = fullName.trim().toLowerCase();
+  for (const x of PLAYERS) if (x.div === divKey && x.full.toLowerCase() === norm) return x;
+  const k = divKey + '|' + norm;
+  if (extraPlayers[k]) return extraPlayers[k];
+  const parts = fullName.replace(/\s+(Jr\.?|Sr\.?|II|III)$/i,'').trim().split(/\s+/);
+  const lastw = parts[parts.length-1] || fullName;
+  const p = { id:'x'+Object.keys(extraPlayers).length, full: fullName,
+    name: parts[0]+' '+(lastw[0]||'').toUpperCase()+'.', lastw, num: jersey || '',
+    div: divKey, team: team || '', short: (team||'').toUpperCase(), age: divByKey[divKey].age };
+  extraPlayers[k] = p; PLAYERS.push(p);
+  return p;
+}
+
+function applyRows(rows){
+  if (!rows.length) return false;
+  const head = rows[0].map(h => String(h).trim());
+  const iT = head.indexOf('Timestamp'), iD = head.indexOf('Division'),
+        iTeam = head.indexOf('Team'), iJ = head.indexOf('Jersey'),
+        iP = head.indexOf('Player'), iS = head.indexOf('Station'),
+        iV = head.indexOf('Value');
+  if (iT < 0 || iD < 0 || iP < 0 || iS < 0 || iV < 0) return false;
+  const ns = {};
+  for (let r = 1; r < rows.length; r++){
+    const row = rows[r];
+    if (!row || !row[iP]) continue;
+    const div = divByLabel[String(row[iD]).trim()]; if (!div) continue;
+    const s = stationById[String(row[iS]).trim()]; if (!s) continue;
+    const v = parseFloat(row[iV]); if (!isFinite(v)) continue;
+    let t = new Date(row[iT]); if (isNaN(t)) t = new Date();
+    const p = playerFor(div.key, String(row[iP]),
+      iTeam >= 0 ? String(row[iTeam]) : '', iJ >= 0 ? String(row[iJ]) : '');
+    const rec = (ns[p.id] = ns[p.id] || {});
+    const cur = rec[s.id];
+    if (!cur){ rec[s.id] = { best: v, n: 1, last: t }; }
+    else {
+      cur.n++;
+      if (t > cur.last) cur.last = t;
+      if ((v - cur.best) * s.dir > 0) cur.best = v;
+    }
+  }
+  STATS = ns;
+  return true;
+}
+
+/* deterministic demo data, same flavor as the display's */
+function buildDemo(){
+  const seedrand = (s => () => (s = (s * 1664525 + 1013904223) >>> 0) / 4294967296)(20260825);
+  const rB = (a,b) => a + seedrand()*(b-a);
+  STATS = {};
+  for (const p of PLAYERS){
+    const bias = rB(0.12, 0.88);
+    STATS[p.id] = {};
+    for (const s of STATIONS){
+      if (!eligible(s, p.age)) continue;
+      const r = rangeFor(s, p.age);
+      const t = Math.min(1, Math.max(0, bias + rB(-0.22, 0.22)));
+      STATS[p.id][s.id] = { best: +(r[0] + t*(r[1]-r[0])).toFixed(s.dec),
+        n: 1 + Math.floor(rB(0, 3)), last: new Date() };
+    }
+  }
+}
+
+const statusEl = document.getElementById('status');
+function setStatus(mode){
+  if (DEMO){ statusEl.textContent = 'SAMPLE DATA'; return; }
+  if (mode === 'live'){
+    const d = new Date(); const h = d.getHours() % 12 || 12;
+    statusEl.textContent = 'LIVE · ' + h + ':' + String(d.getMinutes()).padStart(2,'0');
+  }
+  else if (mode === 'badfeed') statusEl.textContent = 'CHECK FEED';
+  else statusEl.textContent = 'OFFLINE';
+}
+
+let fetchSeq = 0;
+async function refresh(){
+  const seq = ++fetchSeq;
+  try {
+    const ctl = new AbortController();
+    const kill = setTimeout(() => ctl.abort(), 20000);
+    const url = SRC + (SRC.includes('?') ? '&' : '?') + 'cb=' + Date.now();
+    const r = await fetch(url, { cache: 'no-store', signal: ctl.signal });
+    const text = await r.text();
+    clearTimeout(kill);
+    if (seq !== fetchSeq) return;
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const ok = applyRows(parseCSV(text));
+    setStatus(ok ? 'live' : 'badfeed');
+    if (ok) render();
+  } catch (e){ if (seq === fetchSeq) setStatus('offline'); }
+}
+async function loadRoster(){
+  if (!ROSTER_SRC) return;
+  try {
+    const r = await fetch(ROSTER_SRC + (ROSTER_SRC.includes('?') ? '&' : '?') + 'cb=' + Date.now(),
+      { cache: 'no-store' });
+    if (!r.ok) return;
+    const rows = parseCSV(await r.text());
+    if (!rows.length) return;
+    const head = rows[0].map(h => String(h).trim());
+    const iD = head.indexOf('Division'), iT = head.indexOf('Team'),
+          iJ = head.indexOf('Jersey'), iP = head.indexOf('Player');
+    if (iD < 0 || iT < 0 || iJ < 0 || iP < 0) return;
+    const list = [];
+    for (let i = 1; i < rows.length; i++){
+      const row = rows[i];
+      if (!row || !row[iP] || !divByKey[String(row[iD]).trim()]) continue;
+      list.push({ div:String(row[iD]).trim(), team:String(row[iT]).trim(),
+                  num:String(row[iJ]).trim(), full:String(row[iP]).trim() });
+    }
+    if (list.length < 50) return;
+    PLAYERS.length = 0;
+    for (const x of list){
+      const parts = x.full.replace(/\s+(Jr\.?|Sr\.?|II|III)$/i,'').trim().split(/\s+/);
+      const lastw = parts[parts.length-1] || x.full;
+      PLAYERS.push({ id:'p'+PLAYERS.length, full:x.full, name:parts[0]+' '+lastw[0]+'.',
+        lastw, num:x.num, div:x.div, team:x.team, short:teamShort(x.team),
+        age: divByKey[x.div].age });
+    }
+  } catch (e){}
+}
+
+/* ════════ UI state ════════ */
+const mainEl = document.getElementById('main');
+const pickerEl = document.getElementById('picker');
+const esc = t => String(t).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+let A = null, B = null;             // player objects
+let pickSlot = null;                // 'a' | 'b' while picker open
+let pickDiv = 'all';
+
+function slotHTML(p, which){
+  if (!p) return `<div class="slot empty" data-slot="${which}">+ Pick Player ${which.toUpperCase()}</div>`;
+  return `<div class="slot ${which}" data-slot="${which}">
+    <span class="x">CHANGE &#10005;</span>
+    <div class="nm">${esc(p.name)}</div>
+    <div class="sub"><span class="chip">${divByKey[p.div].label}</span>
+      <span class="tm">${esc(p.team.toUpperCase())} &#183; #${esc(p.num)}</span></div>
+  </div>`;
+}
+
+function rowHTML(s, a, b){
+  const da = A && hasData(A, s.id) ? STATS[A.id][s.id] : null;
+  const db = B && hasData(B, s.id) ? STATS[B.id][s.id] : null;
+  let winA = false, winB = false;
+  if (da && db && da.best !== db.best){
+    winA = (da.best - db.best) * s.dir > 0; winB = !winA;
+  }
+  const side = (p, d, win, cls) => d
+    ? `<div class="cellv ${cls}">
+        <div class="v num ${win?'win':''}">${fmt(d.best, s)}</div>
+        <div class="bar"><i class="${pct(p,s.id)<40?'cold':''}" style="transform:scaleX(${Math.max(6,pct(p,s.id))/100})"></i></div>
+        <div class="pc">${pct(p,s.id)} PCTL &#183; ${divByKey[p.div].label}</div>
+      </div>`
+    : `<div class="cellv ${cls}"><div class="v none">&#8212;</div></div>`;
+  return `<div class="row">
+    ${side(A, da, winA, 'a')}
+    <div class="mid"><div class="lab">${s.name}</div><div class="un">${s.unit}</div></div>
+    ${B ? side(B, db, winB, 'b') : '<div class="cellv b"></div>'}
+  </div>`;
+}
+
+function render(){
+  if (pickSlot){ renderPicker(); }
+  if (!A && !B){
+    mainEl.innerHTML = `<div id="attract">
+      <img src="logo.png" alt="">
+      <h1>HEAD <em>TO</em> HEAD</h1>
+      <p>Pick yourself. Pick a rival. See who owns the combine board &#8212; every number straight from real testing.</p>
+      <button id="startbtn">Tap to start</button>
+    </div>`;
+    document.getElementById('startbtn').addEventListener('click', () => openPicker('a'));
+    return;
+  }
+  // stations worth showing: any where A or B has data (demo: everything eligible)
+  const show = STATIONS.filter(s =>
+    (A && hasData(A, s.id)) || (B && hasData(B, s.id)));
+  let tape = '';
+  for (const gk in GROUPS){
+    const gs = show.filter(s => s.g === gk);
+    if (!gs.length) continue;
+    tape += `<div class="ghead">${GROUPS[gk]}</div>` + gs.map(s => rowHTML(s)).join('');
+  }
+  if (!show.length)
+    tape = `<p class="note">No results logged yet for ${esc((A||B).name)} &#8212; get testing!</p>`;
+
+  let tally = '';
+  if (A && B){
+    let wa = 0, wb = 0, both = 0;
+    for (const s of show){
+      const da = hasData(A, s.id) ? STATS[A.id][s.id] : null;
+      const db = hasData(B, s.id) ? STATS[B.id][s.id] : null;
+      if (!da || !db) continue;
+      both++;
+      if (da.best === db.best) continue;
+      if ((da.best - db.best) * s.dir > 0) wa++; else wb++;
+    }
+    if (!both){
+      const missing = !tested(A) && !tested(B) ? 'NEITHER PLAYER HAS'
+        : `${esc((tested(A) ? B : A).name)} HASN'T`;
+      tally = `<div id="tally">${missing} TESTED YET &#8212; NOTHING TO SETTLE&#8230; YET</div>`;
+    }
+    else tally = wa === wb
+      ? `<div id="tally">DEAD EVEN &#8212; <b>${wa}</b> APIECE</div>`
+      : `<div id="tally"><b>${esc((wa > wb ? A : B).name)}</b> LEADS <b>${Math.max(wa,wb)}&#8211;${Math.min(wa,wb)}</b></div>`;
+  } else {
+    tally = `<div id="tally">TAP THE EMPTY SIDE TO ADD A RIVAL</div>`;
+  }
+
+  mainEl.innerHTML = `<div id="slots">${slotHTML(A,'a')}<div id="vs">VS</div>${slotHTML(B,'b')}</div>
+    ${tally}${tape}
+    <p class="note">Percentile bars compare each player to their own division.
+      Best marks from all combine testing &#183; updates live.</p>`;
+  mainEl.querySelectorAll('[data-slot]').forEach(el =>
+    el.addEventListener('click', () => openPicker(el.dataset.slot)));
+}
+
+/* ── picker ── */
+function openPicker(slot){
+  pickSlot = slot; pickDiv = 'all';
+  document.getElementById('ptitle').innerHTML = 'Pick <em>Player ' + slot.toUpperCase() + '</em>';
+  document.getElementById('psearch').value = '';
+  pickerEl.classList.add('open');
+  renderPicker();
+  document.getElementById('psearch').focus();
+}
+function closePicker(){ pickSlot = null; pickerEl.classList.remove('open'); render(); }
+document.getElementById('pclose').addEventListener('click', closePicker);
+
+function renderPicker(){
+  const chips = [{key:'all', label:'All'}].concat(DIVS);
+  document.getElementById('divchips').innerHTML = chips.map(d =>
+    `<button data-div="${d.key}" aria-pressed="${String(pickDiv === d.key)}">${d.label}</button>`).join('');
+  document.querySelectorAll('#divchips button').forEach(b =>
+    b.addEventListener('click', () => { pickDiv = b.dataset.div; renderPicker(); }));
+
+  const q = document.getElementById('psearch').value.trim().toLowerCase();
+  const other = pickSlot === 'a' ? B : A;
+  const pool = PLAYERS.filter(p =>
+    (pickDiv === 'all' || p.div === pickDiv) &&
+    (!other || p.id !== other.id) &&
+    (!q || p.full.toLowerCase().includes(q) || p.name.toLowerCase().includes(q)))
+    .sort((x,y) => (tested(y)?1:0) - (tested(x)?1:0) ||
+      divByKey[x.div].age - divByKey[y.div].age || x.name.localeCompare(y.name));
+  document.getElementById('plist').innerHTML = pool.slice(0, 160).map(p =>
+    `<button class="pbtn" data-pid="${p.id}">
+      <span class="no num">#${esc(p.num)}</span>
+      <span><span class="pn">${esc(p.name)}</span>
+        <div class="pt">${divByKey[p.div].label} &#183; ${esc(p.short)}</div></span>
+      ${tested(p) ? '' : '<span class="nd">No results yet</span>'}
+    </button>`).join('');
+  document.querySelectorAll('.pbtn').forEach(b => b.addEventListener('click', () => {
+    const p = PLAYERS.find(x => x.id === b.dataset.pid);
+    if (pickSlot === 'a') A = p; else B = p;
+    const openOther = pickSlot === 'a' && !B;
+    closePicker();
+    if (openOther) openPicker('b');
+  }));
+}
+document.getElementById('psearch').addEventListener('input', renderPicker);
+
+/* ── kiosk idle reset ── */
+let idleT;
+function idle(){ clearTimeout(idleT);
+  idleT = setTimeout(() => { A = B = null; closePicker(); render(); }, 120000); }
+['pointerdown','pointermove','keydown','touchstart'].forEach(ev =>
+  addEventListener(ev, idle, { passive: true }));
+idle();
+
+/* ════════ Boot ════════ */
+if (DEMO){ buildDemo(); setStatus('demo'); render(); }
+else {
+  setStatus('offline'); render();
+  loadRoster().then(() => { refresh(); setInterval(refresh, 60000); });
+}
+</script>
