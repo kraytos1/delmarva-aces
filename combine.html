@@ -231,6 +231,24 @@ the verdict, and DESIGN.md
   .rw .cell .who{ font-family:var(--display); font-weight:500; font-size:21px; color:var(--orange-hot);
     text-transform:uppercase; letter-spacing:.05em; margin-top:4px; }
 
+  /* ── Today at the Combine ── */
+  .td{ flex-direction:column; }
+  .td .hd{ display:flex; align-items:center; gap:26px; }
+  .td .hd .bt{ font-size:64px; }
+  .td .stats{ flex:1; display:grid; grid-template-columns:repeat(4,1fr); margin-top:34px;
+    border-top:1px solid var(--line); border-left:1px solid var(--line); }
+  .td .cell{ border-right:1px solid var(--line); border-bottom:1px solid var(--line);
+    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:12px; }
+  .td .cell .v{ font-family:var(--display); font-weight:700; font-size:168px; line-height:1;
+    color:var(--orange-hot); }
+  .td .cell .lab{ font-size:18px; font-weight:800; letter-spacing:.28em; text-transform:uppercase;
+    color:#AEB6C2; }
+  .td .prlist{ display:flex; align-items:center; justify-content:center; gap:18px; margin-top:26px;
+    font-family:var(--display); font-size:30px; font-weight:600; text-transform:uppercase;
+    letter-spacing:.04em; }
+  .td .prlist .flag{ font:800 16px/1 var(--body); letter-spacing:.1em; color:#120701;
+    background:var(--orange-hot); border-radius:5px; padding:6px 12px; }
+
   /* ── Waiting board (live mode, no results yet) ── */
   .board.wait{ flex-direction:column; align-items:center; justify-content:center;
     text-align:center; gap:10px; }
@@ -416,6 +434,7 @@ for (const t of TEAMS){ for (const [num, full] of t.players){
    newest first. Both are rebuilt by buildDemo() or by every live refresh. */
 let DATA = {};
 let FEED = [];
+let TODAY = null;   // live mode only: {tests, kids, prs, divs, prNames} for today's submissions
 
 function buildDemo(){
   const bias = Object.fromEntries(PLAYERS.map(p => [p.id, rBetween(0.12,0.88)]));
@@ -484,7 +503,9 @@ function* schedule(){
     yield { kind:'lb', s, div: divs[ai++ % divs.length] };
     n++;
     if (n % 2 === 0){
-      const prs = FEED.filter(f=>f.isPR && (ZONE==='all' || f.s.g===ZONE));
+      // celebrate a PR for ~48h, then it retires to the record books
+      const freshPR = f => !f.t || (Date.now() - f.t.getTime()) < 172800000;
+      const prs = FEED.filter(f=>f.isPR && freshPR(f) && (ZONE==='all' || f.s.g===ZONE));
       if (prs.length) yield { kind:'pr', f: prs[pi++ % prs.length] };
     }
     if (n % 2 === 1){
@@ -496,6 +517,7 @@ function* schedule(){
       if (zoneStations().filter(x => eligible(x, div.age) && leaders(x.id, div.key).length).length >= 3)
         yield { kind:'rw', div };
     }
+    if (n % 3 === 2 && TODAY && TODAY.tests) yield { kind:'td' };
     if (n % 4 === 0 && miRows().length) yield { kind:'mi' };
   }
 }
@@ -638,6 +660,26 @@ function renderRW({div}){
   </section>`);
 }
 
+function renderTD(){
+  const t = TODAY;
+  const d = new Date();
+  const dateLabel = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'][d.getMonth()]
+    + ' ' + d.getDate();
+  const cells = [
+    ['Tests Logged', t.tests], ['Players Tested', t.kids],
+    ['New PRs', t.prs], ['Divisions', t.divs]
+  ].map(c => `<div class="cell">
+      <div class="v num" data-count="${c[1]}" data-dec="0">${c[1]}</div>
+      <div class="lab">${c[0]}</div>
+    </div>`).join('');
+  const prline = t.prNames.length
+    ? `<div class="prlist"><span class="flag">PR</span><span>${t.prNames.map(esc).join(' &#183; ')}</span></div>` : '';
+  return el(`<section class="board td">
+    <div class="hd"><h2 class="bt">Today at the Combine</h2><span class="chip org">${dateLabel}</span></div>
+    <div class="stats">${cells}</div>${prline}
+  </section>`);
+}
+
 function renderWait(){
   return el(`<section class="board wait">
     <img class="logo" alt="" src="${LOGO}">
@@ -648,7 +690,8 @@ function renderWait(){
   </section>`);
 }
 
-const RENDER = { lb:renderLB, pr:renderPR, cc:renderCC, mi:renderMI, rw:renderRW, wait:renderWait };
+const RENDER = { lb:renderLB, pr:renderPR, cc:renderCC, mi:renderMI, rw:renderRW,
+  td:renderTD, wait:renderWait };
 
 /* ════════ Board swap + motion ════════ */
 const boardsEl = document.getElementById('boards');
@@ -857,8 +900,26 @@ function applyRows(rows){
     const isPR = earlier.length > 0 && earlier.every(x => (e.v - x.v) * e.s.dir > 0);
     const prevBest = earlier.length
       ? earlier.reduce((m,x) => (x.v - m) * e.s.dir > 0 ? x.v : m, earlier[0].v) : null;
-    return { p: e.p, s: e.s, v: e.v, prev: prevBest, isPR, when: whenLabel(e.t) };
+    return { p: e.p, s: e.s, v: e.v, prev: prevBest, isPR, when: whenLabel(e.t), t: e.t };
   });
+
+  // today's summary for the "Today at the Combine" board
+  const todayEntries = entries.filter(e => whenLabel(e.t) === 'TODAY');
+  let prCount = 0; const prNames = [];
+  for (const e of todayEntries){
+    const earlier = hist[e.p.id + '|' + e.s.id].filter(x => x.t < e.t);
+    if (earlier.length && earlier.every(x => (e.v - x.v) * e.s.dir > 0)){
+      prCount++;
+      if (prNames.indexOf(e.p.name) < 0) prNames.push(e.p.name);
+    }
+  }
+  TODAY = todayEntries.length ? {
+    tests: todayEntries.length,
+    kids: new Set(todayEntries.map(e => e.p.id)).size,
+    prs: prCount,
+    divs: new Set(todayEntries.map(e => e.div.key)).size,
+    prNames: prNames.slice(0, 8)
+  } : null;
 
   DATA = newData; FEED = newFeed;
   renderTicker();
@@ -881,14 +942,21 @@ function setStatus(mode){
   else statusEl.textContent = 'OFFLINE · LAST KNOWN DATA';
 }
 
+let fetchSeq = 0;
 async function refresh(){
+  const seq = ++fetchSeq;
   try {
+    const ctl = new AbortController();
+    const kill = setTimeout(() => ctl.abort(), 20000);
     const url = SRC + (SRC.includes('?') ? '&' : '?') + 'cb=' + Date.now();
-    const r = await fetch(url, { cache: 'no-store' });
+    const r = await fetch(url, { cache: 'no-store', signal: ctl.signal });
+    const text = await r.text();
+    clearTimeout(kill);
+    if (seq !== fetchSeq) return;   // a newer poll already resolved — never roll back
     if (!r.ok) throw new Error('HTTP ' + r.status);
     // an HTML error page or renamed columns must not masquerade as LIVE
-    setStatus(applyRows(parseCSV(await r.text())) ? 'live' : 'badfeed');
-  } catch (e){ setStatus('offline'); }
+    setStatus(applyRows(parseCSV(text)) ? 'live' : 'badfeed');
+  } catch (e){ if (seq === fetchSeq) setStatus('offline'); }
 }
 
 /* ════════ Fit stage to screen ════════ */
