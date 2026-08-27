@@ -1,0 +1,105 @@
+<meta charset="utf-8">
+<meta name="robots" content="noindex,nofollow">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Aces Combine Entry</title>
+<!-- The one link coaches ever need: tap your station, the right Google Form opens.
+     Zero JavaScript on purpose - nothing here can break. -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=Inter:wght@400;600;700;800&display=swap">
+<style>
+  :root{
+    --ink:#07090C; --panel-a:#12161C; --panel-b:#0C0F14; --line:rgba(255,255,255,.12);
+    --orange:#E8530A; --orange-hot:#FF7A33; --orange-deep:#B23C05;
+    --cream:#F2EEE6; --muted:#98A1AE; --navy:#233566;
+    --display:'Oswald',sans-serif; --body:'Inter',system-ui,sans-serif;
+  }
+  *{ box-sizing:border-box; margin:0; -webkit-tap-highlight-color:transparent; }
+  body{ background:var(--ink); color:var(--cream); font-family:var(--body); min-height:100vh; }
+  body::before{ content:''; position:fixed; inset:0; pointer-events:none;
+    background:radial-gradient(700px 360px at 20% -8%, rgba(232,83,10,.12), transparent 62%); }
+  main{ position:relative; max-width:640px; margin:0 auto; padding:34px 20px 60px; }
+  .head{ display:flex; align-items:center; gap:14px; margin-bottom:6px; }
+  .head img{ width:54px; height:54px; object-fit:contain; }
+  h1{ font-family:var(--display); font-weight:700; font-size:clamp(26px,7vw,36px);
+    text-transform:uppercase; line-height:1.05; }
+  h1 em{ font-style:normal; color:var(--orange-hot); }
+  .sub{ color:var(--muted); font-weight:600; font-size:15px; margin:6px 0 26px; }
+
+  .btns{ display:flex; flex-direction:column; gap:14px; }
+  a.stn{ display:flex; align-items:center; gap:18px; text-decoration:none; color:var(--cream);
+    background:linear-gradient(180deg,var(--panel-a),var(--panel-b));
+    border:1px solid var(--line); border-radius:16px; padding:22px 22px; }
+  a.stn:active{ transform:scale(.99); }
+  a.stn .em{ font-size:34px; flex:none; width:44px; text-align:center; }
+  a.stn .t{ flex:1; }
+  a.stn .t b{ display:block; font-family:var(--display); font-weight:600; font-size:24px;
+    text-transform:uppercase; letter-spacing:.03em; line-height:1.1; }
+  a.stn .t span{ color:var(--muted); font-weight:600; font-size:14px; }
+  a.stn .go{ flex:none; font-family:var(--display); font-weight:700; font-size:22px;
+    color:var(--orange-hot); }
+  a.stn.hot{ border-color:rgba(232,83,10,.55);
+    background:linear-gradient(160deg,rgba(232,83,10,.16),rgba(232,83,10,.02) 60%),
+      linear-gradient(180deg,var(--panel-a),var(--panel-b)); }
+
+  .rules{ margin-top:30px; background:linear-gradient(180deg,var(--panel-a),var(--panel-b));
+    border:1px solid var(--line); border-radius:16px; padding:20px 22px; }
+  .rules h2{ font-family:var(--display); font-weight:600; font-size:17px; letter-spacing:.14em;
+    text-transform:uppercase; color:var(--orange-hot); margin-bottom:10px; }
+  .rules li{ margin:8px 0 8px 4px; font-size:15px; line-height:1.5; list-style:none;
+    padding-left:24px; position:relative; }
+  .rules li::before{ content:'\2713'; position:absolute; left:0; color:var(--orange-hot);
+    font-weight:800; }
+  .rules b{ font-weight:800; }
+  .rules .num{ font-family:'Roboto Mono',monospace; background:rgba(255,255,255,.07);
+    border-radius:4px; padding:0 6px; }
+  .oops{ margin-top:14px; color:var(--muted); font-size:14px; font-weight:600; line-height:1.55; }
+  .oops b{ color:var(--cream); }
+</style>
+
+<main>
+  <div class="head">
+    <img src="logo.png" alt="Delmarva Aces logo">
+    <h1>ACES COMBINE<br><em>ENTER RESULTS</em></h1>
+  </div>
+  <p class="sub">Tap your station. Pick the division, pick the kid, type the number, submit.
+    After each kid, tap &#8220;Submit another response.&#8221;</p>
+
+  <div class="btns">
+    <a class="stn hot" href="https://docs.google.com/forms/d/e/1FAIpQLSd3PLu8KbeiiFOlkjj0C2k52cTqBPeMuIyd6rnN1rx-3j7dkA/viewform">
+      <span class="em">&#128170;</span>
+      <span class="t"><b>Athletic Testing</b>
+        <span>Everyone &#183; push-ups, pull-ups, grip, jumps, runs &#8212; fill only what you ran</span></span>
+      <span class="go">&#9656;</span>
+    </a>
+    <a class="stn" href="https://docs.google.com/forms/d/e/1FAIpQLSd6doexTAul7-HDD0uw9rvw0jpYmzGrpZg_XwqRVPdgRC79QA/viewform">
+      <span class="em">&#9889;</span>
+      <span class="t"><b>Trackman Pitching</b>
+        <span>11U and up &#183; velo, spin, IVB, movement</span></span>
+      <span class="go">&#9656;</span>
+    </a>
+    <a class="stn" href="https://docs.google.com/forms/d/e/1FAIpQLSemSsrjCuK1GClNVOZ-aU4-bNrfHRWaqk9iPV9Mr4YYi_XgiQ/viewform">
+      <span class="em">&#128293;</span>
+      <span class="t"><b>Trackman Hitting</b>
+        <span>11U and up &#183; exit velo, bat speed, launch, distance</span></span>
+      <span class="go">&#9656;</span>
+    </a>
+    <a class="stn" href="https://docs.google.com/forms/d/e/1FAIpQLScuZQPov-MseW1jgkQS8-RnJeGrr_7YLeYWASMJZin7d2UJSg/viewform">
+      <span class="em">&#127919;</span>
+      <span class="t"><b>Pitch Velocity 8U&#8211;10U</b>
+        <span>Radar gun &#183; best pitch of the session</span></span>
+      <span class="go">&#9656;</span>
+    </a>
+  </div>
+
+  <div class="rules">
+    <h2>Four rules &#8212; that's all of them</h2>
+    <li><b>Best of the session</b>, not the average.</li>
+    <li><b>Jumps in inches</b> &#8212; 7'1" is <span class="num">85</span>.</li>
+    <li><b>Times in seconds</b> &#8212; like <span class="num">4.85</span>.</li>
+    <li><b>Zero is a score, blank means not tested.</b> No pull-ups yet = enter
+      <span class="num">0</span>.</li>
+    <div class="oops"><b>Typo?</b> Too low &#8212; just submit again with the right number.
+      Too high or wrong kid &#8212; text Chris and it's wiped.</div>
+  </div>
+</main>
