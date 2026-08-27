@@ -404,10 +404,7 @@ function buildDemo(){
 const statusEl = document.getElementById('status');
 function setStatus(mode){
   if (DEMO){ statusEl.textContent = 'SAMPLE DATA'; return; }
-  if (mode === 'live'){
-    const d = new Date(); const h = d.getHours() % 12 || 12;
-    statusEl.textContent = 'LIVE · ' + h + ':' + String(d.getMinutes()).padStart(2,'0');
-  }
+  if (mode === 'live') statusEl.textContent = 'LIVE';
   else if (mode === 'badfeed') statusEl.textContent = 'CHECK FEED';
   else statusEl.textContent = 'OFFLINE';
 }

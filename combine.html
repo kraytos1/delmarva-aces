@@ -932,14 +932,18 @@ function applyRows(rows){
 }
 
 const statusEl = document.getElementById('status');
+let lastSync = null;   // time of the last successful data refresh
+function syncLabel(){
+  if (!lastSync) return 'NO DATA YET';
+  const h = lastSync.getHours() % 12 || 12;
+  return 'LAST ' + h + ':' + String(lastSync.getMinutes()).padStart(2,'0');
+}
 function setStatus(mode){
   if (DEMO){ statusEl.textContent = 'SAMPLE DATA'; return; }
-  if (mode === 'live'){
-    const d = new Date(); let h = d.getHours() % 12 || 12;
-    statusEl.textContent = 'LIVE · ' + h + ':' + String(d.getMinutes()).padStart(2,'0');
-  }
-  else if (mode === 'badfeed') statusEl.textContent = 'CHECK FEED · LAST KNOWN DATA';
-  else statusEl.textContent = 'OFFLINE · LAST KNOWN DATA';
+  // healthy needs no timestamp (it would just mirror the clock); a stale feed does
+  if (mode === 'live'){ lastSync = new Date(); statusEl.textContent = 'LIVE'; }
+  else if (mode === 'badfeed') statusEl.textContent = 'CHECK FEED · ' + syncLabel();
+  else statusEl.textContent = 'OFFLINE · ' + syncLabel();
 }
 
 let fetchSeq = 0;
