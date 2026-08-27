@@ -980,6 +980,8 @@ function poke(){ demo.classList.add('show'); clearTimeout(hideT);
   hideT = setTimeout(()=>demo.classList.remove('show'), 3500); }
 addEventListener('pointermove', poke); addEventListener('pointerdown', poke);
 function setZone(z){ ZONE = z; gen = schedule(); elapsed = 0; show(gen.next().value);
+  // the zone chip is the "sign" on a filtered TV; the all-boards view needs no sign
+  document.getElementById('zonechip').style.display = z === 'all' ? 'none' : 'flex';
   document.getElementById('zonename').textContent = zoneLabel[z];
   demo.querySelectorAll('[data-zone]').forEach(b=>b.setAttribute('aria-pressed', String(b.dataset.zone===z)));
 }
