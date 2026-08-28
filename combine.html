@@ -230,6 +230,8 @@ the verdict, and DESIGN.md
   .rw .cell .v .unit{ font-size:19px; }
   .rw .cell .who{ font-family:var(--display); font-weight:500; font-size:25px; color:var(--orange-hot);
     text-transform:uppercase; letter-spacing:.05em; margin-top:4px; }
+  .rw .cell .who small{ font:800 14px var(--body); letter-spacing:.14em; color:#AEB6C2;
+    margin-left:10px; vertical-align:middle; }
 
   /* ── Today at the Combine ── */
   .td{ flex-direction:column; }
@@ -521,6 +523,8 @@ function* schedule(){
     }
     if (n % 3 === 2 && TODAY && TODAY.tests) yield { kind:'td' };
     if (n % 4 === 0 && miRows().length) yield { kind:'mi' };
+    if (n % 5 === 3 && zoneStations().some(s => PLAYERS.some(p => hasData(p, s.id))))
+      yield { kind:'br' };
   }
 }
 let gen = schedule();
@@ -692,8 +696,30 @@ function renderWait(){
   </section>`);
 }
 
+/* Building Records: the single best mark ever logged in the facility per
+   station, any division — the numbers to chase for a whole Aces career. */
+function renderBR(){
+  const cells = zoneStations().map(s => {
+    let top = null;
+    for (const p of PLAYERS){
+      if (!hasData(p, s.id)) continue;
+      const v = DATA[p.id][s.id].best;
+      if (!top || (v - top.v) * s.dir > 0) top = { p, v };
+    }
+    if (!top) return '';
+    return `<div class="cell">
+      <div class="st">${esc(s.name)}</div>
+      <div class="v num" data-count="${top.v}" data-dec="${s.dec}">${fmt(top.v,s)}<span class="unit"> ${s.unit}</span></div>
+      <div class="who">${esc(top.p.name)}<small>${divByKey[top.p.div].label}</small></div>
+    </div>`; }).filter(Boolean);
+  return el(`<section class="board rw">
+    <div class="hd"><h2 class="bt">Building Records</h2><span class="chip org">EVERY DIVISION</span></div>
+    <div class="grid" style="grid-template-columns:repeat(${cells.length>6?3:2},1fr)">${cells.join('')}</div>
+  </section>`);
+}
+
 const RENDER = { lb:renderLB, pr:renderPR, cc:renderCC, mi:renderMI, rw:renderRW,
-  td:renderTD, wait:renderWait };
+  td:renderTD, wait:renderWait, br:renderBR };
 
 /* ════════ Board swap + motion ════════ */
 const boardsEl = document.getElementById('boards');
