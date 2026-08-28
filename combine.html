@@ -660,9 +660,10 @@ function renderRW({div}){
       <div class="v num" data-count="${top.v}" data-dec="${s.dec}">${fmt(top.v,s)}<span class="unit"> ${s.unit}</span></div>
       <div class="who">${esc(top.p.name)}</div>
     </div>`; }).join('');
+  const cols = sts.length > 12 ? 4 : sts.length > 6 ? 3 : 2;
   return el(`<section class="board rw">
     <div class="hd"><h2 class="bt">Facility Records</h2><span class="chip">${div.label}</span></div>
-    <div class="grid" style="grid-template-columns:repeat(${sts.length>6?3:2},1fr)">${cells}</div>
+    <div class="grid" style="grid-template-columns:repeat(${cols},1fr)">${cells}</div>
   </section>`);
 }
 
@@ -712,9 +713,10 @@ function renderBR(){
       <div class="v num" data-count="${top.v}" data-dec="${s.dec}">${fmt(top.v,s)}<span class="unit"> ${s.unit}</span></div>
       <div class="who">${esc(top.p.name)}<small>${divByKey[top.p.div].label}</small></div>
     </div>`; }).filter(Boolean);
+  const cols = cells.length > 12 ? 4 : cells.length > 6 ? 3 : 2;
   return el(`<section class="board rw">
     <div class="hd"><h2 class="bt">Building Records</h2><span class="chip org">EVERY DIVISION</span></div>
-    <div class="grid" style="grid-template-columns:repeat(${cells.length>6?3:2},1fr)">${cells.join('')}</div>
+    <div class="grid" style="grid-template-columns:repeat(${cols},1fr)">${cells.join('')}</div>
   </section>`);
 }
 
