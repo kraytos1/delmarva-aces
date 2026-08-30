@@ -200,6 +200,17 @@ async function generate(){
     if(!pitchers.length) pitchers=allPitchers;
     pitchers.sort(function(a,b){return b.score-a.score;});
     var threat=threatOf(t.base,(thrRes.data||[]));
+    // Coach tier override (opp_teams.coach_tier) — the game plan should frame
+    // the opponent the way the coach reads them, not the way the formula does.
+    // The threat number stays computed; the chip gets a ⚑ marker.
+    if(threat){ try{
+      var ovr = await db.from('opp_teams').select('coach_tier').in('id', t.ids).not('coach_tier','is',null).limit(1);
+      if(ovr.data && ovr.data.length && ovr.data[0].coach_tier && ovr.data[0].coach_tier !== threat.tier){
+        threat.computedTier = threat.tier;
+        threat.tier = ovr.data[0].coach_tier;
+        threat.coachCall = true;
+      }
+    }catch(e){} }
     // Compact snapshot for the AI game-plan endpoint (top threats only).
     window._lastScout = {
       opponent: {
@@ -220,7 +231,9 @@ function flagsHtml(flags){ return '<div class="flags">'+flags.map(function(f){re
 
 function render(t,threat,hitters,pitchers){
   var topH=hitters.slice(0,6), topP=pitchers.slice(0,4);
-  var tierChip = threat ? '<span class="tier tier-'+threat.tier+'">'+threat.tier+' <span class="ts">· '+threat.threat+'</span></span>' : '';
+  var tierChip = threat ? '<span class="tier tier-'+threat.tier+'"'
+    + (threat.coachCall ? ' title="Coach call — the formula says '+threat.computedTier+'"' : '')
+    + '>'+threat.tier+(threat.coachCall?' ⚑':'')+' <span class="ts">· '+threat.threat+'</span></span>' : '';
   var statLine = threat ? '<div class="rpt-line">'
       + '<div class="rpt-stat"><b>'+threat.w+'–'+threat.l+'</b><span>Record</span></div>'
       + '<div class="rpt-stat"><b>'+(threat.rd>=0?'+':'')+threat.rd+'</b><span>Run Diff</span></div>'

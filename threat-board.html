@@ -749,6 +749,23 @@
       const rowsRaw = await fetchThreatRows(currentTournamentCode);
       computedRows = rowsRaw.map(normalizeRow);
 
+      // Coach tier overrides (opp_teams.coach_tier): real-world judgment beats
+      // the formula for teams we know. The threat NUMBER stays computed — only
+      // the tier chip changes, marked ⚑ so the board never lies about which is
+      // data and which is the coach's call.
+      try {
+        const ov = await db.from("opp_teams").select("team_name,coach_tier").not("coach_tier","is",null);
+        const map = {};
+        (ov.data || []).forEach(r => map[r.team_name] = r.coach_tier);
+        computedRows.forEach(r => {
+          if (map[r.team] && map[r.team] !== r.tier) {
+            r.computedTier = r.tier;
+            r.tier = map[r.team];
+            r.coachCall = true;
+          }
+        });
+      } catch (e) { /* overrides are optional — the computed board stands */ }
+
       const fieldCount = computedRows.length;
       const totalRows = computedRows.length;
 
@@ -1110,7 +1127,8 @@
       const tdTier = document.createElement("td");
       const tierSpan = document.createElement("span");
       tierSpan.className = "tier-chip tier-" + r.tier;
-      tierSpan.textContent = r.hasData ? r.tier : "NO DATA";
+      tierSpan.textContent = (r.hasData ? r.tier : "NO DATA") + (r.coachCall ? " ⚑" : "");
+      if (r.coachCall) tierSpan.title = "Coach call — the formula says " + r.computedTier + " (" + fmtInt(r.threat) + ")";
       tdTier.appendChild(tierSpan);
 
       tr.appendChild(tdTeam);
