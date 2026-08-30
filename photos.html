@@ -97,11 +97,11 @@ select.psel:focus{border-color:var(--orange);}
 
   <div id="msgArea"></div>
 
-  <!-- Coach-only upload. The gallery itself stays open so families can browse. -->
-  <div class="unlock" id="unlockBox" style="display:none;">
-    <span>🔒 Coach? Enter the PIN to add photos.</span>
-    <input id="pinInput" type="password" inputmode="numeric" maxlength="4" placeholder="••••"/>
-    <button class="btn ghost" onclick="tryUnlock()">Unlock</button>
+  <!-- Anyone in the family can add photos; deleting stays coach-only (the
+       same 7-day PIN unlock every coach page shares). -->
+  <div class="unlock" id="addRow">
+    <span>📸 Got shots from the game? Add them for everyone.</span>
+    <button class="btn" onclick="openUp()">Add photos</button>
   </div>
 
   <div class="up" id="upBox" style="display:none;">
@@ -173,28 +173,20 @@ var MAX_DIM = 1600, JPEG_Q = 0.82;   // ~250-400KB/photo keeps the free tier com
 
 var PHOTOS = [], PLAYERS = {}, state = {cat:'all'}, lbIdx = -1, lbList = [];
 
-/* ── coach gate (view is public; only uploading is gated) ── */
+/* ── uploads are open to every family; the coach PIN (shared 7-day unlock
+   from any coach page) only reveals the delete buttons for moderation ── */
 function isCoach(){
   try{ var s = JSON.parse(localStorage.getItem(PIN_KEY)||'{}');
        return !!(s.ts && (Date.now()-s.ts) < PIN_MS); }catch(e){ return false }
 }
 function applyCoachUI(){
-  var coach = isCoach();
-  document.getElementById('upBox').style.display   = coach ? 'block' : 'none';
-  document.getElementById('unlockBox').style.display = coach ? 'none' : 'flex';
-  document.getElementById('wrap').classList.toggle('coach', coach);
+  document.getElementById('wrap').classList.toggle('coach', isCoach());
 }
-function tryUnlock(){
-  var v = (document.getElementById('pinInput').value||'').trim();
-  if(v === String(ACES_CONFIG.pin)){
-    localStorage.setItem(PIN_KEY, JSON.stringify({ts:Date.now()}));
-    applyCoachUI(); render();
-  } else {
-    msg('err','That PIN didn\'t match.');
-    document.getElementById('pinInput').value = '';
-  }
+function openUp(){
+  document.getElementById('upBox').style.display='block';
+  document.getElementById('addRow').style.display='none';
 }
-function lockUp(){ document.getElementById('upBox').style.display='none'; document.getElementById('unlockBox').style.display='flex'; }
+function lockUp(){ document.getElementById('upBox').style.display='none'; document.getElementById('addRow').style.display='flex'; }
 function msg(cls, text){
   document.getElementById('msgArea').innerHTML = text ? '<div class="msg '+cls+'">'+text+'</div>' : '';
   if(text) setTimeout(function(){ var m=document.getElementById('msgArea'); if(m) m.innerHTML=''; }, 6000);
