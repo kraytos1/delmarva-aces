@@ -1035,7 +1035,7 @@ async function init() {
           var { data: nextGames } = await db
             .from('games')
             .select('id,game_date,our_score,opp_score,status,tournament,location,is_home,opponent_id,game_time')
-            .eq('status', 'scheduled')
+            .eq('status', 'scheduled').neq('season', '__test__')
             .gte('game_date', new Date().toISOString().split('T')[0])
             .order('game_date').limit(1)
           if (nextGames && nextGames.length) {
@@ -1871,7 +1871,7 @@ async function loadUpcoming() {
     var today = new Date(); var ymd = today.getFullYear()+'-'+String(today.getMonth()+1).padStart(2,'0')+'-'+String(today.getDate()).padStart(2,'0')
     var {data} = await db.from('games')
       .select('id,game_date,game_time,location,tournament,is_home,opponents(name)')
-      .eq('status','scheduled').gte('game_date', ymd)
+      .eq('status','scheduled').neq('season','__test__').gte('game_date', ymd)
       .order('game_date').limit(20)
     window._upcomingGames = data || []
     if (window._upcomingGames.length) renderSchedule()

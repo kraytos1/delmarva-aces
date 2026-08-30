@@ -309,7 +309,7 @@ async function loadFullGames(){
   try{
     var res = await db.from('games')
       .select('id, game_date, our_score, opp_score, is_home, youtube_stream_id, opponents(name)')
-      .not('youtube_stream_id','is',null)
+      .not('youtube_stream_id','is',null).neq('season','__test__')
       .order('game_date',{ascending:false});
     if(res.error) throw res.error;
     var games = res.data || [];
@@ -336,26 +336,26 @@ async function init(){
   try{
     // Hitting highlights — our batter's positive plays (hit/walk/hbp, not K/DP).
     var hitRes = await db.from('at_bats')
-      .select('id,result,rbi,inning,half,yt_offset_sec,created_at, players!batter_id(first_name,last_name,jersey_num), games(game_date, youtube_stream_id, opponents(name))')
+      .select('id,result,rbi,inning,half,yt_offset_sec,created_at, players!batter_id(first_name,last_name,jersey_num), games(game_date, youtube_stream_id, season, opponents(name))')
       .not('batter_id','is',null)
       .neq('clip_status','none').not('yt_offset_sec','is',null)
       .order('created_at',{ascending:false});
     if(hitRes.error) throw hitRes.error;
     var hitting = (hitRes.data || []).filter(function(ab){
       var grp = (RESULT[ab.result]||{}).grp;
-      return ab.games && ab.games.youtube_stream_id && grp !== 'k';
+      return ab.games && ab.games.youtube_stream_id && ab.games.season !== '__test__' && grp !== 'k';
     });
 
     // Pitching highlights — our pitcher striking out the opponent (batter_id null,
     // attributed via aces_pitcher_id). Player shown = the pitcher.
     var pitRes = await db.from('at_bats')
-      .select('id,result,rbi,inning,half,yt_offset_sec,created_at, players!aces_pitcher_id(first_name,last_name,jersey_num), games(game_date, youtube_stream_id, opponents(name))')
+      .select('id,result,rbi,inning,half,yt_offset_sec,created_at, players!aces_pitcher_id(first_name,last_name,jersey_num), games(game_date, youtube_stream_id, season, opponents(name))')
       .is('batter_id',null).not('aces_pitcher_id','is',null)
       .in('result',['strikeout_looking','strikeout_swinging'])
       .neq('clip_status','none').not('yt_offset_sec','is',null)
       .order('created_at',{ascending:false});
     if(pitRes.error) throw pitRes.error;
-    var pitching = (pitRes.data || []).filter(function(ab){ return ab.games && ab.games.youtube_stream_id; });
+    var pitching = (pitRes.data || []).filter(function(ab){ return ab.games && ab.games.youtube_stream_id && ab.games.season !== '__test__'; });
     pitching.forEach(function(ab){ ab._kind = 'pitching'; });
 
     // Defensive highlights — outs where the scorer tagged the fielders.
@@ -363,10 +363,10 @@ async function init(){
     var defense = [];
     try {
       var defRes = await db.from('at_bats')
-        .select('id,result,fielder_ids,inning,half,yt_offset_sec,created_at, games(game_date, youtube_stream_id, opponents(name))')
+        .select('id,result,fielder_ids,inning,half,yt_offset_sec,created_at, games(game_date, youtube_stream_id, season, opponents(name))')
         .not('fielder_ids','is',null).not('yt_offset_sec','is',null)
         .order('created_at',{ascending:false});
-      var defRows = (defRes.data || []).filter(function(ab){ return ab.games && ab.games.youtube_stream_id && (ab.fielder_ids||[]).length; });
+      var defRows = (defRes.data || []).filter(function(ab){ return ab.games && ab.games.youtube_stream_id && ab.games.season !== '__test__' && (ab.fielder_ids||[]).length; });
       if(defRows.length){
         var ros = await db.from('players').select('id,first_name,last_name,jersey_num');
         var byId = {};

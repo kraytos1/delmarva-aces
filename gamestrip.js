@@ -85,7 +85,7 @@
     try {
       var live = await db.from('games')
         .select('id,our_score,opp_score,inning,half,opponents(name)')
-        .eq('status', 'live').limit(1);
+        .eq('status', 'live').neq('season', '__test__').limit(1);
       if (live.data && live.data.length) {
         var g = live.data[0];
         var innTxt = (g.half === 'bottom' ? 'Bot' : 'Top') + ' ' + (g.inning || 1);
@@ -101,7 +101,7 @@
         String(today.getMonth() + 1).padStart(2, '0') + '-' + String(today.getDate()).padStart(2, '0');
       var next = await db.from('games')
         .select('id,game_date,game_time,location,opponents(name)')
-        .eq('status', 'scheduled').gte('game_date', ymd)
+        .eq('status', 'scheduled').neq('season', '__test__').gte('game_date', ymd)
         .order('game_date').order('game_time', { nullsFirst: false }).limit(1);
       if (!next.data || !next.data.length) { render(''); return; }
       var n = next.data[0];

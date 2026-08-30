@@ -586,7 +586,10 @@ async function loadLiveGame() {
     // live_game_summary doesn't expose base_1b/2b/3b (or is_home) — pull those
     // directly from the underlying table instead of relying on the view.
     try {
-      var {data:baseRow} = await db.from('games').select('base_1b,base_2b,base_3b,is_home').eq('id', game.id).single()
+      var {data:baseRow} = await db.from('games').select('base_1b,base_2b,base_3b,is_home,season').eq('id', game.id).single()
+      // the view doesn't expose season either — a '__test__' dry run must not
+      // reach families as a live gamecast
+      if (baseRow && baseRow.season === '__test__') { await loadNextGame(); return }
       if (baseRow) { game.base_1b = baseRow.base_1b; game.base_2b = baseRow.base_2b; game.base_3b = baseRow.base_3b; game.is_home = baseRow.is_home }
     } catch(e) {}
     liveGame = game
@@ -736,7 +739,7 @@ async function loadNextGame() {
   try {
     var today = new Date().toISOString().split('T')[0]
     var {data} = await db.from('games').select('*,opponents(name)')
-      .eq('status','scheduled').gte('game_date',today).order('game_date').limit(1)
+      .eq('status','scheduled').neq('season','__test__').gte('game_date',today).order('game_date').limit(1)
     if (!data || !data.length) return
     var g = data[0]
     var opp = g.opponents?.name || 'TBD'
