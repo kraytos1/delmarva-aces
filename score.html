@@ -991,6 +991,17 @@ async function applyOppPitch(){
 function oppAddRow(){ S.oppLineup=S.oppLineup||[]; S.oppLineup.push({name:'',position:'',battingOrder:S.oppLineup.length+1}); renderSubs() }
 async function applyOppBat(){
   logSub('opp-batting-sub',{playerName:'opponent lineup edited'})
+  // Entering the opponent's order progressively — a number at a time, as each
+  // hitter steps in (the sidelineHD habit) — grows the list mid-cycle, which
+  // strands the rotation pointer on stale modulo math. Re-derive it from how
+  // many opponent PAs are actually in the book, same math resume uses, so the
+  // entry just added for the batter AT THE PLATE is the one that shows.
+  try{
+    var _brEvents='(stolen_base,wp_advance,pb_advance,balk_advance,caught_stealing,pickoff_1b,pickoff_2b,pickoff_3b,out_advancing)'
+    var {count:_oc}=await db.from('at_bats').select('id',{count:'exact',head:true})
+      .eq('game_id',S.gameId).is('batter_id',null).not('result','in',_brEvents)
+    if(S.oppLineup.length) S.currentOppBatterIdx=(_oc||0)%S.oppLineup.length
+  }catch(e){}
   updateBatterDisplay()
   closeSubs(); await saveNotes()
   showToast('Opponent updated ✓')
@@ -1269,11 +1280,12 @@ async function startScoring() {
   // clock (and the wall-clock clip-offset fallback) with nothing to measure from.
   var startedAt = g.stream_start_utc || new Date().toISOString()
   S.game.stream_start_utc = startedAt
-  // The game clock runs from when scoring started, NOT from stream_start_utc —
-  // syncStreamMeta may rewind that to the broadcast's actual start, and the
-  // camera often rolls well before first pitch. Notes may hold the persisted
-  // value from a previous session (restored in LOAD LINEUP below).
-  S.scoringStartUtc = startedAt
+  // The game clock waits for the FIRST PITCH (markClockStart), not Start
+  // Scoring — starting the scorer early is the recommended way to hand the
+  // stream to waiting families, and that must not start the tournament
+  // clock. Notes may hold the persisted value from a previous session
+  // (restored in LOAD LINEUP below); until then the clock stays blank.
+  S.scoringStartUtc = null
   await db.from('games').update({status:'live',stream_start_utc:startedAt}).eq('id',gid)
   // Ping subscribed families exactly once per game — only on the FIRST
   // transition to live (a mid-game reload must not re-notify; the server
@@ -1354,14 +1366,8 @@ async function startScoring() {
       }
     } catch(e) { console.log('Lineup parse error:', e) }
   }
-  // First start: persist the scoring start now, before syncStreamMeta can
-  // rewind stream_start_utc — otherwise a mid-game reload with no sub logged
-  // would restart the game clock from the (earlier) broadcast start.
-  try{
-    var hadScoringStart = false
-    try{ hadScoringStart = !!JSON.parse(g.notes||'{}').scoring_start_utc }catch(e){}
-    if(!hadScoringStart) saveNotes()
-  }catch(e){}
+  // (The scoring start is no longer persisted here — markClockStart() stamps
+  // and saves it at the first recorded pitch instead.)
 
   // Initialize per-pitcher pitch counts from the DB (correct on resume / reload).
   try {
@@ -1586,6 +1592,7 @@ async function quickLog(result) {
     if (result === _lastPitchTap.r && _pt - _lastPitchTap.t < 300) return
     _lastPitchTap = { t: _pt, r: result }
   }
+  markClockStart()   // the first recorded pitch starts the tournament clock
   if (!IN_LOGAB){ hideD3K(); hideBaseCheck() }   // a new pitch invalidates pending offers
   // Save state before this pitch for undo — unless we're inside logAB, whose
   // own pre-mutation snapshot already owns this action's history entry
@@ -1694,6 +1701,7 @@ async function logAB(result, label, skipPitchLog, fromAuto, runnerId) {
   var _dtNow = Date.now()
   if(!fromAuto && _dtNow - (window._lastLogAB||0) < 450) return
   window._lastLogAB = _dtNow
+  markClockStart()   // covers a first play logged without a pitch (e.g. quick walk)
   hideD3K(); hideBaseCheck()   // any new action invalidates pending offers
   // Baserunner-only events happen mid at-bat: the batter currently up stays
   // up. They should not advance the lineup, not reset the batter's own
@@ -2653,12 +2661,20 @@ async function sprayType(t){
 }
 
 // ── GAME CLOCK (tap to set a tournament time limit) ──────────
+// Starts at the FIRST PITCH, stamped by markClockStart() — never at Start
+// Scoring (which is now encouraged early, to hand the stream to waiting
+// families) and never at stream start (the camera rolls well before play).
+// Blank until then; there's nothing honest to show pre-game.
+function markClockStart(){
+  if(!S.gameId || S.scoringStartUtc) return
+  S.scoringStartUtc = new Date().toISOString()
+  renderClock()
+  saveNotes()   // fire-and-forget so a mid-game reload keeps the true start
+}
 var _timeLimitMin = null
 function renderClock(){
   var el = document.getElementById('game-clock'); if(!el) return
-  // Scoring start, not stream start — stream_start_utc is the broadcast's
-  // actual start (API-corrected), which can run long before first pitch.
-  var st = S.scoringStartUtc || (S.game && S.game.stream_start_utc)
+  var st = S.scoringStartUtc
   if(!S.gameId || !st){ el.textContent = ''; return }
   var sec = Math.max(0, Math.floor((Date.now() - new Date(st)) / 1000))
   var h = Math.floor(sec/3600), m = Math.floor((sec%3600)/60)
