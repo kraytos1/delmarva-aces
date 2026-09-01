@@ -98,6 +98,22 @@
     display:flex;align-items:center;justify-content:center;font-family:var(--display);font-size:15px;color:var(--muted);text-decoration:none;}
   .hero-face:hover{transform:translateY(-3px);border-color:var(--orange);}
   .hero-face:focus-visible{transform:translateY(-3px);border-color:var(--orange);}
+  /* Wide desktops only: the arc (full-hero SVG, crest ≈59% w / 25% h) peaks
+     over the empty right half while the faces crowd the 780px text column.
+     Re-anchor the squad centered under the crest — both are positioned
+     against .hero, so the pairing holds at any width ≥ the gate. Laptops,
+     tablets and phones keep the stacked layout untouched. */
+  @media(min-width:1600px) and (min-height:760px){
+    /* the whole ancestor chain must stay static so .hero is the containing block */
+    .hero-content,.hero-lede,.hero-lede-right{position:static;}
+    .hero-content>*,.hero-record,.hero-title{position:relative;z-index:2;} /* text above bg/glow/arc */
+    .hero-lede{position:static;}                    /* re-assert over the >* rule   */
+    /* centered by calc, NOT translateX — the aces-fade-up entrance animation
+       fills forwards and owns this element's transform for good */
+    .hero-faces{position:absolute;left:calc(59.2% - 270px);top:26%;width:540px;
+      justify-content:center;z-index:2;}
+    .hero-face{width:66px;}
+  }
   .hero-stats{display:flex;border:1px solid var(--bdr);border-radius:10px;overflow:hidden;width:fit-content;margin-bottom:40px;background:var(--dark2);}
   .hero-stat{padding:16px 28px;border-right:1px solid var(--bdr);}
   .hero-stat:last-child{border-right:none;}
