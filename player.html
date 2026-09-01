@@ -304,6 +304,16 @@ nav{background:rgba(10,12,14,.95);border-bottom:1px solid var(--bdr);display:fle
       <div class="pitch-grid" id="pitching-stats"></div>
     </div>
 
+    <!-- COMBINE (offseason facility testing; appears once this kid has results) -->
+    <div class="section" id="combine-section" style="display:none;">
+      <div class="section-title">Combine · Offseason</div>
+      <div class="stats-grid" id="combine-stats"></div>
+      <div style="margin-top:10px;font-size:12px;color:var(--muted);">
+        Live from facility testing · best marks shown ·
+        <a href="compare.html" style="color:var(--orange);text-decoration:none;">head-to-head &amp; trends &rarr;</a>
+      </div>
+    </div>
+
     <!-- HIGHLIGHT CLIPS -->
     <div class="section">
       <div class="section-title">Highlights</div>
@@ -454,6 +464,7 @@ async function init() {
   loadPlayerClips(p.id)
   loadPlayerPhotos(p.id)
   loadSprayChart(p.id)
+  loadCombine(p)
   renderPhotoLib()
 
   document.getElementById('loading').style.display = 'none'
@@ -524,6 +535,104 @@ async function loadPlayerPhotos(playerId) {
 
 // Fill the Highlights section with this player's clips (or keep the
 // "coming soon" placeholder), plus a link to the full team reel.
+// ─── Combine (offseason facility testing) ────────────────────────────────
+// Reads the same published Results feed the facility TVs use. 13U East only:
+// rows match on division + team + jersey number, so combine name spellings
+// never have to agree with the site roster. Section stays hidden until this
+// kid has at least one logged result.
+var COMBINE_CSV = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTOx0py80kbfpe43IlhJFlMnZT2ZO38KYffmwLZBcSaMEHG_GPUoRBzLXOMLJAonQ3syTDL0Fui4EBU/pub?gid=0&single=true&output=csv'
+var COMBINE_STATIONS = {
+  fb:   {n:'Pitch Velo',   u:'MPH',  d:1, dir:1},
+  spin: {n:'Spin Rate',    u:'RPM',  d:0, dir:1},
+  ivb:  {n:'IVB (FB)',     u:'IN',   d:1, dir:1},
+  mvmt: {n:'Movement',     u:'IN',   d:1, dir:1},
+  ev:   {n:'Exit Velo',    u:'MPH',  d:1, dir:1},
+  bat:  {n:'Bat Speed',    u:'MPH',  d:1, dir:1},
+  la:   {n:'Launch Angle', u:'DEG',  d:0, dir:1},
+  dist: {n:'Max Distance', u:'FT',   d:0, dir:1},
+  push: {n:'Push-Ups',     u:'REPS', d:0, dir:1},
+  pull: {n:'Pull-Ups',     u:'REPS', d:0, dir:1},
+  grip: {n:'Grip',         u:'LBS',  d:0, dir:1},
+  broad:{n:'Broad Jump',   u:'IN',   d:0, dir:1},
+  vert: {n:'Vertical',     u:'IN',   d:1, dir:1},
+  shut: {n:'5-10-5',       u:'SEC',  d:2, dir:-1},
+  dash: {n:'30-Yd Dash',   u:'SEC',  d:2, dir:-1},
+  split:{n:'10-Yd Split',  u:'SEC',  d:2, dir:-1}
+}
+var COMBINE_ORDER = ['fb','spin','ivb','mvmt','ev','bat','la','dist',
+                     'push','pull','grip','broad','vert','shut','dash','split']
+
+function combineParseCSV(text){
+  var rows = [], row = [], cur = '', inQ = false
+  for (var i = 0; i < text.length; i++){
+    var ch = text[i]
+    if (inQ){
+      if (ch === '"'){ if (text[i+1] === '"'){ cur += '"'; i++ } else inQ = false }
+      else cur += ch
+    }
+    else if (ch === '"') inQ = true
+    else if (ch === ','){ row.push(cur); cur = '' }
+    else if (ch === '\n'){ row.push(cur); rows.push(row); row = []; cur = '' }
+    else if (ch !== '\r') cur += ch
+  }
+  if (cur !== '' || row.length){ row.push(cur); rows.push(row) }
+  return rows
+}
+
+async function loadCombine(p){
+  try {
+    var res = await fetch(COMBINE_CSV + '&cb=' + Date.now(), {cache:'no-store'})
+    if (!res.ok) return
+    var rows = combineParseCSV(await res.text())
+    if (rows.length < 2) return
+    var head = rows[0].map(function(h){ return String(h).trim() })
+    var iT = head.indexOf('Timestamp'), iD = head.indexOf('Division'),
+        iTm = head.indexOf('Team'), iJ = head.indexOf('Jersey'),
+        iS = head.indexOf('Station'), iV = head.indexOf('Value')
+    if (iT < 0 || iD < 0 || iTm < 0 || iJ < 0 || iS < 0 || iV < 0) return
+
+    var mine = {}
+    for (var r = 1; r < rows.length; r++){
+      var row = rows[r]
+      if (!row || !row[iJ]) continue
+      if (String(row[iD]).trim() !== '13U') continue
+      if (String(row[iTm]).trim().toLowerCase() !== 'east') continue
+      if (String(row[iJ]).trim() !== String(p.jerseyNum)) continue
+      var sid = String(row[iS]).trim()
+      if (!COMBINE_STATIONS[sid]) continue
+      var v = parseFloat(row[iV])
+      if (!isFinite(v)) continue
+      var t = new Date(row[iT])
+      if (isNaN(t)) t = new Date()
+      ;(mine[sid] = mine[sid] || []).push({t:t, v:v})
+    }
+
+    var sids = COMBINE_ORDER.filter(function(id){ return mine[id] })
+    if (!sids.length) return
+
+    var html = sids.map(function(id){
+      var s = COMBINE_STATIONS[id]
+      var list = mine[id].sort(function(a,b){ return a.t - b.t })
+      var best = list.reduce(function(m,e){ return (e.v - m) * s.dir > 0 ? e.v : m }, list[0].v)
+      var latest = list[list.length - 1]
+      var isPR = list.length > 1 && latest.v === best
+      var sub
+      if (list.length < 2){
+        sub = 'tested ' + (latest.t.getMonth()+1) + '/' + latest.t.getDate()
+      } else {
+        var chg = latest.v - list[0].v
+        sub = list.length + ' sessions · ' + (chg >= 0 ? '+' : '−') + Math.abs(chg).toFixed(s.d) + ' ' + s.u
+      }
+      if (isPR) sub += ' · <b style="color:var(--orange)">PR</b>'
+      return sc(s.n, best.toFixed(s.d) +
+        ' <span style="font-size:13px;color:var(--muted)">' + s.u + '</span>', sub, isPR)
+    }).join('')
+
+    document.getElementById('combine-stats').innerHTML = html
+    document.getElementById('combine-section').style.display = 'block'
+  } catch(e) {}
+}
+
 // Spray chart — every batted ball the scorer marked a landing spot for.
 // hit_x/hit_y are normalized 0-1 in the scorer field's 200x200 viewBox, so
 // this SVG uses the same geometry (plate at 100,185). Hidden when no data.
