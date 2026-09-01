@@ -547,19 +547,56 @@ async function init() {
   setInterval(updateCountdown, 30000)
 }
 
+// Finding the stream costs wildly different amounts depending on how you ask
+// YouTube. A channel SEARCH costs 100 quota units of the team's shared 10,000
+// per day — and it used to run FIRST, in every viewer's browser, on every
+// load, every 2 minutes until found. A big-crowd game day could empty the
+// card, and an empty card degrades clip timing for the rest of the day.
+// Order now: (1) the id already on the game row — free, the scorer saves it
+// at Start Scoring; (2) a fresh read of the live row — free, catches the
+// scorer linking the video after this page loaded; (3) the search, at most
+// ONCE per page load, and whoever finds the stream writes the id BACK to the
+// game row so every other viewer takes the free path.
+var _ytSearched = false
 async function checkYouTubeLive() {
+  if (liveGame && liveGame.youtube_stream_id) {
+    showStream(liveGame.youtube_stream_id); return
+  }
+  try {
+    if (db) {
+      var {data:lg} = await db.from('games').select('id,youtube_stream_id')
+        .eq('status','live').limit(1).maybeSingle()
+      if (lg && lg.youtube_stream_id) {
+        if (liveGame && liveGame.id === lg.id) liveGame.youtube_stream_id = lg.youtube_stream_id
+        showStream(lg.youtube_stream_id); return
+      }
+    }
+  } catch(e) {}
+  if (_ytSearched) return   // the 2-min retries ride the free DB path only
   if (YT_API_KEY && YT_API_KEY !== 'YOUR_YT_API_KEY') {
+    _ytSearched = true
     try {
       var url = 'https://www.googleapis.com/youtube/v3/search?part=snippet&channelId='+YT_CHANNEL_ID+'&type=video&eventType=live&key='+YT_API_KEY
       var res = await fetch(url)
       var data = await res.json()
       if (data.items && data.items.length > 0) {
-        showStream(data.items[0].id.videoId); return
+        var vid = data.items[0].id.videoId
+        showStream(vid)
+        // first-viewer-pays: persist so nobody else needs the expensive ask
+        try {
+          if (db) {
+            var targetId = (liveGame && liveGame.id) || null
+            if (!targetId) {
+              var today = new Date().toISOString().split('T')[0]
+              var {data:ng} = await db.from('games').select('id')
+                .eq('status','scheduled').eq('game_date',today).limit(1).maybeSingle()
+              if (ng) targetId = ng.id
+            }
+            if (targetId) await db.from('games').update({youtube_stream_id: vid}).eq('id', targetId)
+          }
+        } catch(e2) {}
       }
     } catch(e) {}
-  }
-  if (liveGame && liveGame.youtube_stream_id) {
-    showStream(liveGame.youtube_stream_id)
   }
 }
 
