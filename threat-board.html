@@ -80,12 +80,9 @@
     /* --- Layout --- */
     .layout {
       display: grid;
-      grid-template-columns: minmax(0, 2fr) minmax(280px, 1fr);
+      grid-template-columns: minmax(0, 1fr);
       gap: 1rem;
       align-items: flex-start;
-    }
-    @media (max-width: 1100px) {
-      .layout { grid-template-columns: minmax(0, 1fr); }
     }
 
     .card {
@@ -224,10 +221,6 @@
     .tier-SOLID { border-color: var(--solid); background: rgba(202,138,4,0.14); color: #fef3c7; }
     .tier-UNDERDOG { border-color: var(--underdog); background: rgba(31,41,55,0.9); color: #F0EDE8; }
 
-    .watch-list-title { font-size: 0.85rem; font-weight: 600; margin-bottom: 0.25rem; }
-    .watch-list-item { margin-bottom: 0.5rem; font-size: 0.78rem; }
-    .watch-list-item strong { font-size: 0.8rem; }
-    .watch-list-meta { color: var(--text-muted); font-size: 0.75rem; }
 
     .tier-breakdown { font-size: 0.76rem; margin-top: 0.35rem; }
     .tier-breakdown span { margin-right: 0.5rem; }
@@ -288,6 +281,8 @@
           <span class="pill pill-tier-solid"><span class="pill-dot"></span>Solid</span>
           <span class="pill pill-tier-underdog"><span class="pill-dot"></span>Underdog</span>
         </div>
+        <!-- field tier counts (was the sidebar's "Tier breakdown") -->
+        <div class="tier-breakdown" id="tierBreakdown"></div>
       </div>
     </div>
 
@@ -316,36 +311,6 @@
     </div>
   </section>
 
-  <aside class="card">
-    <div class="card-header">
-      <div>
-        <h2>Watch List</h2>
-        <div class="card-subtitle">Top threats and tier breakdown.</div>
-      </div>
-    </div>
-
-    <div class="watch-list">
-      <div class="watch-list-title">Top 3 non-Aces teams by Threat Score</div>
-      <div id="watchListContainer"></div>
-    </div>
-
-    <hr style="border:none;border-top:1px solid #1F242C;margin:0.9rem 0;" />
-
-    <div>
-      <div class="watch-list-title">Tier breakdown</div>
-      <div class="tier-breakdown" id="tierBreakdown"></div>
-    </div>
-
-    <hr style="border:none;border-top:1px solid #1F242C;margin:0.9rem 0;" />
-
-    <div>
-      <div class="watch-list-title">Tournament power rankings</div>
-      <div class="watch-list-meta" id="powerListMeta">
-        Based on avg Threat and Elite/Strong team density (field only).
-      </div>
-      <div id="powerList" class="tier-breakdown" style="margin-top:0.35rem;"></div>
-    </div>
-  </aside>
 </main>
 
 <!-- ══ FIELD HEAD-TO-HEAD & COMMON OPPONENTS (strength-of-schedule context) ══ -->
@@ -569,10 +534,7 @@
   const statusText = document.getElementById("statusText");
   const threatTableBody = document.getElementById("threatTableBody");
   const tournamentMeta = document.getElementById("tournamentMeta");
-  const watchListContainer = document.getElementById("watchListContainer");
   const tierBreakdown = document.getElementById("tierBreakdown");
-  const powerList = document.getElementById("powerList");
-  const powerListMeta = document.getElementById("powerListMeta");
 
   let tournaments = [];
   let currentTournamentCode = null;
@@ -701,7 +663,6 @@
     tournamentSelect.addEventListener("change", () => {
       currentTournamentCode = tournamentSelect.value;
       loadTournamentRows();
-      buildTournamentPowerRankings();
     });
 
     sortSelect.addEventListener("change", () => {
@@ -712,7 +673,6 @@
     minGamesInput.addEventListener("change", () => applyFiltersAndRender());
     includeAllTeamsToggle.addEventListener("change", () => {
       loadTournamentRows();
-      buildTournamentPowerRankings();
     });
 
     document.querySelectorAll("thead th.sortable").forEach(th => {
@@ -730,7 +690,6 @@
     });
 
     await loadTournamentRows();
-    await buildTournamentPowerRankings();
   }
 
   function currentScopeParam() {
@@ -742,7 +701,6 @@
     statusText.textContent = "Loading tournament data…";
     statusText.classList.remove("error");
     threatTableBody.innerHTML = "";
-    watchListContainer.innerHTML = "";
     tierBreakdown.textContent = "";
 
     try {
@@ -1068,7 +1026,6 @@
     });
 
     renderTable(rows);
-    renderWatchList(rows);
     renderTierBreakdown(rows);
     updateHeaderSortIndicators();
     updateMetaAfterFilter(rows, mg);
@@ -1148,35 +1105,6 @@
     }
   }
 
-  function renderWatchList(rows) {
-    watchListContainer.innerHTML = "";
-    const usable = rows.filter(r => r.hasData && !r.isAces);
-    usable.sort((a, b) => b.threat - a.threat);
-    const top = usable.slice(0, 3);
-
-    if (!top.length) {
-      watchListContainer.textContent = "No opponent teams with data yet.";
-      return;
-    }
-
-    for (const r of top) {
-      const div = document.createElement("div");
-      div.className = "watch-list-item";
-
-      const name = document.createElement("div");
-      name.innerHTML = `<strong>${r.team}</strong>`;
-      div.appendChild(name);
-
-      const meta = document.createElement("div");
-      meta.className = "watch-list-meta";
-      meta.textContent =
-        `Pool ${r.pool || "-"} – Win% ${fmtPct(r.win_pct)} – RD ${fmtInt(r.run_diff)} (${fmtOne(r.rd_per_game)}/g) – Threat ${fmtInt(r.threat)} (${r.tier})`;
-      div.appendChild(meta);
-
-      watchListContainer.appendChild(div);
-    }
-  }
-
   function renderTierBreakdown(rows) {
     tierBreakdown.innerHTML = "";
     const usable = rows.filter(r => r.hasData);
@@ -1197,83 +1125,6 @@
     tierBreakdown.appendChild(spanStrong);
     tierBreakdown.appendChild(spanSolid);
     tierBreakdown.appendChild(spanUnderdog);
-  }
-
-  function computeTournamentPower(rows) {
-    const usable = rows.filter(r => r.hasData);
-    const counts = { ELITE: 0, STRONG: 0, SOLID: 0, UNDERDOG: 0 };
-
-    if (!usable.length) return { score: 0, counts, total: 0 };
-
-    let sumThreat = 0;
-    for (const r of usable) {
-      sumThreat += r.threat;
-      counts[r.tier] = (counts[r.tier] || 0) + 1;
-    }
-
-    const avgThreat = sumThreat / usable.length;
-    const eliteDensity = counts.ELITE / usable.length;
-    const strongDensity = counts.STRONG / usable.length;
-
-    const score = avgThreat * 0.6 + eliteDensity * 100 * 0.25 + strongDensity * 100 * 0.15;
-    return { score, counts, total: usable.length };
-  }
-
-  function labelForPowerScore(score) {
-    if (score >= 80) return "Bloodbath";
-    if (score >= 65) return "Tough field";
-    if (score >= 50) return "Balanced";
-    if (score >= 35) return "Favorable";
-    return "Soft";
-  }
-
-  async function buildTournamentPowerRankings() {
-    if (!tournaments.length) return;
-
-    powerList.innerHTML = "Computing power rankings…";
-    try {
-      // Power rankings should be FIELD ONLY (scouting) by default
-      const scope = "field";
-
-      const results = await Promise.all(
-        tournaments.map(async code => {
-          const rowsRaw = await fetchThreatRows(code);
-          const normalized = rowsRaw.map(normalizeRow);
-          const rating = computeTournamentPower(normalized);
-          return { code, score: rating.score, counts: rating.counts, total: rating.total };
-        })
-      );
-
-      const usable = results.filter(r => r.total > 0);
-      usable.sort((a, b) => b.score - a.score);
-
-      powerList.innerHTML = "";
-      if (!usable.length) {
-        powerList.textContent = "No tournaments with data yet.";
-        return;
-      }
-
-      usable.forEach((t, idx) => {
-        const row = document.createElement("div");
-        row.className = "watch-list-item";
-
-        const name = document.createElement("div");
-        name.innerHTML = `<strong>${idx + 1}. ${t.code}</strong> – ${labelForPowerScore(t.score)} (${t.score.toFixed(0)})`;
-        row.appendChild(name);
-
-        const meta = document.createElement("div");
-        meta.className = "watch-list-meta";
-        meta.textContent = `Teams w/data: ${t.total} | Elite: ${t.counts.ELITE || 0} • Strong: ${t.counts.STRONG || 0} • Solid: ${t.counts.SOLID || 0}`;
-        row.appendChild(meta);
-
-        powerList.appendChild(row);
-      });
-
-      powerListMeta.textContent = "Field-only power rankings (scouting).";
-    } catch (e) {
-      console.error(e);
-      powerList.textContent = "Could not compute rankings. Check server logs.";
-    }
   }
 
   // Both disclosures below the ledger: the raw grid and the per-opponent detail.
