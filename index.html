@@ -448,17 +448,11 @@
         <div class="hero-stat"><div class="hero-stat-num" id="hs-sb">316</div><div class="hero-stat-label">Stolen Bases</div></div>
         <div class="hero-stat"><div class="hero-stat-num" id="hs-hr">177</div><div class="hero-stat-label">Home Runs</div></div>
       </div>
-      <!-- Pre-season: shown instead of the zeroed stat tiles until the active
-           season has real at-bats (renderHome toggles the two). Deliberately
-           FORWARD-looking — the record above already states the Spring title,
-           so repeating it here was the same fact twice in one screen. -->
-      <div class="hero-stats" id="hero-preseason" style="display:none;padding:14px 22px;align-items:center;gap:10px;">
-        <span style="font-size:20px;" aria-hidden="true">⚾</span>
-        <div>
-          <div style="font-family:var(--display);font-size:16px;font-weight:600;letter-spacing:.5px;">First Fall game coming soon</div>
-          <div style="font-size:12.5px;color:#8f97a3;" id="hero-preseason-sub">It'll show up right here — and on your phone if notifications are on</div>
-        </div>
-      </div>
+      <!-- Pre-season: replaces the zeroed stat tiles until the active season
+           has real at-bats — but only when there is a scheduled game to
+           announce (updateHeroNextGame fills date/opponent/calendar; with no
+           game on the books the card stays hidden entirely). -->
+      <div class="hero-stats" id="hero-preseason" style="display:none;padding:14px 22px;align-items:center;gap:10px;"></div>
       <div class="hero-cta">
         <button class="btn-primary" onclick="showPage('roster')"><span aria-hidden="true">▶</span> Roster &amp; Stats</button>
         <button class="btn-secondary" onclick="window.location='/game.html'">Watch Last Game</button>
@@ -1173,9 +1167,11 @@ function renderHome() {
   // fires for a live season with no games scored yet.
   var preseason = totals.ab === 0
   var heroTiles = document.getElementById('hero-stats')
-  var heroPre = document.getElementById('hero-preseason')
   if (heroTiles) heroTiles.style.display = preseason ? 'none' : ''
-  if (heroPre) heroPre.style.display = preseason ? 'flex' : 'none'
+  // The pre-season card only shows when it has a REAL first game to announce
+  // (date/opponent + calendar link). "Coming soon" with no info was clutter.
+  window._heroPreseasonWanted = preseason
+  updateHeroNextGame()
   setText('hs-avg', f3(teamAvg))
   setText('hs-rbi', totals.rbi)
   setText('hs-sb', totals.sb)
@@ -1887,7 +1883,35 @@ async function loadUpcoming() {
       .order('game_date').limit(20)
     window._upcomingGames = data || []
     if (window._upcomingGames.length) renderSchedule()
+    updateHeroNextGame()
   } catch(e) {}
+}
+
+// Hero pre-season card = the first scheduled game, or nothing. It only ever
+// shows pre-season (renderHome sets _heroPreseasonWanted) AND when a real
+// game exists to announce — date, opponent, calendar link a parent can act on.
+function updateHeroNextGame() {
+  var el = document.getElementById('hero-preseason')
+  if (!el) return
+  var g = (window._upcomingGames || [])[0]
+  if (!window._heroPreseasonWanted || !g) { el.style.display = 'none'; return }
+  var opp = (g.opponents && g.opponents.name) || 'TBD'
+  var d = new Date(g.game_date)
+  var dateStr = d.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric',timeZone:'UTC'})
+  var time = fmtGameTime(g.game_time)
+  var sub = [(g.is_home!==false?'vs ':'@ ')+opp, time, g.tournament||''].filter(Boolean).join(' · ')
+  var btn = 'font-family:var(--mono);font-size:10px;color:var(--orange);text-decoration:none;border:1px solid var(--bdr-a);border-radius:4px;padding:3px 8px;white-space:nowrap;'
+  el.innerHTML =
+    '<span style="font-size:20px;" aria-hidden="true">⚾</span>'
+    + '<div style="flex:1;">'
+    +   '<div style="font-family:var(--display);font-size:16px;font-weight:600;letter-spacing:.5px;">First Fall game: '+dateStr+'</div>'
+    +   '<div style="font-size:12.5px;color:#8f97a3;">'+sub+'</div>'
+    + '</div>'
+    + '<div style="display:flex;gap:8px;align-items:center;">'
+    +   '<a href="'+icsHref(g)+'" download="aces-vs-'+opp.toLowerCase().replace(/[^a-z0-9]+/g,'-')+'.ics" style="'+btn+'">📅 Calendar</a>'
+    +   (g.location ? '<a href="https://maps.google.com/?q='+encodeURIComponent(g.location)+'" target="_blank" rel="noopener" style="'+btn+'">📍 Map</a>' : '')
+    + '</div>'
+  el.style.display = 'flex'
 }
 function fmtGameTime(t) {
   if (!t) return ''
