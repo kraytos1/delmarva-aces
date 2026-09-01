@@ -77,10 +77,6 @@
   .empty h2{font-family:var(--display);font-size:24px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px;}
   .empty p{color:var(--muted);font-size:14px;max-width:460px;margin:0 auto 6px;}
   .empty .queued{display:inline-flex;align-items:center;gap:8px;margin-top:20px;font-family:var(--mono);font-size:12px;color:var(--orange);background:var(--og);border:1px solid var(--bdr-a);border-radius:20px;padding:8px 16px;}
-  .flow{display:flex;justify-content:center;gap:0;margin-top:26px;flex-wrap:wrap;}
-  .flow-step{font-family:var(--mono);font-size:10px;color:var(--muted);letter-spacing:.5px;padding:0 14px;position:relative;}
-  .flow-step:not(:last-child)::after{content:'→';position:absolute;right:-3px;color:var(--bdr-a);}
-  .flow-step b{color:var(--text);display:block;font-family:var(--body);font-size:12px;font-weight:600;text-transform:none;letter-spacing:0;}
 
   .fg-title{font-family:var(--display);font-size:20px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin-bottom:14px;display:flex;align-items:center;gap:10px;}
   .fg-title::after{content:'';flex:1;height:1px;background:var(--bdr);}
@@ -293,14 +289,7 @@ function showEmpty(queued){
     '<div class="empty">'
     + '<div class="empty-ico">🎥</div>'
     + '<h2>No highlights yet</h2>'
-    + '<p>When Aces games are streamed live, standout plays get flagged and clipped automatically. Finished clips show up right here.</p>'
     + teaser
-    + '<div class="flow">'
-    +   '<div class="flow-step">Step 1<b>Stream the game</b></div>'
-    +   '<div class="flow-step">Step 2<b>Score a big play</b></div>'
-    +   '<div class="flow-step">Step 3<b>Auto-clip</b></div>'
-    +   '<div class="flow-step">Step 4<b>Watch here</b></div>'
-    + '</div>'
     + '</div>';
 }
 
