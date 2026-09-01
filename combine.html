@@ -827,7 +827,7 @@ const divByLabel = Object.fromEntries(DIVS.map(d=>[d.label, d]));
    When the sheet's Rosters tab is published (same dialog as Results, CSV),
    paste its URL here and the SHEET becomes the source of truth for rosters —
    the embedded TEAMS list is only the fallback. ?roster= overrides for testing. */
-const ROSTER_SRC = params.get('roster') || '';
+const ROSTER_SRC = params.get('roster') || 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTOx0py80kbfpe43IlhJFlMnZT2ZO38KYffmwLZBcSaMEHG_GPUoRBzLXOMLJAonQ3syTDL0Fui4EBU/pub?gid=1951964958&single=true&output=csv';
 function teamShort(team){
   if (team.indexOf('American') >= 0) return 'AMERICAN';
   if (team.indexOf('DCP') === 0) return 'DCP';

@@ -213,7 +213,7 @@ const params = new URLSearchParams(location.search);
 const CONFIG_SRC = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTOx0py80kbfpe43IlhJFlMnZT2ZO38KYffmwLZBcSaMEHG_GPUoRBzLXOMLJAonQ3syTDL0Fui4EBU/pub?gid=0&single=true&output=csv';
 const SRC = params.get('src') || CONFIG_SRC;
 const DEMO = params.get('demo') === '1' || !SRC;
-const ROSTER_SRC = params.get('roster') || '';
+const ROSTER_SRC = params.get('roster') || 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTOx0py80kbfpe43IlhJFlMnZT2ZO38KYffmwLZBcSaMEHG_GPUoRBzLXOMLJAonQ3syTDL0Fui4EBU/pub?gid=1951964958&single=true&output=csv';
 
 const GROUPS = { pitch:'Pitching', hit:'Hitting', ath:'Athletic Testing' };
 const MIN_TM = 11;
