@@ -103,7 +103,7 @@
      Re-anchor the squad centered under the crest — both are positioned
      against .hero, so the pairing holds at any width ≥ the gate. Laptops,
      tablets and phones keep the stacked layout untouched. */
-  @media(min-width:1500px) and (min-height:760px){
+  @media(min-width:1420px) and (min-height:690px){
     /* the whole ancestor chain must stay static so .hero is the containing block */
     .hero-content,.hero-lede,.hero-lede-right{position:static;}
     .hero-content>*,.hero-record,.hero-title{position:relative;z-index:2;} /* text above bg/glow/arc */
@@ -113,6 +113,11 @@
     .hero-faces{position:absolute;left:calc(59.2% - 270px);top:26%;width:540px;
       justify-content:center;z-index:2;}
     .hero-face{width:66px;}
+  }
+  /* 1420-1519 (e.g. 2x-scaled 1440 displays): the crest is barely past the
+     title, so ride the circles a bit higher to keep clear of THE SQUAD */
+  @media(min-width:1420px) and (max-width:1519px) and (min-height:690px){
+    .hero-faces{top:23%;}
   }
   .hero-stats{display:flex;border:1px solid var(--bdr);border-radius:10px;overflow:hidden;width:fit-content;margin-bottom:40px;background:var(--dark2);}
   .hero-stat{padding:16px 28px;border-right:1px solid var(--bdr);}
