@@ -88,6 +88,18 @@
   .hero-title .line2{color:var(--orange);}
   /* squad-first hero: 62–2 beside the title + a row of the actual kids */
   .hero-lede{display:flex;align-items:center;gap:clamp(20px,4vw,44px);margin-bottom:26px;flex-wrap:wrap;}
+  /* Slide the whole lede block (record + title + faces, together) so it sits
+     centered under the arc's crest (apex ≈59.2% of the viewport — from the
+     SVG path math). Proportional, no breakpoint cliff: the clamp shrinks the
+     shift to 0 as the window narrows, so phones/small laptops are untouched
+     and the block can never push past the right edge. */
+  @media(min-width:768px){
+    /* translateX, not margin: a margin shrinks the box's layout width and
+       wraps the record on top of the title; a transform slides it intact.
+       (site-motion.css animates the lede's CHILDREN, not the lede itself,
+       so this transform is safe.) */
+    .hero-lede{transform:translateX(clamp(0px, calc(59.2vw - 430px), calc(100vw - 880px)));}
+  }
   .hero-record{flex-shrink:0;}
   .hero-record-num{display:block;font-family:var(--display);font-size:clamp(56px,10vw,104px);font-weight:700;line-height:.86;color:var(--orange);letter-spacing:-2px;}
   .hero-record-cap{display:block;font-family:var(--mono);font-size:12px;letter-spacing:2.5px;text-transform:uppercase;color:var(--text);margin-top:6px;}
