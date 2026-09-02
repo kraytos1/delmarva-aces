@@ -201,8 +201,9 @@ td:first-child{white-space:nowrap;}
       <p><b>USB-C cable</b> to the laptop is the bulletproof option. <b>Bluetooth</b> needs no pairing and no cable — but reach is roughly 30–100 ft, and while a cable is plugged in the gun talks to the cable <i>only</i>. The 300 ft is how far the gun can <i>see</i>, not how far it can <i>talk</i>: in center field, keep the laptop beside the gun.</p>
     </div></div>
     <div class="step"><div class="num">3</div><div class="body">
-      <div class="st">Start the bridge on the laptop</div>
-      <p><code>python C:\Users\c_boo\OneDrive\Desktop\AcesAnalytics\radar_bridge.py</code> — add <code>--from-cf</code> for the center-field setup. Leave the window open; every reading prints as it lands (<i>pitch 66 mph · exit 71 mph</i>). It picks USB if the cable's in, otherwise Bluetooth, and reconnects by itself if either drops. Park wifi flaky? Readings queue and flush when signal returns.</p>
+      <div class="st">Start the bridge — the Android tablet (no laptop), or the laptop</div>
+      <p><b>Tablet, the everyday way:</b> on the Samsung (or any Android phone) open <a class="pg" href="/radar.html">/radar.html</a> in Chrome, pick <b>Backstop</b> or <b>Center field</b>, tap <b>📡 Connect gun</b> and choose the Stalker. Leave it near the gun on your hotspot with the screen on; every reading shows big on screen as it lands. Your iPhone stays the scorer — nothing changes there. (iPhone and iPad can't run this page; Safari has no Bluetooth access.)</p>
+      <p><b>Laptop, the wired way:</b> <code>python C:\Users\c_boo\OneDrive\Desktop\AcesAnalytics\radar_bridge.py</code> — add <code>--from-cf</code> for center field. Picks USB if the cable's in, otherwise Bluetooth; reconnects by itself. Either bridge queues readings through dead spots and sends them when signal returns.</p>
     </div></div>
 
     <h3>What you'll see while scoring</h3>
