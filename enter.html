@@ -2,6 +2,8 @@
 <meta name="robots" content="noindex,nofollow">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Aces Combine Entry</title>
+<link rel="icon" href="logo.png">
+<link rel="apple-touch-icon" href="logo.png">
 <!-- The one link coaches ever need: tap your station, the right Google Form opens.
      Zero JavaScript on purpose - nothing here can break. -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -24,15 +26,19 @@
   h1{ font-family:var(--display); font-weight:700; font-size:clamp(26px,7vw,36px);
     text-transform:uppercase; line-height:1.05; }
   h1 em{ font-style:normal; color:var(--orange-hot); }
-  .sub{ color:var(--muted); font-weight:600; font-size:15px; margin:6px 0 26px; }
-  .steps{ display:flex; align-items:center; flex-wrap:wrap; gap:8px 6px; margin:38px 0 10px; }
+  .steps{ display:flex; align-items:center; flex-wrap:wrap; gap:8px; margin:38px 0 10px; }
   .step{ display:flex; align-items:center; gap:9px; border:1px solid var(--line);
     border-radius:99px; padding:9px 15px;
     background:linear-gradient(180deg,var(--panel-a),var(--panel-b)); }
   .step b{ font-family:var(--display); font-weight:700; font-size:17px; color:var(--orange-hot);
     line-height:1; }
   .step span{ font-size:12.5px; font-weight:800; letter-spacing:.08em; text-transform:uppercase; }
-  .steps .sep{ color:var(--orange-hot); font-weight:800; font-size:15px; padding:0 2px; }
+  @media (max-width:560px){
+    .steps{ gap:6px; }
+    .step{ padding:7px 11px; gap:7px; }
+    .step b{ font-size:14px; }
+    .step span{ font-size:10.5px; letter-spacing:.05em; }
+  }
   .substep{ color:var(--muted); font-size:13.5px; font-weight:600; margin:0 0 48px; }
   .substep b{ color:var(--cream); }
 
@@ -48,10 +54,6 @@
   a.stn .t span{ color:var(--muted); font-weight:600; font-size:14px; }
   a.stn .go{ flex:none; font-family:var(--display); font-weight:700; font-size:22px;
     color:var(--orange-hot); }
-  a.stn.hot{ border-color:rgba(232,83,10,.55);
-    background:linear-gradient(160deg,rgba(232,83,10,.16),rgba(232,83,10,.02) 60%),
-      linear-gradient(180deg,var(--panel-a),var(--panel-b)); }
-
   a.stn.add{ margin-top:22px; padding:16px 22px; border-style:dashed; }
   a.stn.add .em{ font-size:24px; }
   a.stn.add .t b{ font-size:19px; }
@@ -59,12 +61,13 @@
     border:1px solid var(--line); border-radius:16px; padding:20px 22px; }
   .rules h2{ font-family:var(--display); font-weight:600; font-size:17px; letter-spacing:.14em;
     text-transform:uppercase; color:var(--orange-hot); margin-bottom:10px; }
+  .rules ul{ margin:0; padding:0; }
   .rules li{ margin:8px 0 8px 4px; font-size:15px; line-height:1.5; list-style:none;
     padding-left:24px; position:relative; }
   .rules li::before{ content:'\2713'; position:absolute; left:0; color:var(--orange-hot);
     font-weight:800; }
   .rules b{ font-weight:800; }
-  .rules .num{ font-family:'Roboto Mono',monospace; background:rgba(255,255,255,.07);
+  .rules .num{ font-family:ui-monospace,Consolas,monospace; background:rgba(255,255,255,.07);
     border-radius:4px; padding:0 6px; }
 </style>
 
@@ -75,13 +78,9 @@
   </div>
   <div class="steps">
     <div class="step"><b>1</b><span>Pick your station</span></div>
-    <span class="sep">&#9656;</span>
     <div class="step"><b>2</b><span>Pick the age group</span></div>
-    <span class="sep">&#9656;</span>
     <div class="step"><b>3</b><span>Pick the player</span></div>
-    <span class="sep">&#9656;</span>
     <div class="step"><b>4</b><span>Enter result</span></div>
-    <span class="sep">&#9656;</span>
     <div class="step"><b>5</b><span>Submit</span></div>
   </div>
   <p class="substep">After each player, tap <b>&#8220;Submit another response.&#8221;</b></p>
@@ -100,13 +99,13 @@
       <span class="go">&#9656;</span>
     </a>
     <a class="stn" href="https://docs.google.com/forms/d/e/1FAIpQLSd6doexTAul7-HDD0uw9rvw0jpYmzGrpZg_XwqRVPdgRC79QA/viewform">
-      <span class="em">&#9889;</span>
+      <span class="em">&#128293;</span>
       <span class="t"><b>Trackman Pitching</b>
         <span>11U and up &#183; velo, spin, IVB, movement</span></span>
       <span class="go">&#9656;</span>
     </a>
     <a class="stn" href="https://docs.google.com/forms/d/e/1FAIpQLSemSsrjCuK1GClNVOZ-aU4-bNrfHRWaqk9iPV9Mr4YYi_XgiQ/viewform">
-      <span class="em">&#128293;</span>
+      <span class="em">&#9889;</span>
       <span class="t"><b>Trackman Hitting</b>
         <span>11U and up &#183; exit velo, bat speed, launch, distance</span></span>
       <span class="go">&#9656;</span>
@@ -116,15 +115,17 @@
   <a class="stn add" href="https://docs.google.com/forms/d/e/1FAIpQLSfDnuGzamZNbGCWf_Ghqd4pBw66Vugy9_j2ab6znazS2SipcQ/viewform">
     <span class="em">&#10133;</span>
     <span class="t"><b>Player Not Listed?</b>
-      <span>Add him here</span></span>
+      <span>Add him here &#183; in the lists within a minute</span></span>
     <span class="go">&#9656;</span>
   </a>
 
   <div class="rules">
     <h2>Four rules</h2>
+    <ul>
     <li><b>Best individual attempt</b> of the session.</li>
-    <li><b>Jumps in total inches</b> &#8212; 7'1" is <span class="num">85</span>.</li>
+    <li><b>Jumps in total inches</b> &#8212; i.e. 7'1" is <span class="num">85</span>.</li>
     <li><b>Times in total seconds</b> &#8212; i.e. <span class="num">4.85</span>.</li>
     <li><b>Zero is a valid score.</b> Blank means not tested.</li>
+    </ul>
   </div>
 </main>
