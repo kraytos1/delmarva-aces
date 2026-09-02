@@ -235,20 +235,6 @@ async function send(payload){
   const r = await fetch(EXEC_URL, { method:'POST', body: JSON.stringify(payload) });
   return r.json();
 }
-async function submit(payload){
-  try {
-    const res = await send(payload);
-    if (res.preview){ toast('Preview mode - backend not connected yet', true); return true; }
-    if (!res.ok){ toast('Rejected: ' + (res.error || 'unknown'), true); return false; }
-    toast(payload.kind === 'player' ? 'Player added ✔' : 'Saved ✔' + (SANDBOX ? ' (sandbox)' : ''));
-    return true;
-  } catch(e){
-    const list = q(); list.push(payload); qSave(list); setNet();
-    toast('Saved to the queue - sending automatically in a moment', true);
-    setTimeout(flush, 5000);   // fast first retry; the 20s loop covers the rest
-    return true;
-  }
-}
 async function flush(){
   let list = q();
   while (list.length && EXEC_URL){
@@ -404,22 +390,39 @@ async function saveEntry(){
     entries.push({ station: sid, value: v });
   }
   if (!entries.length){ toast('Nothing entered yet', true); return; }
-  const ok = await submit({ kind:'result', sandbox: SANDBOX, divLabel: S.div.label,
-    team: S.player.team, jersey: S.player.num, player: S.player.full, entries });
-  if (ok) goto('player');   // straight back to the list for the next player
+  if (!EXEC_URL){ toast('Preview mode - backend not connected yet', true); return; }
+  // Optimistic save: confirm instantly and move on. The background send plus
+  // the retry queue guarantee delivery, and client validation mirrors the
+  // server's rules - a real rejection is a shout-worthy edge case.
+  const payload = { kind:'result', sandbox: SANDBOX, divLabel: S.div.label,
+    team: S.player.team, jersey: S.player.num, player: S.player.full, entries };
+  const who = S.player.full;
+  toast('Saved ✔' + (SANDBOX ? ' (sandbox)' : ''));
+  goto('player');   // straight back to the list for the next player
+  send(payload).then(res => {
+    if (!res.ok) toast('⚠ ' + who + ' NOT saved: ' + (res.error || 'rejected'), true);
+  }).catch(() => {
+    const list = q(); list.push(payload); qSave(list); setNet();
+    setTimeout(flush, 5000);
+  });
 }
 async function saveAdd(){
   const get = id => document.getElementById(id).value.trim();
   const name = (get('addfirst') + ' ' + get('addlast')).replace(/\s+/g,' ').trim();
   if (!name || !get('addfirst') || !get('addlast')){ toast('Need first and last name', true); return; }
+  if (!EXEC_URL){ toast('Preview mode - backend not connected yet', true); return; }
   const divKey = document.getElementById('adddiv').value;
-  const ok = await submit({ kind:'player', sandbox: SANDBOX, divKey,
-    team: get('addteam') || divByKey[divKey].label, jersey: get('addnum'), name });
-  if (ok){
-    PLAYERS.push({ div: divKey, team: get('addteam') || divByKey[divKey].label,
-      num: get('addnum'), full: name });
-    goto('station');
-  }
+  const payload = { kind:'player', sandbox: SANDBOX, divKey,
+    team: get('addteam') || divByKey[divKey].label, jersey: get('addnum'), name };
+  PLAYERS.push({ div: divKey, team: payload.team, num: payload.jersey, full: name });
+  toast('Player added ✔');
+  goto('station');
+  send(payload).then(res => {
+    if (!res.ok) toast('⚠ ' + name + ' NOT added: ' + (res.error || 'rejected'), true);
+  }).catch(() => {
+    const list = q(); list.push(payload); qSave(list); setNet();
+    setTimeout(flush, 5000);
+  });
 }
 
 let toastT;
