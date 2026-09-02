@@ -65,6 +65,11 @@ Going live later = set SANDBOX=false and copy this file over enter.html.
     border:1px solid var(--line); border-radius:12px; padding:16px 20px; cursor:pointer; }
   button.chipbtn:active{ transform:scale(.98); }
 
+  .teamchips{ display:flex; flex-wrap:wrap; gap:8px; margin-bottom:12px; }
+  .teamchips button{ font:800 12.5px var(--body); letter-spacing:.1em; text-transform:uppercase;
+    color:var(--cream); background:var(--panel-b); border:1px solid var(--line);
+    border-radius:99px; padding:9px 16px; cursor:pointer; }
+  .teamchips button.sel{ background:var(--orange-deep); border-color:var(--orange); color:#FFE2CF; }
   #psearch{ width:100%; font:600 17px var(--body); color:var(--cream);
     background:var(--panel-b); border:1px solid var(--line); border-radius:12px;
     padding:14px 16px; margin-bottom:12px; outline:none; }
@@ -301,7 +306,15 @@ function render(){
     </div></div>`;
   }
   else if (S.mode === 'player'){
-    view.innerHTML = `<div class="screen"><h2>Pick the player</h2>
+    // team filter chips - only when this age group actually has multiple teams
+    const teams = [...new Set(PLAYERS.filter(p => p.div === S.div.key).map(p => p.team))].sort();
+    const chips = teams.length > 1
+      ? `<div class="teamchips">
+          <button class="${!S.team ? 'sel' : ''}" onclick="pickTeam(null)">All</button>
+          ${teams.map(t => `<button class="${S.team === t ? 'sel' : ''}"
+            onclick="pickTeam('${esc(t).replace(/'/g,"\\'")}')">${esc(teamShort(t))}</button>`).join('')}
+        </div>` : '';
+    view.innerHTML = `<div class="screen"><h2>Pick the player</h2>${chips}
       <input id="psearch" type="search" placeholder="Type a name&#8230;" autocomplete="off">
       <div class="plist" id="plist"></div></div>`;
     document.getElementById('psearch').addEventListener('input', renderPlayers);
@@ -338,9 +351,18 @@ function render(){
     </div></div>`;
   }
 }
+function teamShort(team){
+  team = String(team).trim();
+  if (team.indexOf('American') >= 0) return 'American';
+  if (team.indexOf('DCP') === 0) return 'DCP';
+  const sp = team.indexOf(' ');
+  return sp > 0 ? team.slice(sp + 1) : team;
+}
+function pickTeam(t){ S.team = t; render(); }
 function renderPlayers(){
   const qstr = (document.getElementById('psearch').value || '').trim().toLowerCase();
   const list = PLAYERS.filter(p => p.div === S.div.key &&
+    (!S.team || p.team === S.team) &&
     (!qstr || p.full.toLowerCase().includes(qstr)))
     .sort((a,b) => a.full.localeCompare(b.full));
   document.getElementById('plist').innerHTML = list.length ? list.map((p,i) =>
@@ -350,7 +372,7 @@ function renderPlayers(){
     : `<p class="note">Nobody matches. Missing player? Head back and tap &#8220;Player Not Listed?&#8221;</p>`;
 }
 function pickStation(i){ S.station = STATIONS[i]; S.mode = 'div'; render(); }
-function pickDiv(key){ S.div = divByKey[key]; S.mode = 'player'; render(); }
+function pickDiv(key){ S.div = divByKey[key]; S.team = null; S.mode = 'player'; render(); }
 function pickPlayer(div, full){
   S.player = PLAYERS.find(p => p.div === div && p.full === full) || { full, team:'', num:'' };
   S.mode = 'entry'; render();
