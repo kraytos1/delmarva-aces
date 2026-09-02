@@ -213,6 +213,7 @@ td:first-child{white-space:nowrap;}
       <li>The box <b>empties after every pitch</b>. Blank means the gun missed one — honest, not a repeat of the last number.</li>
       <li>Tap a number yourself and yours wins for that pitch. A gun reading older than 20 s (warm-up throws, pickoffs) is never glued to a pitch.</li>
       <li>The other team's pitcher gets gunned too — those numbers feed the <a class="pg" href="#scouting">scouting pages</a>.</li>
+      <li><b>On the stream</b>, the scorebug's pitching line shows the gun's number about a second after the mitt pop — it reads the gun directly rather than waiting for your tap — and flashes <b>💥 exit velo</b> for a few seconds after a ball in play. <code>?radar=off</code> on the scorebug URL turns that off.</li>
     </ul>
 
     <h3>Exit velocity</h3>
@@ -293,6 +294,7 @@ td:first-child{white-space:nowrap;}
       <tr><td><code>?scale=1.3</code></td><td>Bug size, 0.5–2 (a creative choice — resolution is already handled)</td></tr>
       <tr><td><code>?fit=N</code> / <code>?fit=off</code></td><td>Canvas auto-fit: the page zooms by width÷1920 so 4K and 720p outputs match the 1080p look. Automatic; force or disable only if a switcher misreports its size.</td></tr>
       <tr><td><code>?sponsorpos=br</code> · <code>?sponsorscale=1.5</code></td><td>Float the sponsor plate in its own corner, at its own size</td></tr>
+      <tr><td><code>?radar=off</code></td><td>Ignore the radar gun; velo comes from the pitch rows only (no 💥 exit velo flash)</td></tr>
       <tr><td><code>?game=ID</code></td><td>Pin the overlay to one specific game</td></tr>
       <tr><td><code>?debug=1</code></td><td>Fake data so you can style the shot with nothing live</td></tr>
     </table></div>

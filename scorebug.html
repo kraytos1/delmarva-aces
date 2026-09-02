@@ -233,6 +233,25 @@ var db = supabase.createClient(ACES_CONFIG.supabaseUrl, ACES_CONFIG.supabaseKey)
 // the game's bug_show_pitching / bug_show_atbat flags. A URL "off" is a hard
 // override (always hidden); otherwise the live flag decides.
 var Q = new URLSearchParams(location.search);
+
+// Pitching-line velo text. A fresh gun reading beats the pitch row (the row
+// only gets its velo after the coach's tap + attach, several seconds later);
+// the pitch TYPE is only known from the row, so it's appended when the row
+// and the reading describe the same pitch (within 8s). A batted ball's exit
+// velo rides along for 12s after contact. lastPitch/radar may be null.
+function veloLine(lastPitch, radar, now){
+  var txt = '';
+  var rT = radar && radar.peak_mph != null ? new Date(radar.ts).getTime() : null;
+  var pT = lastPitch ? new Date(lastPitch.created_at).getTime() : null;
+  if (rT !== null && (pT === null || rT > pT - 8000)) {
+    var samePitch = pT !== null && Math.abs(rT - pT) < 8000;
+    txt = ' · ' + radar.peak_mph + (samePitch && lastPitch.pitch_type ? ' ' + lastPitch.pitch_type : '');
+  } else if (lastPitch) {
+    txt = ' · ' + lastPitch.velocity_mph + (lastPitch.pitch_type ? ' ' + lastPitch.pitch_type : '');
+  }
+  if (radar && radar.exit_mph != null && now - new Date(radar.ts).getTime() < 12000) txt += ' · 💥 ' + radar.exit_mph;
+  return txt;
+}
 // The overlay is designed against a 1920-wide canvas, but vMix/OBS render the
 // browser source at the OUTPUT resolution — on a 4K canvas every element came
 // out half-size. Auto-fit zooms the whole page (bug, plate, break card, due-up,
@@ -381,7 +400,18 @@ async function poll(){
       .filter(function(p){ return (isAcesBatting ? (p.pitcher_id==null) : (p.pitcher_id===n.acesPitcherId)) && p.velocity_mph!=null; })
       .sort(function(a,b){ return a.created_at<b.created_at?1:(a.created_at>b.created_at?-1:0); })[0] || null;
 
-    render(g, n, isAcesBatting, acesAbs, oppAbs, oppPC, acesPC, lastPitch);
+    // 4) radar → the gun's freshest reading beats the pitch row by several
+    //    seconds (the row only gets its velo after the coach's tap + attach).
+    //    One tiny query on a refresh we're already making. ?radar=off kills it.
+    var radar = null;
+    if (Q.get('radar') !== 'off') {
+      try {
+        var rr = (await db.from('radar_readings').select('ts,peak_mph,exit_mph').order('ts',{ascending:false}).limit(1).maybeSingle()).data;
+        if (rr && Date.now() - new Date(rr.ts).getTime() < 45000) radar = rr;
+      } catch(e) {}
+    }
+
+    render(g, n, isAcesBatting, acesAbs, oppAbs, oppPC, acesPC, lastPitch, radar);
     showBug();
     // half change → sponsors, then due up (oppName is render-scoped, so derive it here)
     spOnState(g, n, isAcesBatting, acesAbs, oppAbs, (g.opponents && g.opponents.name) || 'Opponent');
@@ -461,9 +491,10 @@ function render(g, n, isAcesBatting, acesAbs, oppAbs, oppPC, acesPC, lastPitch){
   pcEl.textContent = isAcesBatting ? oppPC : acesPC;
   // Arm-care tint, our pitcher only (we don't track the opponent's kids)
   pcEl.className = isAcesBatting ? '' : armTierClass(acesPC);
-  document.getElementById('pitVelo').textContent = lastPitch
-    ? (' · ' + lastPitch.velocity_mph + (lastPitch.pitch_type ? ' '+lastPitch.pitch_type : ''))
-    : '';
+  // Velo: a fresh gun reading newer than the last velo'd pitch row wins (it
+  // lands ~1s after the mitt pop); otherwise the pitch row as always. A batted
+  // ball's exit velo rides along for ~12s after contact.
+  document.getElementById('pitVelo').textContent = veloLine(lastPitch, radar, Date.now());
 
   // At bat: the batting team's current hitter
   var batName = '', batLine = '';
