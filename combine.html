@@ -651,7 +651,7 @@ function renderMI(){
     </div>`).join('');
   return el(`<section class="board mi">
     <div class="hd"><h2 class="bt">Most Improved</h2><span class="chip org">LAST 30 DAYS</span>
-      <span class="sub">Biggest jump for their division</span></div>
+      <span class="sub">Biggest jump for their age group</span></div>
     <div class="list">${html}</div>
   </section>`);
 }
@@ -679,7 +679,7 @@ function renderTD(){
     + ' ' + d.getDate();
   const cells = [
     ['Tests Logged', t.tests], ['Players Tested', t.kids],
-    ['New PRs', t.prs], ['Divisions', t.divs]
+    ['New PRs', t.prs], ['Age Groups', t.divs]
   ].map(c => `<div class="cell">
       <div class="v num" data-count="${c[1]}" data-dec="0">${c[1]}</div>
       <div class="lab">${c[0]}</div>
@@ -696,7 +696,7 @@ function renderWait(){
   return el(`<section class="board wait">
     <img class="logo" alt="" src="${LOGO}">
     <h2 class="bt">THE COMBINE</h2>
-    <div class="sub">${PLAYERS.length} players &#183; ${DIVS.length} divisions &#183; 16 tests.<br>
+    <div class="sub">${PLAYERS.length} players &#183; ${DIVS.length} age groups &#183; 16 tests.<br>
       Results hit this board live as coaches submit them &#8212; first testing day coming soon.</div>
     <div class="chips"><span class="chip">8U&#8211;15U</span><span class="chip org">DCP</span></div>
   </section>`);
@@ -720,7 +720,7 @@ function renderBR(){
     </div>`; }).filter(Boolean);
   const cols = cells.length > 12 ? 4 : cells.length > 6 ? 3 : 2;
   return el(`<section class="board rw">
-    <div class="hd"><h2 class="bt">Building Records</h2><span class="chip org">EVERY DIVISION</span></div>
+    <div class="hd"><h2 class="bt">Building Records</h2><span class="chip org">EVERY AGE GROUP</span></div>
     <div class="grid" style="grid-template-columns:repeat(${cols},1fr)">${cells.join('')}</div>
   </section>`);
 }
@@ -844,7 +844,8 @@ async function loadRoster(){
     const rows = parseCSV(await r.text());
     if (!rows.length) return;
     const head = rows[0].map(h => String(h).trim());
-    const iD = head.indexOf('Division'), iT = head.indexOf('Team'),
+    let iD = head.indexOf('Age Group'); if (iD < 0) iD = head.indexOf('Division');
+    const iT = head.indexOf('Team'),
           iJ = head.indexOf('Jersey'), iP = head.indexOf('Player');
     if (iD < 0 || iT < 0 || iJ < 0 || iP < 0) return;
     const list = [];
@@ -895,7 +896,9 @@ function whenLabel(t){
 function applyRows(rows){
   if (!rows.length) return false;
   const head = rows[0].map(h => String(h).trim());
-  const iT = head.indexOf('Timestamp'), iD = head.indexOf('Division'),
+  const iT = head.indexOf('Timestamp');
+  let iD = head.indexOf('Age Group'); if (iD < 0) iD = head.indexOf('Division');
+  const
         iTeam = head.indexOf('Team'), iJ = head.indexOf('Jersey'),
         iP = head.indexOf('Player'), iS = head.indexOf('Station'),
         iV = head.indexOf('Value');

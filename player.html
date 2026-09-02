@@ -594,7 +594,9 @@ async function loadCombine(p){
     var rows = combineParseCSV(await res.text())
     if (rows.length < 2) return
     var head = rows[0].map(function(h){ return String(h).trim() })
-    var iT = head.indexOf('Timestamp'), iD = head.indexOf('Division'),
+    var iT = head.indexOf('Timestamp')
+    var iD = head.indexOf('Age Group'); if (iD < 0) iD = head.indexOf('Division')
+    var
         iTm = head.indexOf('Team'), iJ = head.indexOf('Jersey'),
         iS = head.indexOf('Station'), iV = head.indexOf('Value')
     if (iT < 0 || iD < 0 || iTm < 0 || iJ < 0 || iS < 0 || iV < 0) return

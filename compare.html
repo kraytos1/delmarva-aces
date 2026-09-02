@@ -352,7 +352,9 @@ function playerFor(divKey, fullName, team, jersey){
 function applyRows(rows){
   if (!rows.length) return false;
   const head = rows[0].map(h => String(h).trim());
-  const iT = head.indexOf('Timestamp'), iD = head.indexOf('Division'),
+  const iT = head.indexOf('Timestamp');
+  let iD = head.indexOf('Age Group'); if (iD < 0) iD = head.indexOf('Division');
+  const
         iTeam = head.indexOf('Team'), iJ = head.indexOf('Jersey'),
         iP = head.indexOf('Player'), iS = head.indexOf('Station'),
         iV = head.indexOf('Value');
@@ -442,7 +444,8 @@ async function loadRoster(){
     const rows = parseCSV(await r.text());
     if (!rows.length) return;
     const head = rows[0].map(h => String(h).trim());
-    const iD = head.indexOf('Division'), iT = head.indexOf('Team'),
+    let iD = head.indexOf('Age Group'); if (iD < 0) iD = head.indexOf('Division');
+    const iT = head.indexOf('Team'),
           iJ = head.indexOf('Jersey'), iP = head.indexOf('Player');
     if (iD < 0 || iT < 0 || iJ < 0 || iP < 0) return;
     const list = [];
@@ -620,7 +623,7 @@ function render(){
 
   mainEl.innerHTML = `<div id="slots">${slotHTML(A,'a')}<div id="vs">VS</div>${slotHTML(B,'b')}</div>
     ${tally}${tape}
-    <p class="note">Percentile bars compare each player to their own division.
+    <p class="note">Percentile bars compare each player to their own age group.
       Best marks from all combine testing &#183; updates live.</p>`;
   mainEl.querySelectorAll('[data-slot]').forEach(el =>
     el.addEventListener('click', () => openPicker(el.dataset.slot)));
