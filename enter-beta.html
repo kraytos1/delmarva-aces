@@ -242,7 +242,8 @@ async function submit(payload){
     return true;
   } catch(e){
     const list = q(); list.push(payload); qSave(list); setNet();
-    toast('No signal - saved to the queue, will auto-send', true);
+    toast('Saved to the queue - sending automatically in a moment', true);
+    setTimeout(flush, 5000);   // fast first retry; the 20s loop covers the rest
     return true;
   }
 }
