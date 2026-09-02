@@ -463,7 +463,7 @@ function batterTodayLine(batterId, acesAbs){
   return abCount>0 ? (hits+'-'+abCount) : '';
 }
 
-function render(g, n, isAcesBatting, acesAbs, oppAbs, oppPC, acesPC, lastPitch){
+function render(g, n, isAcesBatting, acesAbs, oppAbs, oppPC, acesPC, lastPitch, radar){
   // Live per-line toggles (set from overlay.html). Missing/true => shown.
   applyTiers(g.bug_show_pitching !== false, g.bug_show_atbat !== false);
   document.getElementById('scUs').textContent   = g.our_score||0;
