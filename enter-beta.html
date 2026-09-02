@@ -41,6 +41,7 @@ Going live later = set SANDBOX=false and copy this file over enter.html.
     letter-spacing:.1em; text-transform:uppercase; color:#FFE2CF; cursor:pointer;
     background:var(--orange-deep); border:0; border-radius:99px; padding:8px 14px; }
   .crumb small{ font-weight:700; opacity:.75; }
+  .crumb.home{ background:none; border:1px solid var(--line); color:var(--cream); }
 
   .screen h2{ font-family:var(--display); font-weight:600; font-size:19px;
     letter-spacing:.16em; text-transform:uppercase; color:var(--orange-hot); margin-bottom:14px; }
@@ -275,6 +276,8 @@ const esc = t => String(t).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':
 
 function crumbs(){
   let h = '';
+  if (S.mode !== 'station')
+    h += `<button class="crumb home" onclick="goto('station')">&#8962; Home</button>`;
   if (S.station) h += `<button class="crumb" onclick="goto('station')"><small>Station</small> ${S.station.name}</button>`;
   if (S.div) h += `<button class="crumb" onclick="goto('div')"><small>Age</small> ${S.div.label}</button>`;
   if (S.player) h += `<button class="crumb" onclick="goto('player')"><small>Player</small> ${esc(S.player.full)}</button>`;
