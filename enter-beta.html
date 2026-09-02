@@ -175,13 +175,13 @@ const METRICS = {
   split:{n:'10-Yard Split', u:'SEC', dec:2, min:1, max:4, rng:{8:[1.9,2.4],18:[1.45,1.8]}},
 };
 const STATIONS = [
-  { id:'ath',   em:'&#128170;', name:'Athletic Testing', sub:'All age groups &#183; fill only what you ran',
+  { id:'ath',   em:'&#128170;', name:'Athletic Testing', sub:'All age groups',
     who:'all',   fields:['push','pull','grip','broad','vert','shut','dash','split'] },
-  { id:'yvelo', em:'&#127919;', name:'Pitch Velocity 8U&#8211;10U', sub:'Radar gun &#183; best pitch',
+  { id:'yvelo', em:'&#127919;', name:'Pitch Velocity 8U&#8211;10U', sub:'Radar gun',
     who:'young', fields:['fb'] },
-  { id:'tpitch', em:'&#128293;', name:'Trackman Pitching', sub:'11U and up &#183; session bests',
+  { id:'tpitch', em:'&#128293;', name:'Trackman Pitching', sub:'11U and up',
     who:'older', fields:['fb','spin','ivb','mvmt'] },
-  { id:'thit',  em:'&#9889;', name:'Trackman Hitting', sub:'11U and up &#183; session bests',
+  { id:'thit',  em:'&#9889;', name:'Trackman Hitting', sub:'11U and up',
     who:'older', fields:['ev','bat','la','dist'] },
 ];
 const divsFor = s => DIVS.filter(d =>
