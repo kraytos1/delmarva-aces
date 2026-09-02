@@ -406,7 +406,11 @@ async function poll(){
     var radar = null;
     if (Q.get('radar') !== 'off') {
       try {
-        var rr = (await db.from('radar_readings').select('ts,peak_mph,exit_mph').order('ts',{ascending:false}).limit(1).maybeSingle()).data;
+        var rrs = (await db.from('radar_readings').select('ts,peak_mph,exit_mph').order('ts',{ascending:false}).limit(2)).data || [];
+        var rr = rrs[0];
+        // a reading within 12s of the previous one is post-pitch noise (catcher's
+        // throw back) - the gun can't tell direction, so cadence is the filter
+        if (rr && rrs[1] && new Date(rr.ts).getTime() - new Date(rrs[1].ts).getTime() < 12000) rr = null;
         if (rr && Date.now() - new Date(rr.ts).getTime() < 45000) radar = rr;
       } catch(e) {}
     }

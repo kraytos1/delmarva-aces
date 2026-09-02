@@ -2071,6 +2071,9 @@ async function pollRadar(){
         radarAttachPitch(lp.id, v)
         // feedback only — S.velo stays empty so it can't ride onto the next pitch
         if(S.velo===null) radarShow(v, 'mph 📡 last')
+      }else if(lp && rt - lp.t < 12000){
+        // a reading landing within 12s AFTER a pitch that already has its velo is
+        // post-pitch noise (the catcher's throw back) — never arm it for the next pitch
       }else if(!_radar.manual){
         S.velo = v; _radar.armedAt = Date.now()
         radarShow(v, 'mph 📡')
