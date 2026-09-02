@@ -1,0 +1,409 @@
+<meta charset="utf-8">
+<meta name="robots" content="noindex,nofollow">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Aces Combine Entry Beta</title>
+<link rel="icon" href="logo.png">
+<link rel="apple-touch-icon" href="logo.png">
+<!--
+Option A parked beta: the Google-Forms-free entry experience.
+Reads the live Rosters feed, POSTs to the Apps Script web app (doPost).
+SANDBOX=true while parked - submissions land in the sheet's Sandbox tab.
+Going live later = set SANDBOX=false and copy this file over enter.html.
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=Inter:wght@400;600;700;800&display=swap">
+<style>
+  :root{
+    --ink:#07090C; --panel-a:#12161C; --panel-b:#0C0F14; --line:rgba(255,255,255,.12);
+    --orange:#E8530A; --orange-hot:#FF7A33; --orange-deep:#B23C05;
+    --cream:#F2EEE6; --muted:#98A1AE; --navy:#233566; --good:#3ED598;
+    --display:'Oswald',sans-serif; --body:'Inter',system-ui,sans-serif;
+  }
+  *{ box-sizing:border-box; margin:0; -webkit-tap-highlight-color:transparent; }
+  body{ background:var(--ink); color:var(--cream); font-family:var(--body); min-height:100vh; }
+  body::before{ content:''; position:fixed; inset:0; pointer-events:none;
+    background:radial-gradient(700px 360px at 20% -8%, rgba(232,83,10,.12), transparent 62%); }
+  main{ position:relative; max-width:640px; margin:0 auto; padding:26px 20px 80px; }
+
+  header{ display:flex; align-items:center; gap:12px; margin-bottom:20px; }
+  header img{ width:46px; height:46px; object-fit:contain; }
+  header h1{ font-family:var(--display); font-weight:700; font-size:24px;
+    text-transform:uppercase; line-height:1.05; flex:1; }
+  header h1 em{ font-style:normal; color:var(--orange-hot); }
+  #netchip{ font:700 11px var(--body); letter-spacing:.12em; text-transform:uppercase;
+    border:1px solid var(--line); border-radius:6px; padding:6px 10px; color:var(--muted); }
+  #netchip.warn{ color:#FFB58A; border-color:rgba(232,83,10,.5); background:rgba(232,83,10,.12); }
+
+  /* breadcrumb of choices made so far; each is tappable to go back */
+  #crumbs{ display:flex; flex-wrap:wrap; gap:8px; margin-bottom:18px; min-height:34px; }
+  .crumb{ display:inline-flex; align-items:center; gap:8px; font:800 12px var(--body);
+    letter-spacing:.1em; text-transform:uppercase; color:#FFE2CF; cursor:pointer;
+    background:var(--orange-deep); border:0; border-radius:99px; padding:8px 14px; }
+  .crumb small{ font-weight:700; opacity:.75; }
+
+  .screen h2{ font-family:var(--display); font-weight:600; font-size:19px;
+    letter-spacing:.16em; text-transform:uppercase; color:var(--orange-hot); margin-bottom:14px; }
+
+  .biglist{ display:flex; flex-direction:column; gap:12px; }
+  button.big{ display:flex; align-items:center; gap:16px; text-align:left; cursor:pointer;
+    color:var(--cream); background:linear-gradient(180deg,var(--panel-a),var(--panel-b));
+    border:1px solid var(--line); border-radius:16px; padding:19px 20px; font-family:var(--body); }
+  button.big:active{ transform:scale(.99); }
+  button.big .em{ font-size:30px; width:40px; text-align:center; flex:none; }
+  button.big .t{ flex:1; }
+  button.big .t b{ display:block; font-family:var(--display); font-weight:600; font-size:21px;
+    text-transform:uppercase; letter-spacing:.03em; }
+  button.big .t span{ color:var(--muted); font-weight:600; font-size:13.5px; }
+  button.big .go{ font-family:var(--display); font-weight:700; font-size:20px;
+    color:var(--orange-hot); flex:none; }
+  button.big.dashed{ border-style:dashed; }
+
+  .chips{ display:flex; flex-wrap:wrap; gap:10px; }
+  button.chipbtn{ font:800 15px var(--body); letter-spacing:.1em; text-transform:uppercase;
+    color:var(--cream); background:linear-gradient(180deg,var(--panel-a),var(--panel-b));
+    border:1px solid var(--line); border-radius:12px; padding:16px 20px; cursor:pointer; }
+  button.chipbtn:active{ transform:scale(.98); }
+
+  #psearch{ width:100%; font:600 17px var(--body); color:var(--cream);
+    background:var(--panel-b); border:1px solid var(--line); border-radius:12px;
+    padding:14px 16px; margin-bottom:12px; outline:none; }
+  #psearch:focus{ border-color:var(--orange); }
+  .plist{ display:flex; flex-direction:column; gap:8px; }
+  button.prow{ display:flex; align-items:center; gap:14px; text-align:left; cursor:pointer;
+    color:var(--cream); background:linear-gradient(180deg,var(--panel-a),var(--panel-b));
+    border:1px solid var(--line); border-radius:12px; padding:13px 16px; font-family:var(--body); }
+  button.prow .no{ font-family:var(--display); font-weight:700; font-size:19px;
+    color:var(--orange-hot); width:44px; flex:none; }
+  button.prow .pn{ font-family:var(--display); font-weight:600; font-size:19px;
+    text-transform:uppercase; flex:1; }
+  button.prow .pt{ font:800 11px var(--body); letter-spacing:.12em; color:var(--muted);
+    text-transform:uppercase; }
+
+  .fields{ display:flex; flex-direction:column; gap:14px; }
+  .field{ background:linear-gradient(180deg,var(--panel-a),var(--panel-b));
+    border:1px solid var(--line); border-radius:14px; padding:14px 18px;
+    display:flex; align-items:center; gap:14px; }
+  .field label{ flex:1; }
+  .field label b{ display:block; font-family:var(--display); font-weight:600; font-size:17px;
+    text-transform:uppercase; letter-spacing:.04em; }
+  .field label span{ font:700 11px var(--body); letter-spacing:.14em; color:var(--muted);
+    text-transform:uppercase; }
+  .field input{ width:130px; font:700 26px var(--display); color:var(--cream); text-align:right;
+    background:var(--ink); border:1px solid var(--line); border-radius:10px;
+    padding:10px 14px; outline:none; }
+  .field input:focus{ border-color:var(--orange); }
+  .field input.text{ width:100%; font:600 18px var(--body); text-align:left; }
+
+  #savebar{ position:sticky; bottom:16px; margin-top:22px; display:flex; gap:10px; }
+  button.save{ flex:1; font:700 17px var(--body); letter-spacing:.14em; text-transform:uppercase;
+    color:#FFF3E9; border:0; border-radius:14px; cursor:pointer; padding:19px;
+    background:linear-gradient(115deg,var(--orange-deep),var(--orange));
+    box-shadow:0 12px 34px rgba(232,83,10,.35); }
+  button.save:disabled{ opacity:.45; cursor:default; box-shadow:none; }
+  button.ghostb{ font:700 13px var(--body); letter-spacing:.12em; text-transform:uppercase;
+    color:var(--cream); background:none; border:1px solid var(--line); border-radius:14px;
+    padding:0 20px; cursor:pointer; }
+
+  #toast{ position:fixed; left:50%; bottom:90px; transform:translate(-50%,20px); z-index:20;
+    background:#0E2A1D; color:var(--good); border:1px solid rgba(62,213,152,.4);
+    border-radius:12px; padding:14px 22px; font:700 15px var(--body); opacity:0;
+    pointer-events:none; transition:all .25s ease; }
+  #toast.show{ opacity:1; transform:translate(-50%,0); }
+  #toast.err{ background:#2A1509; color:#FFB58A; border-color:rgba(232,83,10,.5); }
+
+  .note{ color:var(--muted); font-size:13.5px; font-weight:600; margin-top:14px; line-height:1.55; }
+  .beta{ display:inline-block; font:800 10px var(--body); letter-spacing:.14em; color:#93A9E4;
+    border:1px solid rgba(147,169,228,.4); border-radius:5px; padding:3px 8px;
+    vertical-align:middle; margin-left:8px; }
+</style>
+
+<main>
+  <header>
+    <img src="logo.png" alt="Delmarva Aces logo">
+    <h1>ACES COMBINE <em>ENTRY</em><span class="beta">BETA</span></h1>
+    <span id="netchip">&#8230;</span>
+  </header>
+  <div id="crumbs"></div>
+  <div id="view"></div>
+</main>
+<div id="toast"></div>
+
+<script>
+'use strict';
+/* ══ Config ══ */
+const params = new URLSearchParams(location.search);
+const EXEC_URL = params.get('exec') || '';   // Apps Script web app /exec URL - baked in once deployed
+const SANDBOX = true;                        // parked: rows land in the Sandbox tab
+const ROSTER_SRC = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTOx0py80kbfpe43IlhJFlMnZT2ZO38KYffmwLZBcSaMEHG_GPUoRBzLXOMLJAonQ3syTDL0Fui4EBU/pub?gid=1951964958&single=true&output=csv';
+
+const MIN_TM = 11;
+const DIVS = [
+  {key:'8U', label:'8U', age:8}, {key:'9U', label:'9U', age:9}, {key:'10U', label:'10U', age:10},
+  {key:'11U', label:'11U', age:11}, {key:'12U', label:'12U', age:12}, {key:'13U', label:'13U', age:13},
+  {key:'14U', label:'14U', age:14}, {key:'15U', label:'15U', age:15},
+  {key:'DCP15U', label:'DCP 15U', age:15}, {key:'DCP2030', label:'DCP 2030', age:14},
+  {key:'DCP2029', label:'DCP 2029', age:15}, {key:'DCP2028', label:'DCP 2028', age:16},
+  {key:'DCP17U', label:'DCP 17U', age:17},
+];
+const divByKey = {}; DIVS.forEach(d => divByKey[d.key] = d);
+
+/* station metrics: hard limits mirror the server; rng anchors give the
+   age-scaled "that looks unusual" soft check */
+const METRICS = {
+  fb:   {n:'Pitch Velocity', u:'MPH', dec:1, min:20, max:105, rng:{8:[36,50],18:[76,92]}},
+  spin: {n:'Spin Rate', u:'RPM', dec:0, min:500, max:3500, rng:{11:[1450,1950],18:[2000,2500]}},
+  ivb:  {n:'Induced Vert Break', u:'IN', dec:1, min:-5, max:30, rng:{11:[7,13],18:[13,20]}},
+  mvmt: {n:'Pitch Movement', u:'IN', dec:1, min:0, max:40, rng:{11:[9,17],18:[16,26]}},
+  ev:   {n:'Exit Velocity', u:'MPH', dec:1, min:30, max:125, rng:{11:[52,70],18:[82,102]}},
+  bat:  {n:'Bat Speed', u:'MPH', dec:1, min:20, max:95, rng:{11:[42,58],18:[64,78]}},
+  la:   {n:'Launch Angle', u:'DEG', dec:0, min:-20, max:60, rng:{11:[8,24],18:[12,28]}},
+  dist: {n:'Max Distance', u:'FT', dec:0, min:40, max:450, rng:{11:[130,210],18:[270,380]}},
+  push: {n:'Push-Ups &#183; 30 Sec', u:'REPS', dec:0, min:0, max:100, rng:{8:[10,24],18:[28,46]}},
+  pull: {n:'Pull-Ups &#183; Max', u:'REPS', dec:0, min:0, max:60, rng:{8:[0,8],18:[6,20]}},
+  grip: {n:'Grip Strength', u:'LBS', dec:0, min:5, max:220, rng:{8:[30,55],18:[100,145]}},
+  broad:{n:'Broad Jump', u:'IN', dec:0, min:12, max:140, rng:{8:[45,66],18:[85,110]}},
+  vert: {n:'Vertical Jump', u:'IN', dec:1, min:2, max:50, rng:{8:[9,16],18:[22,32]}},
+  shut: {n:'5-10-5 Shuttle', u:'SEC', dec:2, min:3.5, max:9, rng:{8:[5.7,6.6],18:[4.2,4.9]}},
+  dash: {n:'30-Yard Dash', u:'SEC', dec:2, min:3, max:8, rng:{8:[5.0,5.9],18:[3.7,4.4]}},
+  split:{n:'10-Yard Split', u:'SEC', dec:2, min:1, max:4, rng:{8:[1.9,2.4],18:[1.45,1.8]}},
+};
+const STATIONS = [
+  { id:'ath',   em:'&#128170;', name:'Athletic Testing', sub:'All age groups &#183; fill only what you ran',
+    who:'all',   fields:['push','pull','grip','broad','vert','shut','dash','split'] },
+  { id:'yvelo', em:'&#127919;', name:'Pitch Velocity 8U&#8211;10U', sub:'Radar gun &#183; best pitch',
+    who:'young', fields:['fb'] },
+  { id:'tpitch', em:'&#128293;', name:'Trackman Pitching', sub:'11U and up &#183; session bests',
+    who:'older', fields:['fb','spin','ivb','mvmt'] },
+  { id:'thit',  em:'&#9889;', name:'Trackman Hitting', sub:'11U and up &#183; session bests',
+    who:'older', fields:['ev','bat','la','dist'] },
+];
+const divsFor = s => DIVS.filter(d =>
+  s.who === 'all' ? true : s.who === 'young' ? d.age < MIN_TM && d.key.indexOf('DCP') < 0
+  : !(d.age < MIN_TM && d.key.indexOf('DCP') < 0));
+const rangeFor = (m, age) => {
+  const ks = Object.keys(m.rng).map(Number).sort((a,b)=>a-b);
+  const t = Math.min(1, Math.max(0, (age-ks[0])/(ks[1]-ks[0])));
+  return [ m.rng[ks[0]][0]+t*(m.rng[ks[1]][0]-m.rng[ks[0]][0]),
+           m.rng[ks[0]][1]+t*(m.rng[ks[1]][1]-m.rng[ks[0]][1]) ];
+};
+
+/* ══ Roster ══ */
+let PLAYERS = [];
+function parseCSV(text){
+  const rows = []; let row = [], cur = '', q = false;
+  for (let i = 0; i < text.length; i++){ const ch = text[i];
+    if (q){ if (ch === '"'){ if (text[i+1] === '"'){ cur += '"'; i++; } else q = false; } else cur += ch; }
+    else if (ch === '"') q = true;
+    else if (ch === ','){ row.push(cur); cur = ''; }
+    else if (ch === '\n'){ row.push(cur); rows.push(row); row = []; cur = ''; }
+    else if (ch !== '\r') cur += ch; }
+  if (cur !== '' || row.length){ row.push(cur); rows.push(row); }
+  return rows;
+}
+async function loadRoster(){
+  try {
+    const r = await fetch(ROSTER_SRC + '&cb=' + Date.now(), {cache:'no-store'});
+    if (!r.ok) throw 0;
+    const rows = parseCSV(await r.text());
+    const head = rows[0].map(h => String(h).trim());
+    let iD = head.indexOf('Age Group'); if (iD < 0) iD = head.indexOf('Division');
+    const iT = head.indexOf('Team'), iJ = head.indexOf('Jersey'), iP = head.indexOf('Player');
+    const out = [];
+    for (let i = 1; i < rows.length; i++){ const row = rows[i];
+      if (!row || !row[iP] || !divByKey[String(row[iD]).trim()]) continue;
+      out.push({ div: String(row[iD]).trim(), team: String(row[iT]).trim(),
+                 num: String(row[iJ]).trim(), full: String(row[iP]).trim() }); }
+    if (out.length > 50) PLAYERS = out;
+    setNet();
+  } catch(e){ setNet('Roster feed unreachable'); }
+}
+
+/* ══ Submit queue: nothing is ever lost to a Wi-Fi blip ══ */
+const QKEY = 'combineQueueBeta';
+const q = () => { try { return JSON.parse(localStorage.getItem(QKEY)) || []; } catch(e){ return []; } };
+const qSave = (list) => { try { localStorage.setItem(QKEY, JSON.stringify(list)); } catch(e){} };
+async function send(payload){
+  if (!EXEC_URL) return { ok:false, preview:true };
+  const r = await fetch(EXEC_URL, { method:'POST', body: JSON.stringify(payload) });
+  return r.json();
+}
+async function submit(payload){
+  try {
+    const res = await send(payload);
+    if (res.preview){ toast('Preview mode - backend not connected yet', true); return true; }
+    if (!res.ok){ toast('Rejected: ' + (res.error || 'unknown'), true); return false; }
+    toast(payload.kind === 'player' ? 'Player added ✔' : 'Saved ✔' + (SANDBOX ? ' (sandbox)' : ''));
+    return true;
+  } catch(e){
+    const list = q(); list.push(payload); qSave(list); setNet();
+    toast('No signal - saved to the queue, will auto-send', true);
+    return true;
+  }
+}
+async function flush(){
+  let list = q();
+  while (list.length && EXEC_URL){
+    try { const res = await send(list[0]); if (!res.ok && !res.preview) { /* rejected: drop it */ } }
+    catch(e){ break; }
+    list.shift(); qSave(list);
+  }
+  setNet();
+}
+setInterval(flush, 20000);
+
+function setNet(msg){
+  const el = document.getElementById('netchip');
+  const pending = q().length;
+  if (msg){ el.textContent = msg; el.className = 'warn'; return; }
+  if (!EXEC_URL){ el.textContent = 'PREVIEW'; el.className = 'warn'; return; }
+  if (pending){ el.textContent = pending + ' QUEUED'; el.className = 'warn'; return; }
+  el.textContent = SANDBOX ? 'SANDBOX' : 'LIVE'; el.className = '';
+}
+
+/* ══ UI state machine ══ */
+const view = document.getElementById('view');
+const crumbsEl = document.getElementById('crumbs');
+let S = { station: null, div: null, player: null, mode: 'station' };  // mode: station|div|player|entry|add
+const esc = t => String(t).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+function crumbs(){
+  let h = '';
+  if (S.station) h += `<button class="crumb" onclick="goto('station')"><small>Station</small> ${S.station.name}</button>`;
+  if (S.div) h += `<button class="crumb" onclick="goto('div')"><small>Age</small> ${S.div.label}</button>`;
+  if (S.player) h += `<button class="crumb" onclick="goto('player')"><small>Player</small> ${esc(S.player.full)}</button>`;
+  crumbsEl.innerHTML = h;
+}
+function goto(mode){
+  if (mode === 'station'){ S = { mode:'station', station:null, div:null, player:null }; }
+  else if (mode === 'div'){ S.mode = 'div'; S.div = null; S.player = null; }
+  else if (mode === 'player'){ S.mode = 'player'; S.player = null; }
+  render();
+}
+
+function render(){
+  crumbs(); setNet();
+  if (S.mode === 'station'){
+    view.innerHTML = `<div class="screen"><h2>Pick your station</h2><div class="biglist">
+      ${STATIONS.map((s,i) => `<button class="big" onclick="pickStation(${i})">
+        <span class="em">${s.em}</span>
+        <span class="t"><b>${s.name}</b><span>${s.sub}</span></span>
+        <span class="go">&#9656;</span></button>`).join('')}
+      <button class="big dashed" onclick="pickAdd()">
+        <span class="em">&#10133;</span>
+        <span class="t"><b>Player Not Listed?</b><span>Add him here</span></span>
+        <span class="go">&#9656;</span></button>
+    </div></div>`;
+  }
+  else if (S.mode === 'div'){
+    view.innerHTML = `<div class="screen"><h2>Pick the age group</h2><div class="chips">
+      ${divsFor(S.station).map(d => `<button class="chipbtn" onclick="pickDiv('${d.key}')">${d.label}</button>`).join('')}
+    </div></div>`;
+  }
+  else if (S.mode === 'player'){
+    view.innerHTML = `<div class="screen"><h2>Pick the player</h2>
+      <input id="psearch" type="search" placeholder="Type a name&#8230;" autocomplete="off">
+      <div class="plist" id="plist"></div></div>`;
+    document.getElementById('psearch').addEventListener('input', renderPlayers);
+    renderPlayers();
+  }
+  else if (S.mode === 'entry'){
+    const age = S.div.age;
+    view.innerHTML = `<div class="screen"><h2>Enter results</h2><div class="fields">
+      ${S.station.fields.map(id => { const m = METRICS[id];
+        return `<div class="field"><label><b>${m.n}</b><span>${m.u}</span></label>
+          <input inputmode="decimal" data-sid="${id}" placeholder="&#8212;"></div>`; }).join('')}
+    </div>
+    <div id="savebar">
+      <button class="ghostb" onclick="goto('player')">Back</button>
+      <button class="save" onclick="saveEntry()">Save ${esc(S.player.full.split(' ')[0])}'s results</button>
+    </div>
+    <p class="note">${S.station.fields.length > 1 ? 'Fill only the tests he just ran - blanks are fine.' : ''}
+      Best individual attempt &#183; jumps in inches &#183; times like 4.85.</p></div>`;
+    view.querySelector('input').focus();
+  }
+  else if (S.mode === 'add'){
+    view.innerHTML = `<div class="screen"><h2>Add a player</h2><div class="fields">
+      <div class="field"><label><b>Age group</b></label>
+        <select id="adddiv" style="font:700 17px var(--body);color:var(--cream);background:var(--ink);border:1px solid var(--line);border-radius:10px;padding:12px;">
+          ${DIVS.map(d => `<option value="${d.key}">${d.label}</option>`).join('')}</select></div>
+      <div class="field"><label style="flex:none"><b>Team</b></label><input class="text" id="addteam" placeholder="e.g. 13U East"></div>
+      <div class="field"><label style="flex:none"><b>Jersey #</b></label><input inputmode="numeric" id="addnum" placeholder="12"></div>
+      <div class="field"><label style="flex:none"><b>First name</b></label><input class="text" id="addfirst"></div>
+      <div class="field"><label style="flex:none"><b>Last name</b></label><input class="text" id="addlast"></div>
+    </div>
+    <div id="savebar">
+      <button class="ghostb" onclick="goto('station')">Back</button>
+      <button class="save" onclick="saveAdd()">Add player</button>
+    </div></div>`;
+  }
+}
+function renderPlayers(){
+  const qstr = (document.getElementById('psearch').value || '').trim().toLowerCase();
+  const list = PLAYERS.filter(p => p.div === S.div.key &&
+    (!qstr || p.full.toLowerCase().includes(qstr)))
+    .sort((a,b) => a.full.localeCompare(b.full));
+  document.getElementById('plist').innerHTML = list.length ? list.map((p,i) =>
+    `<button class="prow" onclick="pickPlayer('${p.div}','${esc(p.full).replace(/'/g,"\\'")}')">
+      <span class="no">#${esc(p.num)}</span><span class="pn">${esc(p.full)}</span>
+      <span class="pt">${esc(p.team)}</span></button>`).join('')
+    : `<p class="note">Nobody matches. Missing player? Head back and tap &#8220;Player Not Listed?&#8221;</p>`;
+}
+function pickStation(i){ S.station = STATIONS[i]; S.mode = 'div'; render(); }
+function pickDiv(key){ S.div = divByKey[key]; S.mode = 'player'; render(); }
+function pickPlayer(div, full){
+  S.player = PLAYERS.find(p => p.div === div && p.full === full) || { full, team:'', num:'' };
+  S.mode = 'entry'; render();
+}
+function pickAdd(){ S = { mode:'add', station:null, div:null, player:null }; render(); }
+
+async function saveEntry(){
+  const entries = [];
+  for (const input of view.querySelectorAll('input[data-sid]')){
+    const raw = input.value.trim();
+    if (raw === '') continue;
+    const sid = input.dataset.sid, m = METRICS[sid];
+    const v = parseFloat(raw);
+    if (!isFinite(v) || v < m.min || v > m.max){
+      toast(m.n.replace(/&#183;/g,'·') + ' must be ' + m.min + '–' + m.max + ' ' + m.u, true);
+      input.focus(); return;
+    }
+    const r = rangeFor(m, S.div.age), spread = r[1] - r[0];
+    if (v < r[0] - spread * 0.4 || v > r[1] + spread * 0.4){
+      if (!confirm(v + ' ' + m.u + ' is unusual for ' + S.div.label + '. Save it anyway?')){
+        input.focus(); return;
+      }
+    }
+    entries.push({ station: sid, value: v });
+  }
+  if (!entries.length){ toast('Nothing entered yet', true); return; }
+  const ok = await submit({ kind:'result', sandbox: SANDBOX, divLabel: S.div.label,
+    team: S.player.team, jersey: S.player.num, player: S.player.full, entries });
+  if (ok) goto('player');   // straight back to the list for the next player
+}
+async function saveAdd(){
+  const get = id => document.getElementById(id).value.trim();
+  const name = (get('addfirst') + ' ' + get('addlast')).replace(/\s+/g,' ').trim();
+  if (!name || !get('addfirst') || !get('addlast')){ toast('Need first and last name', true); return; }
+  const divKey = document.getElementById('adddiv').value;
+  const ok = await submit({ kind:'player', sandbox: SANDBOX, divKey,
+    team: get('addteam') || divByKey[divKey].label, jersey: get('addnum'), name });
+  if (ok){
+    PLAYERS.push({ div: divKey, team: get('addteam') || divByKey[divKey].label,
+      num: get('addnum'), full: name });
+    goto('station');
+  }
+}
+
+let toastT;
+function toast(msg, err){
+  const el = document.getElementById('toast');
+  el.textContent = msg; el.className = 'show' + (err ? ' err' : '');
+  clearTimeout(toastT); toastT = setTimeout(() => el.className = '', 2600);
+}
+
+/* ══ Boot ══ */
+render();
+loadRoster();
+flush();
+</script>
