@@ -25,6 +25,16 @@
     text-transform:uppercase; line-height:1.05; }
   h1 em{ font-style:normal; color:var(--orange-hot); }
   .sub{ color:var(--muted); font-weight:600; font-size:15px; margin:6px 0 26px; }
+  .steps{ display:flex; align-items:center; flex-wrap:wrap; gap:8px 6px; margin:16px 0 10px; }
+  .step{ display:flex; align-items:center; gap:9px; border:1px solid var(--line);
+    border-radius:99px; padding:9px 15px;
+    background:linear-gradient(180deg,var(--panel-a),var(--panel-b)); }
+  .step b{ font-family:var(--display); font-weight:700; font-size:17px; color:var(--orange-hot);
+    line-height:1; }
+  .step span{ font-size:12.5px; font-weight:800; letter-spacing:.08em; text-transform:uppercase; }
+  .steps .sep{ color:var(--orange-hot); font-weight:800; font-size:15px; padding:0 2px; }
+  .substep{ color:var(--muted); font-size:13.5px; font-weight:600; margin:0 0 26px; }
+  .substep b{ color:var(--cream); }
 
   .btns{ display:flex; flex-direction:column; gap:14px; }
   a.stn{ display:flex; align-items:center; gap:18px; text-decoration:none; color:var(--cream);
@@ -65,8 +75,16 @@
     <img src="logo.png" alt="Delmarva Aces logo">
     <h1>ACES COMBINE<br><em>ENTER RESULTS</em></h1>
   </div>
-  <p class="sub">Tap your station. Pick the division, pick the kid, type the number, submit.
-    After each kid, tap &#8220;Submit another response.&#8221;</p>
+  <div class="steps">
+    <div class="step"><b>1</b><span>Pick the age group</span></div>
+    <span class="sep">&#9656;</span>
+    <div class="step"><b>2</b><span>Pick the player</span></div>
+    <span class="sep">&#9656;</span>
+    <div class="step"><b>3</b><span>Enter result</span></div>
+    <span class="sep">&#9656;</span>
+    <div class="step"><b>4</b><span>Submit</span></div>
+  </div>
+  <p class="substep">After each player, tap <b>&#8220;Submit another response.&#8221;</b></p>
 
   <div class="btns">
     <a class="stn" href="https://docs.google.com/forms/d/e/1FAIpQLSd3PLu8KbeiiFOlkjj0C2k52cTqBPeMuIyd6rnN1rx-3j7dkA/viewform">
