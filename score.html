@@ -1645,17 +1645,25 @@ async function quickLog(result) {
   }
 
   var offset=currentClipOffset()
+  // Radar: an armed (gun-filled) velo older than 20s is a warm-up throw or a
+  // pickoff, not this pitch — drop it rather than glue it to the wrong pitch.
+  var _veloWasManual = _radar.manual
+  if(S.velo!==null && !_radar.manual && Date.now()-_radar.armedAt>20000) S.velo=null
   var pd={game_id:S.gameId,
     pitcher_id: !acesUp() ? S.currentPitcherId : null,  // our pitcher only when the Aces are in the field
     pitch_num:S.pitchCount,pitch_type:S.pitchType,
-    velocity_mph:S.velo,result:result,inning:S.inning,
+    velocity_mph:S.velo,velo_source:S.velo===null?null:(_radar.manual?'manual':'radar'),
+    result:result,inning:S.inning,
     half:S.isTop?'top':'bottom',balls_before:bBefore,strikes_before:sBefore,yt_offset_sec:offset}
+  _radar.lastPitch = null
   try{
     if (!isOnline) throw new Error('offline')
     var {data,error}=await db.from('pitches').insert(pd).select().single()
     if(error) throw error
     S.lastPitchId=data?.id
     if(HISTORY.length && data?.id) HISTORY[HISTORY.length-1].pitchId = data.id
+    // remember this pitch so a gun reading that lands AFTER the tap can attach to it
+    _radar.lastPitch = {id:data?.id, t:Date.now(), manual:_veloWasManual, hasVelo:S.velo!==null}
     setSynced(true)
   }catch(e){
     // Queue locally if offline or failed
@@ -1663,6 +1671,9 @@ async function quickLog(result) {
     if(HISTORY.length) HISTORY[HISTORY.length-1].localPitchId = localId
     setSynced(false)
   }
+  // Radar mode: the velo box empties after every pitch so a missed reading
+  // shows as blank instead of silently repeating the last number.
+  if(_radar.active) radarClearVelo()   // manual or not, this pitch consumed the value
 
   // Auto-trigger outcomes (fromAuto=true: the outcome joins THIS pitch's
   // history entry, so one Undo removes e.g. ball-4 + the walk together)
@@ -1773,6 +1784,15 @@ async function logAB(result, label, skipPitchLog, fromAuto, runnerId) {
     var {data:abd2,error}=await db.from('at_bats').insert(abd).select().single()
     if(error) throw error
     if(HISTORY.length && abd2?.id) HISTORY[HISTORY.length-1].atBatId = abd2.id
+    // Exit velo: the gun's outbound reading for a batted ball lands long
+    // before this row exists (the result pick is 10-30s after contact), so
+    // attach a pending exit reading here — or remember the row for a late one.
+    if(abd2?.id && /(single|double|triple|home_run|groundout|flyout|lineout|popout|double_play|sac_|fielders_choice|error|reached_on)/i.test(result)){
+      _radar.lastAb = {id:abd2.id, t:Date.now()}
+      if(_radar.pendingExit && Date.now()-_radar.pendingExit.t<90000){
+        radarAttachExit(abd2.id, _radar.pendingExit.mph); _radar.pendingExit=null
+      }
+    }
     setSynced(true)
   }catch(e){
     var localId2 = queueItem('at_bats', abd)
@@ -1996,32 +2016,74 @@ function npConfirm(){
   document.getElementById('numpad-sheet').style.display='none'
 }
 
-/* ── RADAR AUTOFILL (Stalker bridge) ──
-   radar_bridge.py on the scoring laptop pushes each gun reading into
-   radar_readings; we poll the newest row every 3s while a game is open.
-   A reading we haven't seen yet auto-fills the velo (📡 in the unit label);
-   any manual tap afterwards wins until the NEXT gun reading arrives.
-   The bridge runs on this same laptop, so its timestamps share our clock. */
-var _radarLastId = 0
+/* ── RADAR (Stalker bridge) ──
+   radar_bridge.py pushes each gun burst into radar_readings as
+   {peak_mph = pitch (inbound), exit_mph = batted ball (outbound)}; we poll
+   the newest row every 3s while a game is open.
+
+   TIMING: the coach's tap usually beats the reading's round trip (gun →
+   bridge → DB → poll ≈ 1-4s). So a reading first looks BACK: if a pitch was
+   logged just before it with no velo, the reading attaches to THAT pitch
+   (UPDATE). Only when no such pitch exists (gun beat the thumb) does it arm
+   the velo box for the next tap — and an armed value expires in 20s.
+   Manual taps always win for their pitch. Exit velo works the same way
+   against the at_bats row, which is logged 10-30s after contact, so a
+   pending exit waits for logAB instead. */
+var _radar = {seenId:0, active:false, manual:false, armedAt:0, lastPitch:null, lastAb:null, pendingExit:null}
 function _veloManual(){
-  var u=document.querySelector('.velo-unit')
-  if(u) u.textContent='mph'
+  _radar.manual = true
+  var u=document.querySelector('.velo-unit'); if(u) u.textContent='mph'
+}
+function radarClearVelo(){
+  S.velo=null; _radar.manual=false
+  document.getElementById('velo-val').textContent='—'
+  paintVeloQuick()
+}
+function radarShow(v, label){
+  document.getElementById('velo-val').textContent=v
+  var u=document.querySelector('.velo-unit'); if(u) u.textContent=label
+}
+async function radarAttachPitch(id, v){
+  try{ await db.from('pitches').update({velocity_mph:v, velo_source:'radar'}).eq('id', id) }catch(e){}
+}
+async function radarAttachExit(id, v){
+  try{ await db.from('at_bats').update({exit_velo:v}).eq('id', id) }catch(e){}
 }
 async function pollRadar(){
   if(!S.gameId || window.GAME_OVER || !navigator.onLine) return
   try{
     var res = await db.from('radar_readings')
-      .select('id,ts,peak_mph').order('ts',{ascending:false}).limit(1).maybeSingle()
+      .select('id,ts,peak_mph,exit_mph').order('ts',{ascending:false}).limit(1).maybeSingle()
     var r = res && res.data
-    if(!r || r.id===_radarLastId) return
-    _radarLastId = r.id
-    var age = Date.now() - new Date(r.ts).getTime()
-    if(age > 25000) return              // stale (page just loaded, old reading)
-    var v = Math.max(40, Math.min(105, r.peak_mph))
-    S.velo = v
-    document.getElementById('velo-val').textContent = v
-    var u=document.querySelector('.velo-unit'); if(u) u.textContent='mph 📡'
-    paintVeloQuick()
+    if(!r || r.id===_radar.seenId) return
+    _radar.seenId = r.id
+    var rt = new Date(r.ts).getTime()
+    if(Date.now()-rt > 60000) return      // stale: page just loaded, old reading
+    _radar.active = true
+
+    if(r.peak_mph!=null){
+      var v = Math.max(40, Math.min(105, r.peak_mph))
+      var lp = _radar.lastPitch
+      // look back: a pitch tapped between 8s before and 15s after the reading's
+      // timestamp (the burst finalizes ~1s after the mitt pop, then inserts)
+      if(lp && lp.id && !lp.manual && !lp.hasVelo && lp.t>rt-8000 && lp.t<rt+15000){
+        lp.hasVelo = true
+        radarAttachPitch(lp.id, v)
+        // feedback only — S.velo stays empty so it can't ride onto the next pitch
+        if(S.velo===null) radarShow(v, 'mph 📡 last')
+      }else if(!_radar.manual){
+        S.velo = v; _radar.armedAt = Date.now()
+        radarShow(v, 'mph 📡')
+        paintVeloQuick()
+      }
+    }
+    if(r.exit_mph!=null){
+      var ev = Math.max(30, Math.min(120, r.exit_mph))
+      var la = _radar.lastAb
+      if(la && la.t>rt-3000 && la.t<rt+15000){ radarAttachExit(la.id, ev); _radar.lastAb=null }
+      else _radar.pendingExit = {mph:ev, t:rt}
+      showToast('💥 Exit velo '+ev+' mph')
+    }
   }catch(e){}
 }
 setInterval(pollRadar, 3000)
