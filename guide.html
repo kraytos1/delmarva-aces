@@ -100,11 +100,12 @@ td:first-child{white-space:nowrap;}
     <img src="/logo.png" alt="Aces"/>
     <h1>Aces <span>User Guide</span></h1>
   </div>
-  <div class="sub">EVERYTHING THE SITE DOES &amp; WHERE EVERY SWITCH LIVES · UPDATED AUG 2026</div>
+  <div class="sub">EVERYTHING THE SITE DOES &amp; WHERE EVERY SWITCH LIVES · UPDATED SEP 2026</div>
 
   <nav class="toc">
     <a href="#gameday">Game day</a>
     <a href="#scorer">The scorer</a>
+    <a href="#radar">Radar gun</a>
     <a href="#broadcast">Broadcast kit</a>
     <a href="#switches">Every switch</a>
     <a href="#after">After the game</a>
@@ -125,7 +126,7 @@ td:first-child{white-space:nowrap;}
     </div></div>
     <div class="step"><div class="num">2</div><div class="body">
       <div class="st">Start the YouTube stream, then start scoring — <a class="pg" href="/score.html">/score.html</a></div>
-      <p>On setup, <b>⚡ Find live</b> auto-fills the live video ID. Start Scoring locks clip timing to the broadcast's real start time. If you scored earlier and got interrupted, the live game pre-selects with a <b>Resume Scoring</b> button — mid-game reload is safe.</p>
+      <p>On setup, <b>⚡ Find live</b> auto-fills the live video ID. Start Scoring locks clip timing to the broadcast's real start time. If you scored earlier and got interrupted, the live game pre-selects with a <b>Resume Scoring</b> button — mid-game reload is safe. Bringing the radar gun? Start its bridge on the laptop now too — one command, see <a class="pg" href="#radar">Radar gun</a>.</p>
     </div></div>
     <div class="step"><div class="num">3</div><div class="body">
       <div class="st">Put the scorebug on the stream</div>
@@ -157,7 +158,7 @@ td:first-child{white-space:nowrap;}
       <li><b>Ball / Strike / Foul</b> are raw pitch taps. Ball four logs the walk by itself; strike three logs the K by itself. A foul with two strikes stays at two. One Undo removes the pitch <i>and</i> the outcome it triggered, together.</li>
       <li><b>Outcome buttons</b> (hits, outs, reach-on) end the at-bat and advance the order automatically. A same-button double-tap inside half a second is ignored — that's a phone bounce, not two plays.</li>
       <li><b>Baserunner events</b> (steal, WP/PB, balk, caught stealing, pickoffs, out advancing) live behind their own button. They never advance the batter or reset his count. Steals and caught-stealings ask <b>who ran</b> — that's how the kid gets SB credit.</li>
-      <li><b>Velocity</b>: nudge the number before the pitch; it rides on that pitch's row and feeds the scorebug and bullpen.</li>
+      <li><b>Velocity</b>: with the radar gun running (see <a class="pg" href="#radar">Radar gun</a>) the number fills itself — <b>📡</b> in the unit label means the gun set it, <b>📡 last</b> means it just attached to the pitch you already tapped. No gun? Nudge or tap it before the pitch. Either way it rides on that pitch's row and feeds the scorebug, bullpen and player pages.</li>
     </ul>
 
     <h3>The helper chips (all optional, all off-ignorable)</h3>
@@ -185,9 +186,47 @@ td:first-child{white-space:nowrap;}
     </ul>
   </div>
 
-  <!-- ═══════════ 3. BROADCAST KIT ═══════════ -->
+  <!-- ═══════════ 3. RADAR GUN ═══════════ -->
+  <div class="sec" id="radar">
+    <h2><span class="n">03</span>Radar gun <span class="pill new">new Sep 2026</span></h2>
+    <div class="sec-d">Stalker Sport 3 Connect. The gun measures, the laptop listens, the scorer does the bookkeeping. You never type a velocity again.</div>
+
+    <h3>Setting up</h3>
+    <div class="step"><div class="num">1</div><div class="body">
+      <div class="st">Mount the gun, continuous trigger on</div>
+      <p>Two positions work. <b>Behind the backstop</b>, pointed at the mound — the default, nothing extra to do. Or <b>out in center field with you</b>, pointed at the plate — the gun sees 300 ft, so this is a real option; just add <code>--from-cf</code> to the bridge command so it knows the pitch is travelling <i>away</i> from it. Continuous trigger mode means nobody has to squeeze anything all game.</p>
+    </div></div>
+    <div class="step"><div class="num">2</div><div class="body">
+      <div class="st">Connect it — cable or wireless, not both</div>
+      <p><b>USB-C cable</b> to the laptop is the bulletproof option. <b>Bluetooth</b> needs no pairing and no cable — but reach is roughly 30–100 ft, and while a cable is plugged in the gun talks to the cable <i>only</i>. The 300 ft is how far the gun can <i>see</i>, not how far it can <i>talk</i>: in center field, keep the laptop beside the gun.</p>
+    </div></div>
+    <div class="step"><div class="num">3</div><div class="body">
+      <div class="st">Start the bridge on the laptop</div>
+      <p><code>python C:\Users\c_boo\OneDrive\Desktop\AcesAnalytics\radar_bridge.py</code> — add <code>--from-cf</code> for the center-field setup. Leave the window open; every reading prints as it lands (<i>pitch 66 mph · exit 71 mph</i>). It picks USB if the cable's in, otherwise Bluetooth, and reconnects by itself if either drops. Park wifi flaky? Readings queue and flush when signal returns.</p>
+    </div></div>
+
+    <h3>What you'll see while scoring</h3>
+    <ul>
+      <li>The velo box fills itself. <b>📡</b> in the unit label = the gun set it, ready for the pitch you're about to tap.</li>
+      <li><b>📡 last</b> = the reading landed <i>after</i> you'd already tapped the pitch, so it attached to that pitch retroactively. Your thumb is faster than the gun's round trip — this is the normal case, and it's correct.</li>
+      <li>The box <b>empties after every pitch</b>. Blank means the gun missed one — honest, not a repeat of the last number.</li>
+      <li>Tap a number yourself and yours wins for that pitch. A gun reading older than 20 s (warm-up throws, pickoffs) is never glued to a pitch.</li>
+      <li>The other team's pitcher gets gunned too — those numbers feed the <a class="pg" href="#scouting">scouting pages</a>.</li>
+    </ul>
+
+    <h3>Exit velocity</h3>
+    <ul>
+      <li>The gun tells the bridge which <i>direction</i> the ball was moving. Pitch one way, batted ball the other — so every ball in play gets an <b>exit velocity</b>, for free. A <b>💥 Exit velo</b> toast confirms each one.</li>
+      <li>It attaches to the at-bat when you pick the result, and shows up on the kid's player page as <b>Exit Velocity · In-Game</b>: max, average, 70+ mph count, and his three hardest-hit balls.</li>
+      <li>Built-in filters: the catcher's throw back to the mound is ignored (no pitch in that burst), and a foul straight back at the gun can't overwrite the pitch speed.</li>
+    </ul>
+
+    <div class="callout"><b>If it's quiet:</b> <i>gun not advertising</i> — it's asleep or off, pull the trigger once. <i>db offline, N queued</i> — wifi; it'll flush. Nothing printing on Bluetooth while it's on the charger? The gun is talking to that cable — unplug it, or run the cable to the laptop instead. No reading at all on a live pitch? Aim: the beam wants the ball coming straight at it or straight away.</div>
+  </div>
+
+  <!-- ═══════════ 4. BROADCAST KIT ═══════════ -->
   <div class="sec" id="broadcast">
-    <h2><span class="n">03</span>Broadcast kit</h2>
+    <h2><span class="n">04</span>Broadcast kit</h2>
     <div class="sec-d">Everything that draws on the stream.</div>
 
     <div class="card">
@@ -214,7 +253,7 @@ td:first-child{white-space:nowrap;}
 
   <!-- ═══════════ 4. EVERY SWITCH ═══════════ -->
   <div class="sec" id="switches">
-    <h2><span class="n">04</span>Every switch</h2>
+    <h2><span class="n">05</span>Every switch</h2>
     <div class="sec-d">The page you're thinking of is <a class="pg" href="/controls.html"><b>/controls.html</b></a> — every toggle in one place, applied to the live broadcast within seconds. Here's what each one does.</div>
 
     <h3>Controls page — broadcast</h3>
@@ -260,7 +299,7 @@ td:first-child{white-space:nowrap;}
 
   <!-- ═══════════ 5. AFTER THE GAME ═══════════ -->
   <div class="sec" id="after">
-    <h2><span class="n">05</span>After the game</h2>
+    <h2><span class="n">06</span>After the game</h2>
     <ul>
       <li><b>Highlights are already made.</b> Scoring queued a clip for every big play, deep-linked into the VOD. <a class="pg" href="/highlights.html">/highlights.html</a> has the gallery, per-player reels, pitching Ks, a Defense filter, and 🔗 share links per clip.</li>
       <li><b>Replay Chapters</b> — <a class="pg" href="/chapters.html">/chapters.html</a> turns the scored plays into YouTube chapter timestamps; paste into the video description.</li>
@@ -272,7 +311,7 @@ td:first-child{white-space:nowrap;}
 
   <!-- ═══════════ 6. SCOUTING ═══════════ -->
   <div class="sec" id="scouting">
-    <h2><span class="n">06</span>Scouting</h2>
+    <h2><span class="n">07</span>Scouting</h2>
     <div class="tbl-wrap"><table>
       <tr><th>Page</th><th>What you get</th></tr>
       <tr><td><a class="pg" href="/report.html">/report.html</a></td><td>Pre-game report: opponent record, threat tier, game-plan bullets, top bats to contain — plus a one-tap generated game plan. Print button for the dugout.</td></tr>
@@ -285,7 +324,7 @@ td:first-child{white-space:nowrap;}
 
   <!-- ═══════════ 7. PARENT PAGES ═══════════ -->
   <div class="sec" id="parents">
-    <h2><span class="n">07</span>What families see</h2>
+    <h2><span class="n">08</span>What families see</h2>
     <ul>
       <li><b>Home</b> — squad hero, season leaders, team awards, recent results, sponsor wall. A parent can star "my player" on a kid's page and get a shortcut card here.</li>
       <li><b>Schedule</b> — results with the Aces score always first (orange = win), box-score links, upcoming games with add-to-calendar and Maps.</li>
@@ -298,7 +337,7 @@ td:first-child{white-space:nowrap;}
 
   <!-- ═══════════ 8. HOW PLAYS COUNT ═══════════ -->
   <div class="sec" id="stats">
-    <h2><span class="n">08</span>How plays count <span class="pill new">audited Aug 2026</span></h2>
+    <h2><span class="n">09</span>How plays count <span class="pill new">audited Aug 2026</span></h2>
     <div class="sec-d">The scoring engine was audited play-by-play against the rulebook (71 checks). The short version:</div>
     <ul>
       <li><b>At-bats</b>: walks, HBP, sacrifices, and baserunner events are <i>not</i> ABs. Errors, fielder's choices, and dropped-third strikes are.</li>
@@ -313,7 +352,7 @@ td:first-child{white-space:nowrap;}
 
   <!-- ═══════════ 9. FINE PRINT ═══════════ -->
   <div class="sec" id="fineprint">
-    <h2><span class="n">09</span>Fine print</h2>
+    <h2><span class="n">10</span>Fine print</h2>
     <ul>
       <li><b>PIN</b>: coach pages ask once and remember the device for 7 days.</li>
       <li><b>Coach HQ</b> — <a class="pg" href="/tools.html">/tools.html</a> links every tool on this page. Bookmark it; it's deliberately not in the parent nav.</li>
