@@ -1963,6 +1963,7 @@ var VELO_QUICK = [63,65,67,69,71,73]
   }).join('')
 })()
 function paintVeloQuick(){
+  if(S.velo===null){ var u=document.querySelector('.velo-unit'); if(u) u.textContent='mph' }
   VELO_QUICK.forEach(function(v){
     var b=document.getElementById('vq-'+v)
     if(b) b.classList.toggle('sel', S.velo===v)
@@ -1970,12 +1971,14 @@ function paintVeloQuick(){
 }
 function quickVelo(v){
   S.velo=v
+  _veloManual()
   document.getElementById('velo-val').textContent=v
   paintVeloQuick()
 }
 function nudgeVelo(d){
   if(S.velo===null)S.velo=65
   S.velo=Math.max(40,Math.min(105,S.velo+d))
+  _veloManual()
   document.getElementById('velo-val').textContent=S.velo
   paintVeloQuick()
 }
@@ -1989,9 +1992,39 @@ function npTap(d){if(S.npInput.length>=3)return;S.npInput+=d;document.getElement
 function npClear(){S.npInput='';document.getElementById('np-display').textContent='—'}
 function npConfirm(){
   var v=parseInt(S.npInput)
-  if(v&&v>=40&&v<=105){S.velo=v;document.getElementById('velo-val').textContent=v;paintVeloQuick()}
+  if(v&&v>=40&&v<=105){S.velo=v;_veloManual();document.getElementById('velo-val').textContent=v;paintVeloQuick()}
   document.getElementById('numpad-sheet').style.display='none'
 }
+
+/* ── RADAR AUTOFILL (Stalker bridge) ──
+   radar_bridge.py on the scoring laptop pushes each gun reading into
+   radar_readings; we poll the newest row every 3s while a game is open.
+   A reading we haven't seen yet auto-fills the velo (📡 in the unit label);
+   any manual tap afterwards wins until the NEXT gun reading arrives.
+   The bridge runs on this same laptop, so its timestamps share our clock. */
+var _radarLastId = 0
+function _veloManual(){
+  var u=document.querySelector('.velo-unit')
+  if(u) u.textContent='mph'
+}
+async function pollRadar(){
+  if(!S.gameId || window.GAME_OVER || !navigator.onLine) return
+  try{
+    var res = await db.from('radar_readings')
+      .select('id,ts,peak_mph').order('ts',{ascending:false}).limit(1).maybeSingle()
+    var r = res && res.data
+    if(!r || r.id===_radarLastId) return
+    _radarLastId = r.id
+    var age = Date.now() - new Date(r.ts).getTime()
+    if(age > 25000) return              // stale (page just loaded, old reading)
+    var v = Math.max(40, Math.min(105, r.peak_mph))
+    S.velo = v
+    document.getElementById('velo-val').textContent = v
+    var u=document.querySelector('.velo-unit'); if(u) u.textContent='mph 📡'
+    paintVeloQuick()
+  }catch(e){}
+}
+setInterval(pollRadar, 3000)
 function selType(t){
   S.pitchType=t
   ;['FB','CB','SL','CH'].forEach(function(x){
