@@ -194,7 +194,7 @@ td:first-child{white-space:nowrap;}
     <h3>Setting up</h3>
     <div class="step"><div class="num">1</div><div class="body">
       <div class="st">Mount the gun, continuous trigger on</div>
-      <p>Two positions work. <b>Behind the backstop</b>, pointed at the mound — the default, nothing extra to do. Or <b>out in center field with you</b>, pointed at the plate — the gun sees 300 ft, so this is a real option; just add <code>--from-cf</code> to the bridge command so it knows the pitch is travelling <i>away</i> from it. Continuous trigger mode means nobody has to squeeze anything all game.</p>
+      <p>Two positions work, and nothing changes between them. <b>Behind the backstop</b>, pointed at the mound. Or <b>out in center field with you</b>, pointed at the plate — the gun sees 300 ft, so this is a real option. Either way the beam wants the ball coming straight at it or straight away. Continuous trigger mode means nobody has to squeeze anything all game.</p>
     </div></div>
     <div class="step"><div class="num">2</div><div class="body">
       <div class="st">Connect it — cable or wireless, not both</div>
@@ -202,8 +202,8 @@ td:first-child{white-space:nowrap;}
     </div></div>
     <div class="step"><div class="num">3</div><div class="body">
       <div class="st">Start the bridge — the Android tablet (no laptop), or the laptop</div>
-      <p><b>Tablet, the everyday way:</b> on the Samsung (or any Android phone) open <a class="pg" href="/radar.html">/radar.html</a> in Chrome, pick <b>Backstop</b> or <b>Center field</b>, tap <b>📡 Connect gun</b> and choose the Stalker. Leave it near the gun on your hotspot with the screen on; every reading shows big on screen as it lands. Your iPhone stays the scorer — nothing changes there. (iPhone and iPad can't run this page; Safari has no Bluetooth access.)</p>
-      <p><b>Laptop, the wired way:</b> <code>python C:\Users\c_boo\OneDrive\Desktop\AcesAnalytics\radar_bridge.py</code> — add <code>--from-cf</code> for center field. Picks USB if the cable's in, otherwise Bluetooth; reconnects by itself. Either bridge queues readings through dead spots and sends them when signal returns.</p>
+      <p><b>Tablet, the everyday way:</b> on the Samsung (or any Android phone) open <a class="pg" href="/radar.html">/radar.html</a> in Chrome, tap <b>📡 Connect gun</b> and choose the Stalker. Leave it near the gun on your hotspot with the screen on; every reading shows big on screen as it lands. Your iPhone stays the scorer — nothing changes there. (iPhone and iPad can't run this page; Safari has no Bluetooth access.)</p>
+      <p><b>Laptop, the wired way:</b> <code>python C:\Users\c_boo\OneDrive\Desktop\AcesAnalytics\radar_bridge.py</code>. Picks USB if the cable's in, otherwise Bluetooth; reconnects by itself. Start it from a plain terminal, one copy only — two bridges fight over the gun's single Bluetooth link. Either bridge queues readings through dead spots and sends them when signal returns.</p>
     </div></div>
 
     <h3>What you'll see while scoring</h3>
@@ -218,7 +218,7 @@ td:first-child{white-space:nowrap;}
 
     <h3>Exit velocity</h3>
     <ul>
-      <li>The gun tells the bridge which <i>direction</i> the ball was moving. Pitch one way, batted ball the other — so every ball in play gets an <b>exit velocity</b>, for free. A <b>💥 Exit velo</b> toast confirms each one.</li>
+      <li>A pitch is in the air for about half a second; a batted ball comes right after it. The bridge splits each burst on <i>time</i> — release region = pitch, anything after the flight = the ball off the bat — so every ball in play gets an <b>exit velocity</b>, for free. A <b>💥 Exit velo</b> toast confirms each one. (This gun doesn't report direction, so position doesn't matter — backstop or center field, same rules.)</li>
       <li>It attaches to the at-bat when you pick the result, and shows up on the kid's player page as <b>Exit Velocity · In-Game</b>: max, average, 70+ mph count, and his three hardest-hit balls.</li>
       <li>Built-in filters: the catcher's throw back to the mound is ignored (no pitch in that burst), and a foul straight back at the gun can't overwrite the pitch speed.</li>
     </ul>

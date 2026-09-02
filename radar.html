@@ -77,10 +77,6 @@ h1 span{color:var(--orange);}
 
   <button class="btn" id="connect" onclick="connectGun()">📡 Connect gun</button>
 
-  <div class="row">
-    <div><div class="row-n">Gun position</div><div class="row-s" id="pos-s">Behind the backstop, pointed at the mound.</div></div>
-    <div class="segs"><span class="seg on" id="pos-backstop" onclick="setPos('backstop')">BACKSTOP</span><span class="seg" id="pos-cf" onclick="setPos('cf')">CENTER FIELD</span></div>
-  </div>
 
   <div class="log" id="log"><div>Waiting for the gun…</div></div>
   <div class="note">Keep this screen on and this tab in front — Chrome pauses Bluetooth for background tabs. Readings that can't reach the database (no signal) queue here and send when it returns. The gun must be <b>unplugged from USB</b> to talk over Bluetooth.</div>
@@ -112,33 +108,47 @@ function parseFrame(u8){
   return out
 }
 
-// ── burst: one reading per pitch, direction-split (pitch vs batted ball)
-var POS = localStorage.getItem('aces_radar_pos') || 'backstop'
-var burst = {pitch:null, exit:null, last:null, t0:null, at:0}
+// ── burst: one reading per pitch, TIME-split (pitch vs batted ball).
+// The Sport 3 Connect never sets its direction bit (field-tested 2026-09-02),
+// so: the burst's first 0.35s is the release region (pitch = the gun's
+// peak-hold or the live max there); live frames after 0.75s are the ball off
+// the bat. The gun's peak-hold can linger from the PREVIOUS target, so it's
+// trusted only if it changed since the last burst or live frames reached it.
+var EXIT_AFTER_MS = 750
+var burst = {liveMax:null, gunPeak:null, exit:null, last:null, t0:null, at:0}
+var prevGunPeak = null
 function feedBurst(p){
   var speeds = Object.keys(p).map(function(k){return p[k]}).filter(function(v){return v.speed!==null})
   if(!speeds.length) return
   var now = Date.now()
   if(burst.t0===null) burst.t0 = now
-  speeds.forEach(function(v){
-    var isPitchDir = POS==='cf' ? !v.inbound : v.inbound
-    if(isPitchDir){
-      if(now-burst.t0 <= PITCH_WINDOW_MS && (burst.pitch===null || v.speed>burst.pitch)) burst.pitch = v.speed
-    }else{
+  var elapsed = now - burst.t0
+  Object.keys(p).forEach(function(sid){
+    var v = p[sid]; if(v.speed===null) return
+    if(elapsed <= PITCH_WINDOW_MS){
+      if(sid==='peak'){ if(burst.gunPeak===null || v.speed>burst.gunPeak) burst.gunPeak = v.speed }
+      else if(burst.liveMax===null || v.speed>burst.liveMax) burst.liveMax = v.speed
+    }else if(elapsed >= EXIT_AFTER_MS && sid==='last'){
       if(burst.exit===null || v.speed>burst.exit) burst.exit = v.speed
     }
   })
   if(p.last && p.last.speed!==null) burst.last = p.last.speed
   burst.at = now
 }
+function burstPitch(){
+  var stale = burst.gunPeak!==null && burst.gunPeak===prevGunPeak && (burst.liveMax===null || burst.liveMax<burst.gunPeak)
+  var c = [burst.liveMax, stale?null:burst.gunPeak].filter(function(x){return x!==null})
+  return c.length ? Math.max.apply(null,c) : null
+}
 function tickBurst(){
-  if((burst.pitch!==null || burst.exit!==null) && Date.now()-burst.at > BLANK_GAP_MS){
-    var pitch = burst.pitch, exitv = burst.exit, at = burst.at
+  if((burst.liveMax!==null || burst.gunPeak!==null || burst.exit!==null) && Date.now()-burst.at > BLANK_GAP_MS){
+    var pitch = burstPitch(), exitv = burst.exit, at = burst.at
     if(pitch!==null && pitch < MIN_MPH) pitch = null
     if(pitch===null) exitv = null            // no pitch in the burst = a throw, not a hit
     if(exitv!==null && exitv < MIN_MPH) exitv = null
     if(pitch!==null || exitv!==null) saveReading(pitch, exitv, burst.last, at)
-    burst = {pitch:null, exit:null, last:null, t0:null, at:0}
+    if(burst.gunPeak!==null) prevGunPeak = burst.gunPeak
+    burst = {liveMax:null, gunPeak:null, exit:null, last:null, t0:null, at:0}
   }
 }
 
@@ -164,6 +174,7 @@ async function flush(){
     setTimeout(flush, 4000)
   }finally{ flushing = false }
   setStatus()
+  if(queue.length) setTimeout(flush, 50)   // readings that arrived mid-flush: drain them now
 }
 window.addEventListener('online', flush)
 function fmt(r){
@@ -190,15 +201,6 @@ function setStatus(){
   else if(scanning){ s.textContent = 'Looking for the gun…'; dot.className='dot scan' }
   else { s.textContent = 'Not connected'; dot.className='dot' }
 }
-function setPos(p){
-  POS = p; localStorage.setItem('aces_radar_pos', p)
-  document.getElementById('pos-backstop').className = 'seg'+(p==='backstop'?' on':'')
-  document.getElementById('pos-cf').className = 'seg'+(p==='cf'?' on':'')
-  document.getElementById('pos-s').textContent = p==='cf'
-    ? 'Out in center field, pointed at the plate — the pitch travels away from the gun.'
-    : 'Behind the backstop, pointed at the mound.'
-}
-setPos(POS)
 
 // ── Bluetooth
 var device = null, chr = null, gattConnected = false, scanning = false, stopLoop = false
