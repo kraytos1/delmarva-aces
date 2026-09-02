@@ -298,6 +298,13 @@ nav{background:rgba(10,12,14,.95);border-bottom:1px solid var(--bdr);display:fle
       </div>
     </div>
 
+    <!-- EXIT VELOCITY (in-game, from the radar gun behind the backstop; hidden until captured) -->
+    <div class="section" id="ev-section" style="display:none;">
+      <div class="section-title">Exit Velocity · In-Game</div>
+      <div id="ev-tiles" style="display:flex;flex-wrap:wrap;gap:12px;"></div>
+      <div id="ev-list" style="margin-top:12px;font-family:var(--mono);font-size:12px;color:var(--muted);display:flex;flex-direction:column;gap:4px;"></div>
+    </div>
+
     <!-- PITCHING (shown only if player has pitched) -->
     <div class="section" id="pitching-section" style="display:none;">
       <div class="section-title">Pitching · Spring 2026</div>
@@ -464,6 +471,7 @@ async function init() {
   loadPlayerClips(p.id)
   loadPlayerPhotos(p.id)
   loadSprayChart(p.id)
+  loadExitVelo(p.id)
   loadCombine(p)
   renderPhotoLib()
 
@@ -665,6 +673,38 @@ async function loadSprayChart(playerId) {
       + '<div>'+rows.length+' batted ball'+(rows.length===1?'':'s')+' · '+hits+' hit'+(hits===1?'':'s')+'</div>'
     if (typed) leg += '<div>GB '+byType.ground+' · LD '+byType.line+' · FB '+byType.fly+'</div>'
     document.getElementById('spray-legend').innerHTML = leg
+    sec.style.display = 'block'
+  } catch(e) {}
+}
+
+// Exit velocity — the radar gun's OUTBOUND reading on each ball in play,
+// attached by the scorer to the at_bat row. Hidden until this kid has one.
+async function loadExitVelo(playerId) {
+  var sec = document.getElementById('ev-section')
+  if (!sec || !playerId) return
+  try {
+    var res = await db.from('at_bats')
+      .select('exit_velo,result,games(game_date,season,opponents(name))')
+      .eq('batter_id', playerId).not('exit_velo', 'is', null)
+    var rows = (res.data || []).filter(function(ab){ return ab.games && ab.games.season !== '__test__' })
+    if (!rows.length) return
+    var evs = rows.map(function(a){ return a.exit_velo })
+    var avg = evs.reduce(function(s,v){ return s+v }, 0) / evs.length
+    var max = Math.max.apply(null, evs)
+    var hard = evs.filter(function(v){ return v >= 70 }).length   // 70+ is a rocket at 13U
+    function tile(n, l){
+      return '<div style="background:var(--dark2);border:1px solid var(--bdr);border-radius:10px;padding:12px 18px;min-width:96px;">'
+        + '<div style="font-family:var(--display);font-size:28px;font-weight:700;color:var(--orange);line-height:1;">'+n+'</div>'
+        + '<div style="font-family:var(--mono);font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin-top:6px;">'+l+'</div></div>'
+    }
+    document.getElementById('ev-tiles').innerHTML =
+      tile(max, 'Max mph') + tile(avg.toFixed(1), 'Avg mph') + tile(hard, '70+ mph') + tile(rows.length, 'Balls tracked')
+    rows.sort(function(a,b){ return b.exit_velo - a.exit_velo })
+    document.getElementById('ev-list').innerHTML = rows.slice(0,3).map(function(a){
+      var d = a.games.game_date ? new Date(a.games.game_date+'T00:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'}) : ''
+      var opp = (a.games.opponents && a.games.opponents.name) ? ' vs '+a.games.opponents.name : ''
+      return '<div><span style="color:var(--text);font-weight:600;">'+a.exit_velo+' mph</span> · '+(a.result||'').replace(/_/g,' ')+' · '+d+opp+'</div>'
+    }).join('')
     sec.style.display = 'block'
   } catch(e) {}
 }
