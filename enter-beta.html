@@ -133,7 +133,7 @@ Going live later = set SANDBOX=false and copy this file over enter.html.
 'use strict';
 /* ══ Config ══ */
 const params = new URLSearchParams(location.search);
-const EXEC_URL = params.get('exec') || '';   // Apps Script web app /exec URL - baked in once deployed
+const EXEC_URL = params.get('exec') || 'https://script.google.com/macros/s/AKfycbwJ_d-_7NPr3sAeymFY_RRBEaD7edMutCuL7OiM2xU0kNVzhHM87KxzKowZ4KF5inudGg/exec';
 const SANDBOX = true;                        // parked: rows land in the Sandbox tab
 const ROSTER_SRC = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTOx0py80kbfpe43IlhJFlMnZT2ZO38KYffmwLZBcSaMEHG_GPUoRBzLXOMLJAonQ3syTDL0Fui4EBU/pub?gid=1951964958&single=true&output=csv';
 
