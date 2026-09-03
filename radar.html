@@ -108,23 +108,27 @@ function parseFrame(u8){
   return out
 }
 
-// ── burst: one reading per pitch, TIME-split (pitch vs batted ball).
-// The Sport 3 Connect never sets its direction bit (field-tested 2026-09-02),
-// so: the burst's first 0.35s is the release region (pitch = the gun's
-// peak-hold or the live max there); live frames after 0.75s are the ball off
-// the bat. The gun's peak-hold can linger from the PREVIOUS target, so it's
-// trusted only if it changed since the last burst or live frames reached it.
+// ── burst: ONE reading per pitch, split by TIME (the Sport 3 Connect never
+// sets its direction bit — field-tested). The burst's first 0.35s is the
+// release region: the moment that window closes the pitch is known and the
+// reading is written right then (Realtime pushes it to the scorebug). Live
+// frames after 0.75s are the ball off the bat: when the burst ends (1s of
+// silence) the exit velo is added onto the SAME row. Nothing waits for it.
+// The gun's peak-hold can linger from the previous target, so it's trusted
+// only if it changed since the last burst or live frames reached it.
 var EXIT_AFTER_MS = 750
-var burst = {liveMax:null, gunPeak:null, exit:null, last:null, t0:null, at:0}
+var burst = null
 var prevGunPeak = null
+function newBurst(){ return {liveMax:null, gunPeak:null, exit:null, last:null, t0:null, at:0, reading:null} }
+burst = newBurst()
 function feedBurst(p){
-  var speeds = Object.keys(p).map(function(k){return p[k]}).filter(function(v){return v.speed!==null})
+  var speeds = Object.keys(p).filter(function(k){return p[k].speed!==null})
   if(!speeds.length) return
   var now = Date.now()
   if(burst.t0===null) burst.t0 = now
   var elapsed = now - burst.t0
-  Object.keys(p).forEach(function(sid){
-    var v = p[sid]; if(v.speed===null) return
+  speeds.forEach(function(sid){
+    var v = p[sid]
     if(elapsed <= PITCH_WINDOW_MS){
       if(sid==='peak'){ if(burst.gunPeak===null || v.speed>burst.gunPeak) burst.gunPeak = v.speed }
       else if(burst.liveMax===null || v.speed>burst.liveMax) burst.liveMax = v.speed
@@ -134,53 +138,50 @@ function feedBurst(p){
   })
   if(p.last && p.last.speed!==null) burst.last = p.last.speed
   burst.at = now
-  maybePublishLive()
+  maybeBegin()
 }
 function burstPitch(){
   var stale = burst.gunPeak!==null && burst.gunPeak===prevGunPeak && (burst.liveMax===null || burst.liveMax<burst.gunPeak)
   var c = [burst.liveMax, stale?null:burst.gunPeak].filter(function(x){return x!==null})
-  return c.length ? Math.max.apply(null,c) : null
+  var v = c.length ? Math.max.apply(null,c) : null
+  return (v!==null && v>=MIN_MPH) ? v : null
 }
-// ── FAST LANE: the scorebug shouldn't wait for the 1s hold. The moment the
-// release window closes (0.35s) the pitch is known — publish it to radar_live
-// (Realtime pushes it to the stream), then republish as exit velo appears.
-// ts = burst start so both updates read as one play. Display-only lane.
-var liveSent = {pitch:null, exit:null}
-var _liveChain = Promise.resolve()   // publishes run in order, so a later exit update can't be overtaken
-function publishLive(pitch, exitv, t0){
-  var row = {id:1, mph:pitch, exit_mph:exitv, ts:new Date(t0).toISOString()}
-  _liveChain = _liveChain.then(function(){ return db.from('radar_live').upsert(row) }).then(function(){}, function(){})
-}
-function maybePublishLive(){
-  if(burst.t0===null || Date.now()-burst.t0 < PITCH_WINDOW_MS) return
-  var pitch = burstPitch(); if(pitch===null || pitch < MIN_MPH) return
-  var exitv = (burst.exit!==null && burst.exit>=MIN_MPH) ? burst.exit : null
-  if(pitch!==liveSent.pitch || exitv!==liveSent.exit){
-    liveSent = {pitch:pitch, exit:exitv}
-    showReading(pitch, exitv)                 // instant on the tablet too
-    publishLive(pitch, exitv, burst.t0)
-  }
+function maybeBegin(){
+  if(burst.reading || burst.t0===null || Date.now()-burst.t0 < PITCH_WINDOW_MS) return
+  var pitch = burstPitch(); if(pitch===null) return
+  burst.reading = beginReading(pitch, burst.last, burst.t0)
+  showReading(pitch, null)
 }
 function tickBurst(){
-  maybePublishLive()
-  if((burst.liveMax!==null || burst.gunPeak!==null || burst.exit!==null) && Date.now()-burst.at > BLANK_GAP_MS){
-    liveSent = {pitch:null, exit:null}
-    var pitch = burstPitch(), exitv = burst.exit, at = burst.at
-    if(pitch!==null && pitch < MIN_MPH) pitch = null
-    if(pitch===null) exitv = null            // no pitch in the burst = a throw, not a hit
-    if(exitv!==null && exitv < MIN_MPH) exitv = null
-    if(pitch!==null || exitv!==null) saveReading(pitch, exitv, burst.last, at)
+  if(burst.t0===null) return
+  maybeBegin()
+  if(Date.now()-burst.at > BLANK_GAP_MS){
+    if(!burst.reading && burstPitch()!==null){ burst.reading = beginReading(burstPitch(), burst.last, burst.t0); showReading(burstPitch(), null) }
+    if(burst.reading && burst.exit!==null && burst.exit>=MIN_MPH){
+      setExit(burst.reading, burst.exit)
+      showReading(burst.reading.peak_mph, burst.exit)
+    }
     if(burst.gunPeak!==null) prevGunPeak = burst.gunPeak
-    burst = {liveMax:null, gunPeak:null, exit:null, last:null, t0:null, at:0}
+    burst = newBurst()
   }
 }
 
-// ── database (queue through dead spots)
+// ── database: one row per pitch. beginReading() queues/inserts the row as
+// soon as the pitch is known; setExit() updates that row (or the still-queued
+// object) when a hit follows. Queue survives dead spots.
 var queue = [], saved = 0
-function saveReading(pitch, exitv, last, at){
-  queue.push({peak_mph:pitch, exit_mph:exitv, last_mph:last, inbound:pitch!==null, ts:new Date(at).toISOString()})
-  showReading(pitch, exitv)
+function beginReading(pitch, last, t0){
+  var r = {peak_mph:pitch, exit_mph:null, last_mph:last, inbound:true, ts:new Date(t0).toISOString(), id:null}
+  queue.push(r)
   flush()
+  return r
+}
+function setExit(r, exitv){
+  r.exit_mph = exitv
+  if(r.id===null) return                     // still queued: the flush carries it
+  db.from('radar_readings').update({exit_mph:exitv}).eq('id', r.id).then(function(){
+    logLine('           💥 exit <b>'+exitv+'</b>')
+  }, function(){})
 }
 var flushing = false
 async function flush(){
@@ -188,8 +189,11 @@ async function flush(){
   flushing = true
   try{
     var batch = queue.slice()
-    var res = await db.from('radar_readings').insert(batch)
+    var res = await db.from('radar_readings')
+      .insert(batch.map(function(r){ return {peak_mph:r.peak_mph, exit_mph:r.exit_mph, last_mph:r.last_mph, inbound:true, ts:r.ts} }))
+      .select('id')
     if(res.error) throw res.error
+    batch.forEach(function(r, i){ r.id = res.data[i] ? res.data[i].id : -1 })
     queue.splice(0, batch.length); saved += batch.length
     logLine(batch.map(function(r){ return fmt(r) }).join('<br>'))
   }catch(e){

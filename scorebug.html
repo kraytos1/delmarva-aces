@@ -253,28 +253,27 @@ function veloLine(lastPitch, radar, now){
   return txt;
 }
 
-// ── Radar FAST LANE. The bridge upserts radar_live the moment a pitch's
-// release window closes (~0.35s after the ball leaves the hand) and again as
-// exit velo appears; Realtime pushes each change here so the number is on
-// the stream before the mitt pops. Display-only: stats still come from the
-// held, filtered radar_readings row. ts = the burst's start, so the pitch and
-// its exit update share one ts (same play); a NEW ts inside 12s of the last
-// one is the catcher's throw back and is ignored. The 2.5s poll stays as the
-// fallback if the socket drops.
+// ── Radar, live. The bridge INSERTs the reading the moment a pitch's release
+// window closes (~0.35s after the ball leaves the hand) and UPDATEs the same
+// row with exit velo if a hit follows; Realtime pushes both here, so the
+// number is on the stream before the mitt pops. ts = the burst's start, so the
+// insert and its exit update share one ts (same play); a NEW ts inside 12s of
+// the last one is the catcher's throw back and is ignored. The 2.5s poll
+// stays as the fallback if the socket drops.
 var liveRadar = null, _lastPitchCache = null, _lastLiveT = 0;
 function onLiveRadar(row){
-  if (!row || row.mph == null) return;
+  if (!row || row.peak_mph == null) return;
   var t = new Date(row.ts).getTime();
   if (t !== _lastLiveT && _lastLiveT && t - _lastLiveT < 12000) return;   // throwback cadence
   _lastLiveT = t;
-  liveRadar = { ts: row.ts, peak_mph: row.mph, exit_mph: row.exit_mph };
+  liveRadar = { ts: row.ts, peak_mph: row.peak_mph, exit_mph: row.exit_mph };
   var el = document.getElementById('pitVelo');
   if (el) el.textContent = veloLine(_lastPitchCache, liveRadar, Date.now());
 }
 if (Q.get('radar') !== 'off') {
   try {
-    db.channel('radar-live')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'radar_live' }, function(p){ onLiveRadar(p.new); })
+    db.channel('radar-readings')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'radar_readings' }, function(p){ onLiveRadar(p.new); })
       .subscribe();
   } catch(e) {}
 }

@@ -2055,9 +2055,18 @@ async function pollRadar(){
     var res = await db.from('radar_readings')
       .select('id,ts,peak_mph,exit_mph').order('ts',{ascending:false}).limit(1).maybeSingle()
     var r = res && res.data
-    if(!r || r.id===_radar.seenId) return
-    _radar.seenId = r.id
+    if(!r) return
     var rt = new Date(r.ts).getTime()
+    // The exit velo is ADDED to the reading row ~1-2s after the pitch, so a row
+    // we've already seen can still bring new exit information.
+    if(r.id===_radar.seenId){
+      if(r.exit_mph!=null && !_radar.exitSeen && Date.now()-rt < 60000){
+        _radar.exitSeen = true
+        radarHandleExit(r.exit_mph, rt)
+      }
+      return
+    }
+    _radar.seenId = r.id; _radar.exitSeen = r.exit_mph!=null
     if(Date.now()-rt > 60000) return      // stale: page just loaded, old reading
     _radar.active = true
 
@@ -2080,14 +2089,15 @@ async function pollRadar(){
         paintVeloQuick()
       }
     }
-    if(r.exit_mph!=null){
-      var ev = Math.max(30, Math.min(120, r.exit_mph))
-      var la = _radar.lastAb
-      if(la && la.t>rt-3000 && la.t<rt+15000){ radarAttachExit(la.id, ev); _radar.lastAb=null }
-      else _radar.pendingExit = {mph:ev, t:rt}
-      showToast('💥 Exit velo '+ev+' mph')
-    }
+    if(r.exit_mph!=null) radarHandleExit(r.exit_mph, rt)
   }catch(e){}
+}
+function radarHandleExit(mph, rt){
+  var ev = Math.max(30, Math.min(120, mph))
+  var la = _radar.lastAb
+  if(la && la.t>rt-3000 && la.t<rt+15000){ radarAttachExit(la.id, ev); _radar.lastAb=null }
+  else _radar.pendingExit = {mph:ev, t:rt}
+  showToast('💥 Exit velo '+ev+' mph')
 }
 setInterval(pollRadar, 3000)
 function selType(t){
