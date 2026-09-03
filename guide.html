@@ -266,6 +266,8 @@ td:first-child{white-space:nowrap;}
       <tr><td>"Due up" card</td><td>Next three hitters (with headshots) after the sponsor break</td></tr>
       <tr><td>Sponsor seconds − / +</td><td>How long each sponsor holds beside the bug</td></tr>
       <tr><td>Base diamond</td><td>Bases graphic on the bug</td></tr>
+      <tr><td>Pitch velo on the bug</td><td>Show or hide the radar number on the pitching line. Display only — every reading still records to the stats</td></tr>
+      <tr><td>💥 Exit velo on the bug</td><td>Show or hide the batted-ball flash. Display only</td></tr>
       <tr><td>Screen corner</td><td>Which corner of the frame the bug and plate sit in</td></tr>
       <tr><td>Scorebug size</td><td>Scales the whole bug 50–200% (plate too, while docked)</td></tr>
       <tr><td>Sponsor plate corner / size</td><td>Dock the plate beside the bug, or float it in its own corner at its own size</td></tr>
@@ -294,7 +296,7 @@ td:first-child{white-space:nowrap;}
       <tr><td><code>?scale=1.3</code></td><td>Bug size, 0.5–2 (a creative choice — resolution is already handled)</td></tr>
       <tr><td><code>?fit=N</code> / <code>?fit=off</code></td><td>Canvas auto-fit: the page zooms by width÷1920 so 4K and 720p outputs match the 1080p look. Automatic; force or disable only if a switcher misreports its size.</td></tr>
       <tr><td><code>?sponsorpos=br</code> · <code>?sponsorscale=1.5</code></td><td>Float the sponsor plate in its own corner, at its own size</td></tr>
-      <tr><td><code>?radar=off</code></td><td>Ignore the radar gun; velo comes from the pitch rows only (no 💥 exit velo flash)</td></tr>
+      <tr><td><code>?velo=off</code> · <code>?exitvelo=off</code> · <code>?radar=off</code></td><td>Hide the pitch velo · hide the 💥 exit flash · both, and stop reading the gun at all. Display only — recording never stops</td></tr>
       <tr><td><code>?game=ID</code></td><td>Pin the overlay to one specific game</td></tr>
       <tr><td><code>?debug=1</code></td><td>Fake data so you can style the shot with nothing live</td></tr>
     </table></div>

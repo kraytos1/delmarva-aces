@@ -119,6 +119,16 @@ h1 span{color:var(--orange);}
       <div class="sw" id="sw-bug_show_bases" onclick="flip('bug_show_bases')"></div>
     </div>
     <div class="row">
+      <div class="row-txt"><div class="row-n">Pitch velo on the bug</div>
+        <div class="row-s">The radar number on the pitching line. Off hides it on the stream only — every reading still records to the stats.</div></div>
+      <div class="sw" id="sw-bug_show_velo" onclick="flip('bug_show_velo')"></div>
+    </div>
+    <div class="row">
+      <div class="row-txt"><div class="row-n">💥 Exit velo on the bug</div>
+        <div class="row-s">The batted-ball flash after a ball in play. Display only; recording is unaffected.</div></div>
+      <div class="sw" id="sw-bug_show_exit_velo" onclick="flip('bug_show_exit_velo')"></div>
+    </div>
+    <div class="row">
       <div class="row-txt"><div class="row-n">Screen corner</div>
         <div class="row-s">Where the bug and sponsor plate sit in frame.</div></div>
       <div class="segs" id="segs-pos">
@@ -237,8 +247,8 @@ h1 span{color:var(--orange);}
 <script>
 var db = supabase.createClient(ACES_CONFIG.supabaseUrl, ACES_CONFIG.supabaseKey);
 var S = null, LIVE = null, busy = false;
-var BOOLS = ['sponsor_dock','sponsor_break','break_dueup','bug_show_bases','chip_base_check',
-             'chip_fielder_tag','chip_spray','chip_d3k','show_home_squad'];
+var BOOLS = ['sponsor_dock','sponsor_break','break_dueup','bug_show_bases','bug_show_velo','bug_show_exit_velo',
+             'chip_base_check','chip_fielder_tag','chip_spray','chip_d3k','show_home_squad'];
 
 function say(kind, text){
   var b = document.getElementById('savebar');

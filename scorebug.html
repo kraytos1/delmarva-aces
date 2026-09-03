@@ -241,6 +241,8 @@ var Q = new URLSearchParams(location.search);
 // velo rides along for 12s after contact. lastPitch/radar may be null.
 function veloLine(lastPitch, radar, now){
   var txt = '';
+  if (typeof SHOW_VELO !== 'undefined' && !SHOW_VELO) return '';     // Controls: pitch velo hidden
+  if (typeof SHOW_EXIT !== 'undefined' && !SHOW_EXIT) radar = radar && { ts: radar.ts, peak_mph: radar.peak_mph, exit_mph: null };
   var rT = radar && radar.peak_mph != null ? new Date(radar.ts).getTime() : null;
   var pT = lastPitch ? new Date(lastPitch.created_at).getTime() : null;
   if (rT !== null && (pT === null || rT > pT - 8000)) {
@@ -571,6 +573,10 @@ var urlDockOff  = Q.get('sponsors')==='off' || Q.get('sponsordock')==='off';
 var urlBreakOff = Q.get('sponsors')==='off' || Q.get('sponsorbreak')==='off';
 var urlSecs     = Q.get('sponsorsecs') ? Math.max(8, parseInt(Q.get('sponsorsecs'),10)||40) : null;
 var urlBasesOff = Q.get('bases')==='off';
+var urlVeloOff  = Q.get('velo')==='off' || Q.get('radar')==='off';
+var urlExitOff  = Q.get('exitvelo')==='off' || Q.get('radar')==='off';
+// display-only: the bridge records every reading regardless of these
+var SHOW_VELO = !urlVeloOff, SHOW_EXIT = !urlExitOff;
 var urlPos      = Q.get('pos') ? (Q.get('pos')||'').toLowerCase() : null;
 var urlDueOff   = Q.get('dueup')==='off';
 var urlDueSecs  = Q.get('dueupsecs') ? Math.max(3, parseInt(Q.get('dueupsecs'),10)||9) : null;
@@ -611,6 +617,8 @@ function applyCfg(){
     var bs = document.querySelector('.bases');
     if (bs) bs.style.display = (CFG.bug_show_bases === false) ? 'none' : '';
   }
+  if (!urlVeloOff) SHOW_VELO = CFG.bug_show_velo !== false;
+  if (!urlExitOff) SHOW_EXIT = CFG.bug_show_exit_velo !== false;
   if (!urlPos && CFG.bug_pos){
     var want = ['bl','br','tl','tr'].indexOf(CFG.bug_pos) >= 0 ? CFG.bug_pos : 'bl';
     var wrap = document.getElementById('bugwrap');
