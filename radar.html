@@ -88,7 +88,7 @@ var db = supabase.createClient(ACES_CONFIG.supabaseUrl, ACES_CONFIG.supabaseKey)
 // ── Stalker Sport 3 Connect GATT + bE frame format (see AcesAnalytics/radar_bridge.py)
 var SVC = '4880c12c-fdcb-4077-8920-a450d7f9b907'
 var CH  = 'fec26ec4-6d71-4442-9f81-55bc21d658d6'
-var BLANK_GAP_MS = 1000, MIN_MPH = 25, PITCH_WINDOW_MS = 700
+var BLANK_GAP_MS = 1000, MIN_MPH = 25, PITCH_WINDOW_MS = 350   // release region (matches radar_bridge.py)
 var SPEED_IDS = {0x34:'last', 0x35:'peak', 0x36:'hit'}
 
 function parseFrame(u8){
@@ -134,14 +134,37 @@ function feedBurst(p){
   })
   if(p.last && p.last.speed!==null) burst.last = p.last.speed
   burst.at = now
+  maybePublishLive()
 }
 function burstPitch(){
   var stale = burst.gunPeak!==null && burst.gunPeak===prevGunPeak && (burst.liveMax===null || burst.liveMax<burst.gunPeak)
   var c = [burst.liveMax, stale?null:burst.gunPeak].filter(function(x){return x!==null})
   return c.length ? Math.max.apply(null,c) : null
 }
+// ── FAST LANE: the scorebug shouldn't wait for the 1s hold. The moment the
+// release window closes (0.35s) the pitch is known — publish it to radar_live
+// (Realtime pushes it to the stream), then republish as exit velo appears.
+// ts = burst start so both updates read as one play. Display-only lane.
+var liveSent = {pitch:null, exit:null}
+var _liveChain = Promise.resolve()   // publishes run in order, so a later exit update can't be overtaken
+function publishLive(pitch, exitv, t0){
+  var row = {id:1, mph:pitch, exit_mph:exitv, ts:new Date(t0).toISOString()}
+  _liveChain = _liveChain.then(function(){ return db.from('radar_live').upsert(row) }).then(function(){}, function(){})
+}
+function maybePublishLive(){
+  if(burst.t0===null || Date.now()-burst.t0 < PITCH_WINDOW_MS) return
+  var pitch = burstPitch(); if(pitch===null || pitch < MIN_MPH) return
+  var exitv = (burst.exit!==null && burst.exit>=MIN_MPH) ? burst.exit : null
+  if(pitch!==liveSent.pitch || exitv!==liveSent.exit){
+    liveSent = {pitch:pitch, exit:exitv}
+    showReading(pitch, exitv)                 // instant on the tablet too
+    publishLive(pitch, exitv, burst.t0)
+  }
+}
 function tickBurst(){
+  maybePublishLive()
   if((burst.liveMax!==null || burst.gunPeak!==null || burst.exit!==null) && Date.now()-burst.at > BLANK_GAP_MS){
+    liveSent = {pitch:null, exit:null}
     var pitch = burstPitch(), exitv = burst.exit, at = burst.at
     if(pitch!==null && pitch < MIN_MPH) pitch = null
     if(pitch===null) exitv = null            // no pitch in the burst = a throw, not a hit

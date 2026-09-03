@@ -252,6 +252,32 @@ function veloLine(lastPitch, radar, now){
   if (radar && radar.exit_mph != null && now - new Date(radar.ts).getTime() < 12000) txt += ' · 💥 ' + radar.exit_mph;
   return txt;
 }
+
+// ── Radar FAST LANE. The bridge upserts radar_live the moment a pitch's
+// release window closes (~0.35s after the ball leaves the hand) and again as
+// exit velo appears; Realtime pushes each change here so the number is on
+// the stream before the mitt pops. Display-only: stats still come from the
+// held, filtered radar_readings row. ts = the burst's start, so the pitch and
+// its exit update share one ts (same play); a NEW ts inside 12s of the last
+// one is the catcher's throw back and is ignored. The 2.5s poll stays as the
+// fallback if the socket drops.
+var liveRadar = null, _lastPitchCache = null, _lastLiveT = 0;
+function onLiveRadar(row){
+  if (!row || row.mph == null) return;
+  var t = new Date(row.ts).getTime();
+  if (t !== _lastLiveT && _lastLiveT && t - _lastLiveT < 12000) return;   // throwback cadence
+  _lastLiveT = t;
+  liveRadar = { ts: row.ts, peak_mph: row.mph, exit_mph: row.exit_mph };
+  var el = document.getElementById('pitVelo');
+  if (el) el.textContent = veloLine(_lastPitchCache, liveRadar, Date.now());
+}
+if (Q.get('radar') !== 'off') {
+  try {
+    db.channel('radar-live')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'radar_live' }, function(p){ onLiveRadar(p.new); })
+      .subscribe();
+  } catch(e) {}
+}
 // The overlay is designed against a 1920-wide canvas, but vMix/OBS render the
 // browser source at the OUTPUT resolution — on a 4K canvas every element came
 // out half-size. Auto-fit zooms the whole page (bug, plate, break card, due-up,
@@ -413,6 +439,9 @@ async function poll(){
         if (rr && rrs[1] && new Date(rr.ts).getTime() - new Date(rrs[1].ts).getTime() < 12000) rr = null;
         if (rr && Date.now() - new Date(rr.ts).getTime() < 45000) radar = rr;
       } catch(e) {}
+      // the fast lane's value wins when it's the fresher of the two
+      if (liveRadar && Date.now() - new Date(liveRadar.ts).getTime() < 45000 &&
+          (!radar || new Date(liveRadar.ts).getTime() >= new Date(radar.ts).getTime())) radar = liveRadar;
     }
 
     render(g, n, isAcesBatting, acesAbs, oppAbs, oppPC, acesPC, lastPitch, radar);
@@ -498,6 +527,7 @@ function render(g, n, isAcesBatting, acesAbs, oppAbs, oppPC, acesPC, lastPitch, 
   // Velo: a fresh gun reading newer than the last velo'd pitch row wins (it
   // lands ~1s after the mitt pop); otherwise the pitch row as always. A batted
   // ball's exit velo rides along for ~12s after contact.
+  _lastPitchCache = lastPitch;
   document.getElementById('pitVelo').textContent = veloLine(lastPitch, radar, Date.now());
 
   // At bat: the batting team's current hitter
