@@ -77,8 +77,12 @@ touch-first, idle-resets for the next kid in line.
   .slot .sub{ display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
   .slot .tm{ font-size:12px; font-weight:800; letter-spacing:.16em; color:var(--muted);
     text-transform:uppercase; }
-  .slot .x{ position:absolute; top:10px; right:12px; color:var(--muted); font:700 13px var(--body); }
+  .slot .x{ position:absolute; top:10px; right:12px; color:var(--cream);
+    font:800 11px var(--body); letter-spacing:.12em; background:var(--panel-b);
+    border:1px solid var(--line); border-radius:99px; padding:6px 12px; }
+  .slot:hover .x{ border-color:rgba(232,83,10,.5); color:var(--orange-hot); }
   .slot.b .nm{ text-align:right; } .slot.b{ align-items:flex-end; } .slot.b .sub{ justify-content:flex-end; }
+  .slot.b .x{ right:auto; left:12px; }
   #vs{ display:flex; align-items:center; justify-content:center; font-family:var(--display);
     font-weight:700; font-size:34px; color:var(--orange-hot); text-transform:uppercase; }
 
@@ -481,7 +485,7 @@ let autoRival = true;               // compare flow auto-opens the B picker; loo
 function slotHTML(p, which){
   if (!p) return `<div class="slot empty" data-slot="${which}">+ Pick Player ${which.toUpperCase()}</div>`;
   return `<div class="slot ${which}" data-slot="${which}">
-    <span class="x">CHANGE &#10005;</span>
+    <span class="x">&#8644; CHANGE</span>
     <div class="nm">${esc(p.name)}</div>
     <div class="sub"><span class="chip">${divByKey[p.div].label}</span>
       <span class="tm">${esc(p.team.toUpperCase())} &#183; #${esc(p.num)}</span></div>
