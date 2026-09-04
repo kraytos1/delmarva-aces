@@ -322,8 +322,9 @@ function render(){
       <button class="ghostb" onclick="goto('player')">Back</button>
       <button class="save" onclick="saveEntry()">Save ${esc(S.player.full.split(' ')[0])}'s results</button>
     </div>
-    <p class="note">${S.station.fields.length > 1 ? 'Fill only the tests he just ran - blanks are fine.' : ''}
-      Best individual attempt &#183; jumps in inches &#183; times like 4.85.</p></div>`;
+    <p class="note">${S.station.id === 'ath'
+      ? 'Fill only the tests he just ran - blanks are fine. Best individual attempt &#183; jumps in inches &#183; times like 4.85.'
+      : 'Best individual attempt.'}</p></div>`;
     view.querySelector('input').focus();
   }
   else if (S.mode === 'add'){
