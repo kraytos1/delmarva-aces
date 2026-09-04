@@ -315,7 +315,7 @@ function render(){
     const age = S.div.age;
     view.innerHTML = `<div class="screen"><h2>Enter results</h2><div class="fields">
       ${S.station.fields.map(id => { const m = METRICS[id];
-        return `<div class="field"><label><b>${m.n}</b><span>${m.u}</span></label>
+        return `<div class="field"><label><b>${m.n}</b><span>${m.u === 'IN' ? 'INCHES' : m.u}</span></label>
           <input inputmode="decimal" data-sid="${id}" placeholder="&#8212;"></div>`; }).join('')}
     </div>
     <div id="savebar">
