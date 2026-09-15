@@ -673,9 +673,9 @@ async function loadLiveGame() {
         try { applyViewerBases(e.d.result, abBatterInfo(e.d), e.d.runner_id) } catch(err) {}
       })
       // the replay's base model is inference — the games row stays authoritative
-      bases = [!!game.base_1b, !!game.base_2b, !!game.base_3b]
-      for (var rz2=0; rz2<3; rz2++) if (!bases[rz2]) runners[rz2] = null
-      renderBases()
+      // (same forward-slide rule as the live path, so a corrected runner keeps
+      // his face after a reload too)
+      applyAuthoritativeBases([!!game.base_1b, !!game.base_2b, !!game.base_3b])
     } catch(e) {}
 
     // Win-probability history: pull every at-bat (light columns) for the curve
@@ -930,6 +930,24 @@ async function pollReconcile(){
 setInterval(pollReconcile, 10000)
 document.addEventListener('visibilitychange', function(){ if (!document.hidden) pollReconcile() })
 
+// The scorer's base booleans win over the viewer's inference. Runners only
+// move forward, so a face on a base that emptied slides to the nearest base
+// ahead that filled without one (the base-check Fix case); a face whose base
+// emptied with nothing ahead newly filled has scored. Shared by the live
+// UPDATE path, the reconcile and the reload replay.
+function applyAuthoritativeBases(nb) {
+  for (var ahead=2; ahead>=0; ahead--) {
+    if (nb[ahead] && !runners[ahead]) {
+      for (var back=ahead-1; back>=0; back--) {
+        if (runners[back] && !nb[back]) { runners[ahead] = runners[back]; runners[back] = null; break }
+      }
+    }
+  }
+  bases = nb
+  for (var rz=0; rz<3; rz++) if (!bases[rz]) runners[rz] = null
+  renderBases()
+}
+
 function updateScoreboard(game) {
   setText('away-name', game.team_name||'Delmarva Aces')
   setText('home-name', game.opponent_name||'Opponent')
@@ -957,19 +975,7 @@ function updateScoreboard(game) {
   // we don't, that face slides forward — e.g. "single, runner to third": the
   // book put Booher on 2nd, the Fix says 3rd, so Booher's photo goes to 3rd.
   // A face whose base emptied with nothing ahead newly filled = he scored.
-  if (game.base_1b !== undefined) {
-    var nb = [!!game.base_1b, !!game.base_2b, !!game.base_3b]
-    for (var ahead=2; ahead>=0; ahead--) {
-      if (nb[ahead] && !runners[ahead]) {
-        for (var back=ahead-1; back>=0; back--) {
-          if (runners[back] && !nb[back]) { runners[ahead] = runners[back]; runners[back] = null; break }
-        }
-      }
-    }
-    bases = nb
-    for (var rz=0; rz<3; rz++) if (!bases[rz]) runners[rz] = null
-    renderBases()
-  }
+  if (game.base_1b !== undefined) applyAuthoritativeBases([!!game.base_1b, !!game.base_2b, !!game.base_3b])
 
   // Always update liveGame.half (and is_home — the scorer's side-swap chip
   // can flip it mid-game) so lineup cards use the freshest values
