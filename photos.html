@@ -93,14 +93,12 @@ select.psel:focus{border-color:var(--orange);}
 <div id="site-nav"></div>
 <div class="wrap" id="wrap">
   <h1>Photos</h1>
-  <div class="sub" id="sub">Game day, through the season.</div>
 
   <div id="msgArea"></div>
 
   <!-- Anyone in the family can add photos; deleting stays coach-only (the
        same 7-day PIN unlock every coach page shares). -->
   <div class="unlock" id="addRow">
-    <span>📸 Got shots from the game? Add them for everyone.</span>
     <button class="btn" onclick="openUp()">Add photos</button>
   </div>
 
@@ -234,9 +232,6 @@ function visible(){
 }
 function render(){
   var rows = visible(), c = document.getElementById('content');
-  document.getElementById('sub').textContent = PHOTOS.length
-    ? PHOTOS.length + (PHOTOS.length===1?' photo':' photos') + ' from the season.'
-    : 'Game day, through the season.';
   if(!rows.length){
     c.innerHTML = PHOTOS.length
       ? '<div class="empty"><span class="ic">🔍</span><h3>Nothing here yet</h3>No photos match this filter.</div>'
