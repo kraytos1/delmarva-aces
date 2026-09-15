@@ -75,7 +75,7 @@
 <div class="wrap">
   <div class="eyebrow">Pitching Staff</div>
   <h1>Bull<span>pen</span></h1>
-  <div class="sub" id="sub">Loading arm-care status &amp; velocity…</div>
+  <div class="sub" id="sub"></div>
 
   <div class="legend" id="legend" style="display:none;">
     <span><span class="dot dot-g"></span><b>Available</b> — rest requirement met</span>
@@ -219,7 +219,7 @@ async function init(){
     });
 
     if(!pitchers.length){
-      document.getElementById('sub').textContent = 'Arm-care availability and velocity trends for the Aces pitching staff.';
+      document.getElementById('sub').textContent = '';
       document.getElementById('content').innerHTML =
         '<div class="empty"><div class="empty-ico">⚾</div><h2>No pitching data yet</h2>'
         + '<p>As you score games, each pitcher\'s workload, rest status, and velocity trend show up here automatically.</p></div>';
