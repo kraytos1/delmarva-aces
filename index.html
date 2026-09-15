@@ -679,7 +679,6 @@
     </div>
     <div class="roster-season" id="schedule-season-label">Spring 2026 · 12U East</div>
     <div class="roster-page-title">Schedule &amp; Results</div>
-    <div class="roster-meta" id="schedule-meta">Loading...</div>
     <div class="team-stat-bar" style="margin-top:16px;">
       <div class="tsb-item"><div class="tsb-val" id="sch-w">62</div><div class="tsb-lbl">Wins</div></div>
       <div class="tsb-item"><div class="tsb-val" id="sch-l">2</div><div class="tsb-lbl">Losses</div></div>
@@ -1815,7 +1814,6 @@ function renderSchedule() {
   setText('sch-pct', wins+losses>0?'.'+Math.round((wins/(wins+losses))*1000).toString().padStart(3,'0'):'—')
   setText('sch-rs', rs); setText('sch-ra', ra)
   var ageLbl = ACTIVE_SEASON==='fall2026' ? '13U East' : '12U East'
-  setText('schedule-meta', ageLbl+' · '+filtered.length+' Games · '+wins+'–'+losses)
 
   var html = ''
   monthOrder.forEach(function(month) {
