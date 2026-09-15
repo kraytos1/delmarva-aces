@@ -163,6 +163,15 @@ nav{background:rgba(10,12,14,.95);border-bottom:1px solid var(--bdr);display:fle
 .aces-rating-wrap{display:flex;align-items:center;gap:16px;background:var(--dark2);border:1px solid var(--bdr-a);border-radius:10px;padding:16px 20px;margin-bottom:24px;}
 .ar-label{font-family:var(--mono);font-size:10px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:2px;}
 .ar-desc{font-size:12px;color:var(--muted);line-height:1.5;}
+/* photo lightbox (mirrors photos.html) */
+.pp-lb{position:fixed;inset:0;background:rgba(6,8,10,.94);z-index:500;display:none;align-items:center;justify-content:center;}
+.pp-lb.on{display:flex;}
+.pp-lb img{max-width:94vw;max-height:82vh;border-radius:8px;display:block;}
+.pp-lb-cap{position:absolute;left:0;right:0;bottom:18px;text-align:center;color:#e8e8e8;font-size:14px;padding:0 20px;}
+.pp-lb-x{position:absolute;top:14px;right:18px;background:none;border:none;color:#9aa3ad;font-size:32px;cursor:pointer;line-height:1;}
+.pp-lb-nav{position:absolute;top:50%;transform:translateY(-50%);background:rgba(20,24,29,.75);border:1px solid var(--bdr);
+  color:#e8e8e8;font-size:26px;line-height:1;padding:12px 15px;border-radius:10px;cursor:pointer;}
+.pp-lb-prev{left:14px;} .pp-lb-next{right:14px;}
 </style>
 </head>
 <body>
@@ -339,6 +348,16 @@ nav{background:rgba(10,12,14,.95);border-bottom:1px solid var(--bdr);display:fle
       <div class="section-title">Photos</div>
       <div id="pp-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;"></div>
       <div class="clips-all" style="margin-top:12px;"><a href="/photos.html">See all team photos →</a></div>
+    </div>
+
+    <!-- photo lightbox (same look as photos.html): tap a photo to blow it up,
+         swipe/arrow through this player's photos, Esc or tap outside to close -->
+    <div class="pp-lb" id="pp-lb" onclick="closePpLb(event)">
+      <button class="pp-lb-x" onclick="closePpLb()" aria-label="Close">×</button>
+      <button class="pp-lb-nav pp-lb-prev" onclick="stepPpLb(event,-1)" aria-label="Previous">‹</button>
+      <img id="pp-lb-img" src="" alt=""/>
+      <button class="pp-lb-nav pp-lb-next" onclick="stepPpLb(event,1)" aria-label="Next">›</button>
+      <div class="pp-lb-cap" id="pp-lb-cap"></div>
     </div>
 
   </div>
@@ -532,14 +551,54 @@ async function loadPlayerPhotos(playerId) {
       .select('id,url,caption').eq('player_id', playerId)
       .order('created_at', {ascending:false}).limit(12)
     if (error || !data || !data.length) return
-    grid.innerHTML = data.map(function(p){
+    _ppPhotos = data
+    grid.innerHTML = data.map(function(p, i){
       var cap = (p.caption||'').replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})
-      return '<a href="/photos.html" title="'+cap+'" style="display:block;aspect-ratio:4/3;border-radius:9px;overflow:hidden;border:1px solid var(--bdr);">'
+      return '<a href="#" onclick="openPpLb('+i+');return false" title="'+cap+'" style="display:block;aspect-ratio:4/3;border-radius:9px;overflow:hidden;border:1px solid var(--bdr);">'
         + '<img loading="lazy" src="'+p.url+'" alt="'+(cap||'Aces photo')+'" style="width:100%;height:100%;object-fit:cover;display:block;"/></a>'
     }).join('')
     sec.style.display = 'block'
   } catch(e) {}
 }
+
+// ── photo lightbox ──
+var _ppPhotos = [], _ppIdx = 0
+function openPpLb(i){
+  var p = _ppPhotos[i]; if (!p) return
+  _ppIdx = i
+  document.getElementById('pp-lb-img').src = p.url
+  document.getElementById('pp-lb-cap').textContent = p.caption || ''
+  document.getElementById('pp-lb').classList.add('on')
+  document.body.style.overflow = 'hidden'
+}
+function closePpLb(e){
+  if (e && e.target.id !== 'pp-lb' && !e.target.classList.contains('pp-lb-x')) return
+  document.getElementById('pp-lb').classList.remove('on')
+  document.body.style.overflow = ''
+}
+function stepPpLb(e, d){
+  if (e) e.stopPropagation()
+  if (!_ppPhotos.length) return
+  openPpLb((_ppIdx + d + _ppPhotos.length) % _ppPhotos.length)
+}
+document.addEventListener('keydown', function(e){
+  var lb = document.getElementById('pp-lb')
+  if (!lb || !lb.classList.contains('on')) return
+  if (e.key === 'Escape') closePpLb()
+  if (e.key === 'ArrowRight') stepPpLb(null, 1)
+  if (e.key === 'ArrowLeft')  stepPpLb(null, -1)
+})
+// swipe left/right on phones
+;(function(){
+  var x0 = null, lb = document.getElementById('pp-lb')
+  if (!lb) return
+  lb.addEventListener('touchstart', function(e){ x0 = e.touches[0].clientX }, {passive:true})
+  lb.addEventListener('touchend', function(e){
+    if (x0 === null) return
+    var dx = e.changedTouches[0].clientX - x0; x0 = null
+    if (Math.abs(dx) > 50) stepPpLb(null, dx < 0 ? 1 : -1)
+  }, {passive:true})
+})()
 
 // Fill the Highlights section with this player's clips (or keep the
 // "coming soon" placeholder), plus a link to the full team reel.
