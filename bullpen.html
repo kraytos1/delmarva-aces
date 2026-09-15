@@ -221,8 +221,7 @@ async function init(){
     if(!pitchers.length){
       document.getElementById('sub').textContent = '';
       document.getElementById('content').innerHTML =
-        '<div class="empty"><div class="empty-ico">⚾</div><h2>No pitching data yet</h2>'
-        + '<p>As you score games, each pitcher\'s workload, rest status, and velocity trend show up here automatically.</p></div>';
+        '<div class="empty"><div class="empty-ico">⚾</div><h2>No pitching data yet</h2></div>';
       return;
     }
     // resting first (coach needs to see who is unavailable), then available; heaviest rest first

@@ -247,12 +247,6 @@
       <div class="field-group-inline">
         <span class="field-label">Tournament</span>
         <select id="tournamentSelect"></select>
-        <div class="setup-meta" id="tournamentMeta"></div>
-
-        <div class="inline-toggle">
-          <input type="checkbox" id="includeAllTeamsToggle" />
-          <label for="includeAllTeamsToggle">Include non-field teams (debug)</label>
-        </div>
       </div>
 
       <div class="field-group-inline">
@@ -281,8 +275,6 @@
           <span class="pill pill-tier-solid"><span class="pill-dot"></span>Solid</span>
           <span class="pill pill-tier-underdog"><span class="pill-dot"></span>Underdog</span>
         </div>
-        <!-- field tier counts (was the sidebar's "Tier breakdown") -->
-        <div class="tier-breakdown" id="tierBreakdown"></div>
       </div>
     </div>
 
@@ -530,11 +522,8 @@
   const tournamentSelect = document.getElementById("tournamentSelect");
   const sortSelect = document.getElementById("sortSelect");
   const minGamesInput = document.getElementById("minGamesInput");
-  const includeAllTeamsToggle = document.getElementById("includeAllTeamsToggle");
   const statusText = document.getElementById("statusText");
   const threatTableBody = document.getElementById("threatTableBody");
-  const tournamentMeta = document.getElementById("tournamentMeta");
-  const tierBreakdown = document.getElementById("tierBreakdown");
 
   let tournaments = [];
   let currentTournamentCode = null;
@@ -671,10 +660,6 @@
     });
 
     minGamesInput.addEventListener("change", () => applyFiltersAndRender());
-    includeAllTeamsToggle.addEventListener("change", () => {
-      loadTournamentRows();
-    });
-
     document.querySelectorAll("thead th.sortable").forEach(th => {
       th.addEventListener("click", () => {
         const col = th.dataset.sort;
@@ -693,7 +678,7 @@
   }
 
   function currentScopeParam() {
-    return includeAllTeamsToggle.checked ? "all" : "field";
+    return "field";   // the non-field debug toggle is gone; the board is field-only
   }
 
   async function loadTournamentRows() {
@@ -701,7 +686,6 @@
     statusText.textContent = "Loading tournament data…";
     statusText.classList.remove("error");
     threatTableBody.innerHTML = "";
-    tierBreakdown.textContent = "";
 
     try {
       const rowsRaw = await fetchThreatRows(currentTournamentCode);
@@ -723,12 +707,6 @@
           }
         });
       } catch (e) { /* overrides are optional — the computed board stands */ }
-
-      const fieldCount = computedRows.length;
-      const totalRows = computedRows.length;
-
-      tournamentMeta.textContent =
-        `${currentTournamentCode} – teams ranked: ${totalRows} (field teams: ${fieldCount})`;
 
       // default sort
       sortState.column = "threat";
@@ -1026,16 +1004,7 @@
     });
 
     renderTable(rows);
-    renderTierBreakdown(rows);
     updateHeaderSortIndicators();
-    updateMetaAfterFilter(rows, mg);
-  }
-
-  function updateMetaAfterFilter(rows, minGames) {
-    const total = computedRows.length;
-    const showing = rows.length;
-    tournamentMeta.textContent =
-      `${currentTournamentCode} – Showing ${showing} of ${total} teams (min G = ${minGames})`;
   }
 
   function updateHeaderSortIndicators() {
@@ -1105,27 +1074,6 @@
     }
   }
 
-  function renderTierBreakdown(rows) {
-    tierBreakdown.innerHTML = "";
-    const usable = rows.filter(r => r.hasData);
-    if (!usable.length) {
-      tierBreakdown.textContent = "No data yet.";
-      return;
-    }
-
-    const counts = { ELITE: 0, STRONG: 0, SOLID: 0, UNDERDOG: 0 };
-    for (const r of usable) counts[r.tier] = (counts[r.tier] || 0) + 1;
-
-    const spanElite = document.createElement("span"); spanElite.textContent = `Elite: ${counts.ELITE}`;
-    const spanStrong = document.createElement("span"); spanStrong.textContent = `Strong: ${counts.STRONG}`;
-    const spanSolid = document.createElement("span"); spanSolid.textContent = `Solid: ${counts.SOLID}`;
-    const spanUnderdog = document.createElement("span"); spanUnderdog.textContent = `Underdog: ${counts.UNDERDOG}`;
-
-    tierBreakdown.appendChild(spanElite);
-    tierBreakdown.appendChild(spanStrong);
-    tierBreakdown.appendChild(spanSolid);
-    tierBreakdown.appendChild(spanUnderdog);
-  }
 
   // Both disclosures below the ledger: the raw grid and the per-opponent detail.
   function wireDisclosure(btnId, panelId, useHidden) {
