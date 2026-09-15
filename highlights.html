@@ -76,7 +76,6 @@
   .empty-ico{font-size:44px;margin-bottom:14px;}
   .empty h2{font-family:var(--display);font-size:24px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px;}
   .empty p{color:var(--muted);font-size:14px;max-width:460px;margin:0 auto 6px;}
-  .empty .queued{display:inline-flex;align-items:center;gap:8px;margin-top:20px;font-family:var(--mono);font-size:12px;color:var(--orange);background:var(--og);border:1px solid var(--bdr-a);border-radius:20px;padding:8px 16px;}
 
   .fg-title{font-family:var(--display);font-size:20px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin-bottom:14px;display:flex;align-items:center;gap:10px;}
   .fg-title::after{content:'';flex:1;height:1px;background:var(--bdr);}
@@ -278,15 +277,11 @@ function buildPlayerFilter(){
   sel.innerHTML = '<option value="">All players</option>' + opts.map(function(o){return '<option value="'+o.key+'">'+o.label+'</option>';}).join('');
 }
 
-function showEmpty(queued){
-  var teaser = queued>0
-    ? '<div class="queued">🎬 '+queued+' play'+(queued===1?'':'s')+' flagged — clips appear here once the game\'s live stream is linked.</div>'
-    : '';
+function showEmpty(){
   document.getElementById('content').innerHTML =
     '<div class="empty">'
     + '<div class="empty-ico">🎥</div>'
     + '<h2>No highlights yet</h2>'
-    + teaser
     + '</div>';
 }
 
@@ -370,11 +365,7 @@ async function init(){
 
     CLIPS = hitting.concat(pitching, defense).sort(function(a,b){ return (b.created_at||'').localeCompare(a.created_at||''); });
 
-    if(!CLIPS.length){
-      var q = await db.from('at_bats').select('id',{count:'exact',head:true}).neq('clip_status','none');
-      showEmpty(q.count||0);
-      return;
-    }
+    if(!CLIPS.length){ showEmpty(); return; }
     document.getElementById('filters').style.display = 'flex';
     buildPlayerFilter();
     render();
