@@ -798,7 +798,12 @@ async function loadNextGame() {
 function subscribeToGame(gameId) {
   db.channel('pitches:'+gameId)
     .on('postgres_changes',{event:'INSERT',schema:'public',table:'pitches',filter:'game_id=eq.'+gameId},
-      function(p){addPitch(p.new,true)})
+      function(p){
+        // the 10s reconcile can land a row before its realtime event arrives —
+        // never draw the same pitch twice
+        if (p.new && p.new.id && document.querySelector('#play-log [data-pid="'+p.new.id+'"]')) return
+        addPitch(p.new,true)
+      })
     .subscribe()
 
   db.channel('game:'+gameId)
@@ -807,22 +812,21 @@ function subscribeToGame(gameId) {
         // Re-fetch full game data from view to get team_name, opponent_name etc
         try {
           var {data} = await db.from('live_game_summary').select('*').eq('id', gameId).single()
-          var merged = data || p.new
-          // live_game_summary doesn't expose base_1b/2b/3b or notes — trust the
-          // raw updated row for those so bases and (crucially) substitutions stay live.
-          merged.base_1b = p.new.base_1b
-          merged.base_2b = p.new.base_2b
-          merged.base_3b = p.new.base_3b
-          merged.notes = p.new.notes
+          // The view is status='live' only: the moment the coach taps Final it
+          // returns NO row, so keep what we already know (team/opponent names)
+          // under the fresh raw row instead of falling back to a bare row that
+          // would rename the opponent to "Opponent" right as the final shows.
+          var merged = Object.assign({}, liveGame || {}, data || {}, p.new)
           window._lastGameNotes = p.new.notes
           liveGame = merged
           updateScoreboard(merged)
+          if (merged.status === 'final') setBadge('pre', 'Final')
           // Always re-derive the batter card — a half flip often arrives with
           // byte-identical notes (pointer unchanged), and gating on
           // notesChanged left the card showing the other team's hitter.
           refreshCurrentBatter()
         } catch(e) {
-          updateScoreboard(p.new)
+          updateScoreboard(Object.assign({}, liveGame || {}, p.new))
         }
       })
     .subscribe()
@@ -830,6 +834,8 @@ function subscribeToGame(gameId) {
   db.channel('ab:'+gameId)
     .on('postgres_changes',{event:'INSERT',schema:'public',table:'at_bats',filter:'game_id=eq.'+gameId},
       function(p){
+        // same guard: the reconcile may already have drawn (and closed) this at-bat
+        if (p.new && p.new.id && document.querySelector('#play-log [data-abid="'+p.new.id+'"]')) return
         addPlay(p.new,true)
         applyViewerBases(p.new.result, abBatterInfo(p.new), p.new.runner_id)
         updateBatterCard(p.new)
@@ -851,6 +857,10 @@ function subscribeToGame(gameId) {
       function(p){
         var el = document.querySelector('#play-log [data-abid="'+p.old.id+'"]')
         if (el){ el.remove(); updateFeedCounts() }
+        // The runner identities inferred from the undone play are now wrong
+        // (e.g. the batter's face on 1st while he's back at the plate). The
+        // undo's pushState brings the true occupancy; show plain dots until then.
+        runners = [null,null,null]; try { renderBases() } catch(e) {}
       })
     .on('postgres_changes',{event:'DELETE',schema:'public',table:'pitches'},
       function(p){
@@ -1074,17 +1084,24 @@ function updatePlayerCards(lineup, acesBat) {
     setText('p-name', ourPitcherName)
     setCardAvatar('p-avatar', lineup.aces_pitcher_id, ourPitcherNum)
     setText('p-meta', 'pitching')
-    // Opponent batter: the scorer's published pointer when present, else first entry
-    var oppList = (lineup.opp_lineup || []).filter(function(e){return e.name})
+    // Opponent batter: the scorer's published pointer when present, else first
+    // entry. Index the FULL list, blanks included — that is exactly how the
+    // scorer walks it (score.html applyOppBat / advance), and the coach adds
+    // opponent rows as they bat, so blank rows are normal mid-game. Filtering
+    // them here made the two pages name different hitters.
+    var oppList = lineup.opp_lineup || []
     var oppB = null
     if (oppList.length) {
       oppB = (typeof lineup.cur_opp_batter_idx === 'number')
         ? oppList[lineup.cur_opp_batter_idx % oppList.length]
         : oppList[0]
     }
-    setText('b-name', oppB ? oppB.name : 'Opp. Batter')
+    var oppBName = (oppB && oppB.name) ? oppB.name : 'Opp. Batter'
+    setText('b-name', oppBName)
     setText('b-avatar', 'B')
     setText('b-meta', 'at bat')
+    // the plate label under the field: the opponent hitter, not the last Aces kid
+    setText('ov-batter', (oppB && oppB.name) ? oppB.name : '')
   }
 }
 
@@ -1204,7 +1221,10 @@ function addPlay(ab, isNew) {
       av.innerHTML = '<img src="'+info.photo+'" alt="" onerror="this.onerror=null;this.parentNode.textContent=\''+(info.num!=null?'#'+info.num:'')+'\'">'
     } else if (info && info.num != null) {
       av.textContent = '#'+info.num
-    } else if (!av.innerHTML.trim()) {
+    } else {
+      // opponent (or unknown) hitter: never keep a mirrored Aces headshot from
+      // the live card — the mid-game replay was stamping the current Aces
+      // batter's face on every opponent at-bat
       av.remove()
     }
   }

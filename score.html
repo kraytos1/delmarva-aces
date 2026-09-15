@@ -1518,31 +1518,38 @@ function queueItem(table, data) {
   return item.id
 }
 
+var _flushing = false
 async function flushQueue() {
+  if (_flushing) return          // the online event, the 30s tick and resume can overlap
   var q = getQueue()
   if (!q.length) return
-  var failed = []
-  for (var i=0; i<q.length; i++) {
-    var item = q[i]
-    try {
-      var {data, error} = await db.from(item.table).insert(item.data).select().single()
-      if (error) throw error
-      // Update HISTORY with real DB id if we can match it (a single entry can
-      // hold both a queued pitch and a queued at-bat — see HISTORY comment)
-      if (data?.id) {
-        HISTORY.forEach(function(h){
-          if(item.table==='pitches' && h.localPitchId === item.id) h.pitchId = data.id
-          if(item.table==='at_bats' && h.localAbId    === item.id) h.atBatId = data.id
-        })
-      }
-    } catch(e) {
-      failed.push(item)
+  _flushing = true
+  var synced = []
+  try {
+    for (var i=0; i<q.length; i++) {
+      var item = q[i]
+      try {
+        var {data, error} = await db.from(item.table).insert(item.data).select().single()
+        if (error) throw error
+        synced.push(item.id)
+        // Update HISTORY with real DB id if we can match it (a single entry can
+        // hold both a queued pitch and a queued at-bat — see HISTORY comment)
+        if (data?.id) {
+          HISTORY.forEach(function(h){
+            if(item.table==='pitches' && h.localPitchId === item.id) h.pitchId = data.id
+            if(item.table==='at_bats' && h.localAbId    === item.id) h.atBatId = data.id
+          })
+        }
+      } catch(e) {}
     }
+  } finally {
+    // Re-read the queue: plays queued (or undone) while this flush was awaiting
+    // must survive — only drop the ids that actually landed.
+    saveQueue(getQueue().filter(function(it){ return synced.indexOf(it.id) === -1 }))
+    _flushing = false
   }
-  saveQueue(failed)
-  if (failed.length < q.length) {
-    var synced = q.length - failed.length
-    showToast('Synced '+synced+' pitch'+(synced===1?'':'es')+' ✓')
+  if (synced.length) {
+    showToast('Synced '+synced.length+' pitch'+(synced.length===1?'':'es')+' ✓')
     // The queued PLAYS just synced, but the games row (score/inning/count that
     // the gamecast + scorebug read) was last pushed while offline — push it
     // now instead of leaving the broadcast stale until the next tap.
@@ -1586,19 +1593,34 @@ setInterval(function(){
 // Different buttons stay unguarded — fast alternating taps are the
 // legitimate catch-up-after-looking-away workflow.
 var _lastPitchTap = { t: 0, r: '' }
-async function quickLog(result) {
-  if (!IN_LOGAB) {
+// opts.fromLogAB + opts.entry: the in_play pitch that logAB itself records
+// rides on the OUTCOME's undo entry. This is a parameter, not a global flag,
+// so a coach's next tap landing while logAB is still awaiting gets its own
+// snapshot/entry instead of silently merging into the outcome's.
+async function quickLog(result, opts) {
+  var inAB = !!(opts && opts.fromLogAB)
+  if (!inAB) {
     var _pt = Date.now()
     if (result === _lastPitchTap.r && _pt - _lastPitchTap.t < 300) return
     _lastPitchTap = { t: _pt, r: result }
   }
   markClockStart()   // the first recorded pitch starts the tournament clock
-  if (!IN_LOGAB){ hideD3K(); hideBaseCheck() }   // a new pitch invalidates pending offers
+  if (!inAB){ hideD3K(); hideBaseCheck() }   // a new pitch invalidates pending offers
   // Save state before this pitch for undo — unless we're inside logAB, whose
   // own pre-mutation snapshot already owns this action's history entry
-  if (!IN_LOGAB) saveSnapshot(null, null)
+  if (!inAB) saveSnapshot(null, null)
+  // THIS action's undo entry, captured synchronously. Never re-read
+  // HISTORY[last] after an await: a quick next tap can push a newer entry
+  // during the insert round trip, and the DB id would land on the wrong play
+  // (Undo would then delete the wrong row).
+  var entry = inAB ? opts.entry : HISTORY[HISTORY.length-1]
 
-  S.pitchCount++
+  // pitch_num is per batter. The outcome's in_play pitch is recorded AFTER the
+  // order has advanced (advanceBatter resets the count), so logAB hands in the
+  // finished batter's next number instead.
+  var _pnum
+  if(inAB && opts.pitchNum){ _pnum = opts.pitchNum }
+  else { S.pitchCount++; _pnum = S.pitchCount }
   var pcBefore = S.acesPitchCount
   if(acesUp()) S.oppPitchCount++; else S.acesPitchCount++
   // Arm care: warn the moment OUR pitcher crosses a rest threshold
@@ -1641,7 +1663,7 @@ async function quickLog(result) {
     var _plbl = result==='ball'?'Ball':result==='foul'?'Foul':result==='strike_called'?'Strike (looking)':'Strike (swinging)'
     var _pdot = result==='ball'?'ball':result==='foul'?'foul':'strike'
     pushRecent(_pdot, _plbl, S.balls+'-'+S.strikes)
-    if(HISTORY.length) HISTORY[HISTORY.length-1].recent=(HISTORY[HISTORY.length-1].recent||0)+1
+    if(entry) entry.recent=(entry.recent||0)+1
   }
 
   var offset=currentClipOffset()
@@ -1651,7 +1673,7 @@ async function quickLog(result) {
   if(S.velo!==null && !_radar.manual && Date.now()-_radar.armedAt>20000) S.velo=null
   var pd={game_id:S.gameId,
     pitcher_id: !acesUp() ? S.currentPitcherId : null,  // our pitcher only when the Aces are in the field
-    pitch_num:S.pitchCount,pitch_type:S.pitchType,
+    pitch_num:_pnum,pitch_type:S.pitchType,
     velocity_mph:S.velo,velo_source:S.velo===null?null:(_radar.manual?'manual':'radar'),
     result:result,inning:S.inning,
     half:S.isTop?'top':'bottom',balls_before:bBefore,strikes_before:sBefore,yt_offset_sec:offset}
@@ -1661,14 +1683,14 @@ async function quickLog(result) {
     var {data,error}=await db.from('pitches').insert(pd).select().single()
     if(error) throw error
     S.lastPitchId=data?.id
-    if(HISTORY.length && data?.id) HISTORY[HISTORY.length-1].pitchId = data.id
+    if(entry && data?.id) entry.pitchId = data.id
     // remember this pitch so a gun reading that lands AFTER the tap can attach to it
     _radar.lastPitch = {id:data?.id, t:Date.now(), manual:_veloWasManual, hasVelo:S.velo!==null}
     setSynced(true)
   }catch(e){
     // Queue locally if offline or failed
     var localId = queueItem('pitches', pd)
-    if(HISTORY.length) HISTORY[HISTORY.length-1].localPitchId = localId
+    if(entry) entry.localPitchId = localId
     setSynced(false)
   }
   // Radar mode: the velo box empties after every pitch so a missed reading
@@ -1677,10 +1699,13 @@ async function quickLog(result) {
 
   // Auto-trigger outcomes (fromAuto=true: the outcome joins THIS pitch's
   // history entry, so one Undo removes e.g. ball-4 + the walk together)
+  // The D3K chip must not appear over the NEXT half: a 2-out inning-ending K
+  // flips the half inside logAB's awaits, so re-check the half before offering.
+  var _hT=S.isTop, _hI=S.inning
   if(autoWalk){
     S.balls=0; S.strikes=0
     await pushState(); renderAll()
-    await logAB('walk','Walk (BB)', true, true)
+    await logAB('walk','Walk (BB)', true, true, null, entry)
     return
   }
   if(autoK){
@@ -1689,23 +1714,23 @@ async function quickLog(result) {
     var d3kLegal = !S.bases[0] || S.outs >= 2
     S.balls=0; S.strikes=0
     await pushState(); renderAll()
-    await logAB('strikeout_swinging','K swinging', true, true)
-    if(d3kLegal) offerD3K()
+    await logAB('strikeout_swinging','K swinging', true, true, null, entry)
+    if(d3kLegal && S.isTop===_hT && S.inning===_hI) offerD3K()
     return
   }
   if(autoKLooking){
     var d3kLegal2 = !S.bases[0] || S.outs >= 2
     S.balls=0; S.strikes=0
     await pushState(); renderAll()
-    await logAB('strikeout_looking','K looking', true, true)
-    if(d3kLegal2) offerD3K()
+    await logAB('strikeout_looking','K looking', true, true, null, entry)
+    if(d3kLegal2 && S.isTop===_hT && S.inning===_hI) offerD3K()
     return
   }
 
   await pushState(); renderAll()
 }
 
-async function logAB(result, label, skipPitchLog, fromAuto, runnerId) {
+async function logAB(result, label, skipPitchLog, fromAuto, runnerId, entryOverride) {
   // Double-tap guard: two OUTCOMES inside 450ms is a phone double-tap, not
   // two real plays. Raw pitch taps (Ball/Strike) stay unguarded — those can
   // legitimately come fast — and auto walk/K calls are exempt.
@@ -1723,6 +1748,9 @@ async function logAB(result, label, skipPitchLog, fromAuto, runnerId) {
   // (bases, outs, count, abNum). Auto walk/K skip this: the triggering
   // pitch's entry (saved in quickLog) already holds the correct restore point.
   if(!fromAuto) saveSnapshot(null, null)
+  // This play's undo entry (an auto walk/K passes the triggering pitch's
+  // entry in). Captured now — never re-read HISTORY[last] after an await.
+  var entry = entryOverride || HISTORY[HISTORY.length-1]
 
   S.abNum++
   // SITUATIONAL CONTEXT — captured BEFORE any mutation, and written onto the
@@ -1749,11 +1777,7 @@ async function logAB(result, label, skipPitchLog, fromAuto, runnerId) {
     if(!isBaserunnerEvent){ S.balls=0;S.strikes=0 }
   }
   if(isHit){S.balls=0;S.strikes=0}
-  // Only log in_play pitch for batted balls, not walks/strikeouts (already logged)
-  if(!skipPitchLog && (isHit&&!/(walk|hbp|intentional_walk)/i.test(result)||isOut&&!/(strikeout)/i.test(result))){
-    IN_LOGAB = true
-    try { await quickLog('in_play') } finally { IN_LOGAB = false }
-  }
+  // (the in_play pitch is recorded below, after the local state is settled)
   // RBI: credited for runs scored by the batter's own action, except when
   // the run scores on an error, a double play, or a pure baserunner event
   // (steal/WP/PB/balk/caught stealing/pickoff/out advancing) — none of
@@ -1779,26 +1803,10 @@ async function logAB(result, label, skipPitchLog, fromAuto, runnerId) {
     ab_num:S.abNum,result:result,rbi:rbi,runs_scored:runs,notes:label,
     yt_offset_sec:offset,clip_status:CLIP.includes(result)?'queued':'none'
   }
-  try{
-    if (!isOnline) throw new Error('offline')
-    var {data:abd2,error}=await db.from('at_bats').insert(abd).select().single()
-    if(error) throw error
-    if(HISTORY.length && abd2?.id) HISTORY[HISTORY.length-1].atBatId = abd2.id
-    // Exit velo: the gun's outbound reading for a batted ball lands long
-    // before this row exists (the result pick is 10-30s after contact), so
-    // attach a pending exit reading here — or remember the row for a late one.
-    if(abd2?.id && /(single|double|triple|home_run|groundout|flyout|lineout|popout|double_play|sac_|fielders_choice|error|reached_on)/i.test(result)){
-      _radar.lastAb = {id:abd2.id, t:Date.now()}
-      if(_radar.pendingExit && Date.now()-_radar.pendingExit.t<90000){
-        radarAttachExit(abd2.id, _radar.pendingExit.mph); _radar.pendingExit=null
-      }
-    }
-    setSynced(true)
-  }catch(e){
-    var localId2 = queueItem('at_bats', abd)
-    if(HISTORY.length) HISTORY[HISTORY.length-1].localAbId = localId2
-    setSynced(false)
-  }
+  // ── Settle ALL local state synchronously, BEFORE any network wait ──
+  // A quick next tap (the catch-up habit) snapshots whatever S holds at that
+  // instant; if the score/feed/batter advance still waited on the insert
+  // round trip, undoing that tap would restore a half-applied play.
   if(runs>0){
     var t=acesUp()?'us':'them'
     S.scores[t]+=runs
@@ -1818,14 +1826,15 @@ async function logAB(result, label, skipPitchLog, fromAuto, runnerId) {
     if(_re) _owho = (_re.playerName || (_re.first_name+' '+_re.last_name)).split(' ').pop()
   }
   pushRecent(_od, (label||result.replace(/_/g,' '))+(_owho?(' — '+_owho):''), runs>0?(runs+' run'+(runs>1?'s':'')):'')
-  if(HISTORY.length) HISTORY[HISTORY.length-1].recent=(HISTORY[HISTORY.length-1].recent||0)+1
+  if(entry) entry.recent=(entry.recent||0)+1
   // Tally the batter's game line (Aces only); record it so Undo can reverse it
   if(acesUp() && !isBaserunnerEvent){
     var _bid = getCurrentBatterId()
     tallyAtBat(_bid, result, 1)
-    if(HISTORY.length) HISTORY[HISTORY.length-1].tally = {bid:_bid, result:result}
+    if(entry) entry.tally = {bid:_bid, result:result}
   }
   // Auto-advance the batter only when this at-bat actually ended
+  var _inPlayNum = S.pitchCount + 1   // the finished batter's pitch sequence, before advance resets it
   if(!isBaserunnerEvent){
     if(acesUp() && S.acesLineup.length) advanceBatter()
     if(!acesUp() && S.oppLineup.length){
@@ -1833,12 +1842,40 @@ async function logAB(result, label, skipPitchLog, fromAuto, runnerId) {
       updateBatterDisplay()
     }
   }
-  if(S.outs>=3){setTimeout(function(){if(confirm('3 outs — end half?'))newHalf()},300)}
+  // The in_play pitch goes in BEFORE the at-bat row (the gamecast closes the
+  // live at-bat card on the at_bats insert, so the pitch chip must precede it).
+  if(!skipPitchLog && (isHit&&!/(walk|hbp|intentional_walk)/i.test(result)||isOut&&!/(strikeout)/i.test(result))){
+    await quickLog('in_play', {fromLogAB:true, entry:entry, pitchNum:_inPlayNum})
+  }
+  try{
+    if (!isOnline) throw new Error('offline')
+    var {data:abd2,error}=await db.from('at_bats').insert(abd).select().single()
+    if(error) throw error
+    if(entry && abd2?.id) entry.atBatId = abd2.id
+    // Exit velo: the gun's outbound reading for a batted ball lands long
+    // before this row exists (the result pick is 10-30s after contact), so
+    // attach a pending exit reading here — or remember the row for a late one.
+    if(abd2?.id && /(single|double|triple|home_run|groundout|flyout|lineout|popout|double_play|sac_|fielders_choice|error|reached_on)/i.test(result)){
+      _radar.lastAb = {id:abd2.id, t:Date.now()}
+      if(_radar.pendingExit && Date.now()-_radar.pendingExit.t<90000){
+        radarAttachExit(abd2.id, _radar.pendingExit.mph); _radar.pendingExit=null
+      }
+    }
+    setSynced(true)
+  }catch(e){
+    var localId2 = queueItem('at_bats', abd)
+    if(entry) entry.localAbId = localId2
+    setSynced(false)
+  }
+  // Decide NOW whether this play ends the half — the confirm below can flip
+  // the half while pushState is still awaiting, and S.outs would read 0 again.
+  var endsHalf = S.outs>=3
+  if(endsHalf){setTimeout(function(){ if(S.outs>=3 && confirm('3 outs — end half?')) newHalf() },300)}
   await pushState(); renderAll()
   // Runners were on before a ball in play — the by-the-book advance may not
   // match the field. Offer the check while the play is fresh (skip on the 3rd
   // out: the half-end flow makes any correction stale immediately).
-  if(BC_RESULTS.test(result) && basesBefore.some(Boolean) && S.outs<3) offerBaseCheck(result, label, runs)
+  if(BC_RESULTS.test(result) && basesBefore.some(Boolean) && !endsHalf) offerBaseCheck(result, label, runs)
   // Aces recorded an out in the field — offer defensive credit (fine on the
   // 3rd out: the tag is a row patch, still valid after the half flips)
   if(FT_RESULTS.test(result) && !acesUp()) offerFielderTag(result, label)
@@ -2276,6 +2313,11 @@ function endHalfManual(){
     var cur=(S.isTop?'Top':'Bot')+' '+S.inning
     if(!confirm('End the '+cur+' with only '+S.outs+' out'+(S.outs===1?'':'s')+'?\n\nThis moves the game to the next half-inning.')) return
   }
+  // Make the manual flip its own undo entry — otherwise Undo after a mistaken
+  // End half pops the PREVIOUS play (reverting the flip but deleting that play).
+  saveSnapshot(null, null)
+  pushRecent('out','Half ended',(S.isTop?'Top ':'Bot ')+S.inning)
+  if(HISTORY.length) HISTORY[HISTORY.length-1].recent=1
   newHalf()
 }
 function newHalf(){
@@ -2296,6 +2338,9 @@ function newHalf(){
   pushState();renderAll();showToast((S.isTop?'Top':'Bot')+' '+S.inning+' — batter up!')
 }
 async function undoLast(){
+  // A phone double-tap (or a key bounce on U) must not undo two plays
+  if(Date.now()-(window._lastUndo||0) < 450) return
+  window._lastUndo = Date.now()
   hideBaseCheck()   // the play being undone is the one the chip would patch
   if(!HISTORY.length){showToast('Nothing to undo');return}
   var last = HISTORY.pop()
@@ -2339,8 +2384,10 @@ async function undoLast(){
   S.lastPitchId = prev.lastPitchId
   S.currentBatterIdx = prev.currentBatterIdx
   S.currentOppBatterIdx = prev.currentOppBatterIdx
-  S.acesPitchCount = prev.acesPitchCount
-  S.oppPitchCount = prev.oppPitchCount
+  // Pitch counts are per-pitcher: only restore them if the same arm is still
+  // on the mound, otherwise a new pitcher inherits the old one's count.
+  if(prev.currentPitcherId===undefined || prev.currentPitcherId===S.currentPitcherId) S.acesPitchCount = prev.acesPitchCount
+  if(prev.oppPitcher===undefined || prev.oppPitcher===S.oppPitcher) S.oppPitchCount = prev.oppPitchCount
 
   await pushState()
   renderAll()
