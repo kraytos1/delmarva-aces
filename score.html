@@ -612,7 +612,7 @@ html,body{overscroll-behavior-y:none;}
   <!-- Bottom bar -->
   <div class="bot-bar">
     <button class="bot-btn next" id="skip-btn" onclick="skipBatter()">Skip batter</button>
-    <button class="bot-btn" onclick="newHalf()">End half<span class="key-hint">E</span></button>
+    <button class="bot-btn" onclick="endHalfManual()">End half<span class="key-hint">E</span></button>
     <button class="bot-btn danger" id="undo-btn" onclick="undoLast()">Undo</button>
     <button class="bot-btn end" onclick="endGame()">Final</button>
   </div>
@@ -2267,6 +2267,17 @@ async function swapSides(){
   showToast('Aces are now the '+(toHome?'HOME':'AWAY')+' team')
 }
 
+// Manual "End half" (button or the E key). Ending a half with fewer than three
+// outs is almost always a mis-tap — the 9/15 dry run jumped bottom 1 → top 3
+// in one blink with no plays between — so it names the situation and asks.
+// The third-out path (logAB) has its own confirm and calls newHalf directly.
+function endHalfManual(){
+  if(S.outs<3){
+    var cur=(S.isTop?'Top':'Bot')+' '+S.inning
+    if(!confirm('End the '+cur+' with only '+S.outs+' out'+(S.outs===1?'':'s')+'?\n\nThis moves the game to the next half-inning.')) return
+  }
+  newHalf()
+}
 function newHalf(){
   hideD3K(); hideBaseCheck()
   S.balls=0;S.strikes=0;S.outs=0;S.bases=[false,false,false];S.pitchCount=0;S.velo=null;paintVeloQuick()
@@ -2874,7 +2885,7 @@ var KEY_ACTIONS = {
   'r': function(){ openModal('base') },
   'u': function(){ undoLast() },
   'n': function(){ skipBatter() },
-  'e': function(){ newHalf() }
+  'e': function(){ endHalfManual() }
 }
 function overlayOpen(){
   return ['modal-overlay','numpad-sheet','subs-sheet'].some(function(id){
@@ -2885,7 +2896,7 @@ function overlayOpen(){
 document.addEventListener('keydown', function(e){
   if(!S.gameId || e.repeat || e.ctrlKey || e.metaKey || e.altKey) return
   var t=document.activeElement
-  if(t && /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName)) return
+  if(t && (/^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName) || t.isContentEditable)) return
   if(e.key==='Escape'){
     closeModal(); closeNumpad(); closeSubs()
     return
