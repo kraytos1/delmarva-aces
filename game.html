@@ -951,10 +951,22 @@ function updateScoreboard(game) {
   if (game.half && window._lastHalfSeen && game.half !== window._lastHalfSeen) runners = [null,null,null]
   if (game.half) window._lastHalfSeen = game.half
 
-  // Sync bases from game record — the booleans are authoritative; any base
-  // they empty loses its inferred identity (occupied-but-unknown = plain dot)
+  // Sync bases from game record — the booleans are authoritative. Runners only
+  // ever move FORWARD, so when the scorer's correction (the post-play base
+  // check) empties a base we had a face on and fills a base ahead of it that
+  // we don't, that face slides forward — e.g. "single, runner to third": the
+  // book put Booher on 2nd, the Fix says 3rd, so Booher's photo goes to 3rd.
+  // A face whose base emptied with nothing ahead newly filled = he scored.
   if (game.base_1b !== undefined) {
-    bases = [!!game.base_1b, !!game.base_2b, !!game.base_3b]
+    var nb = [!!game.base_1b, !!game.base_2b, !!game.base_3b]
+    for (var ahead=2; ahead>=0; ahead--) {
+      if (nb[ahead] && !runners[ahead]) {
+        for (var back=ahead-1; back>=0; back--) {
+          if (runners[back] && !nb[back]) { runners[ahead] = runners[back]; runners[back] = null; break }
+        }
+      }
+    }
+    bases = nb
     for (var rz=0; rz<3; rz++) if (!bases[rz]) runners[rz] = null
     renderBases()
   }
