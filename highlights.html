@@ -91,7 +91,6 @@
   <div class="page-head">
     <div class="eyebrow">Aces Family</div>
     <h1>High<span>lights</span></h1>
-    <div class="sub" id="sub">Loading the reel…</div>
   </div>
 
   <div id="games-section" style="display:none;margin-bottom:34px;">
@@ -114,7 +113,6 @@
 
   <div id="content"><div class="load-note">Loading highlights…</div></div>
 
-  <div class="footer">Delmarva Aces · Highlights are auto-clipped from live game streams</div>
 </div>
 
 <script>
@@ -281,7 +279,6 @@ function buildPlayerFilter(){
 }
 
 function showEmpty(queued){
-  document.getElementById('sub').textContent = 'Big plays from Aces games, clipped automatically.';
   var teaser = queued>0
     ? '<div class="queued">🎬 '+queued+' play'+(queued===1?'':'s')+' flagged — clips appear here once the game\'s live stream is linked.</div>'
     : '';
@@ -378,13 +375,11 @@ async function init(){
       showEmpty(q.count||0);
       return;
     }
-    document.getElementById('sub').textContent = CLIPS.length + ' plays worth watching.';
     document.getElementById('filters').style.display = 'flex';
     buildPlayerFilter();
     render();
     focusSharedClip();
   }catch(e){
-    document.getElementById('sub').textContent = '';
     document.getElementById('content').innerHTML = '<div class="load-note">Couldn\'t load highlights: '+(e.message||e)+'</div>';
   }
 }
