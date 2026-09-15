@@ -548,10 +548,6 @@
     <div id="sponsor-wall" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(132px,1fr));gap:12px;"></div>
   </section>
 
-  <footer>
-    <div class="footer-brand">Delmarva <span>Aces</span> · 13U East · 2026</div>
-    <div class="footer-links"><a class="footer-link" href="/#schedule">Schedule</a><a class="footer-link" href="/highlights.html">Highlights</a><a class="footer-link" href="/banners.html">Rafters</a></div>
-  </footer>
 </div>
 
 <!-- ══ ROSTER ══ -->
@@ -654,10 +650,6 @@
   </div>
   </div><!-- /roster-stats-view -->
 
-  <footer>
-    <div class="footer-brand">Delmarva <span>Aces</span> · 13U East · 2026</div>
-    <div class="footer-links"><a class="footer-link" href="/#schedule">Schedule</a><a class="footer-link" href="/highlights.html">Highlights</a><a class="footer-link" href="/banners.html">Rafters</a></div>
-  </footer>
 </div>
 
 <!-- ══ SCHEDULE ══ -->
@@ -704,10 +696,6 @@
 
   <div style="padding:24px 40px;" id="schedule-grid"></div>
 
-  <footer>
-    <div class="footer-brand">Delmarva <span>Aces</span> · 13U East · 2026</div>
-    <div class="footer-links"><a class="footer-link" href="/highlights.html">Highlights</a><a class="footer-link" href="/banners.html">Rafters</a></div>
-  </footer>
 </div>
 </main>
 
@@ -858,12 +846,6 @@ function setSeason(season) {
     setText('schedule-season-label', meta.schLabel)
     setText('hero-eyebrow-txt', meta.hero)
   }
-  // Season-aware footers (one per in-page tab)
-  var footAge = season==='fall2026' ? '13U' : '12U'
-  document.querySelectorAll('.footer-brand').forEach(function(el){
-    el.innerHTML = 'Delmarva <span>Aces</span> · '+footAge+' East · 2026'
-  })
-
   if (season === 'spring2026') {
     // Load archived Spring 2026 stats.
     // The completed spring season is the curated FALLBACK_GAMES list (the true 62-2 —
