@@ -461,6 +461,9 @@ var YT_API_KEY        = ACES_CONFIG.ytApiKey
 
 // ?demo=1 — scripted FX preview: no DB reads/writes, the bottom demo driver owns the page
 var DEMO = new URLSearchParams(location.search).has('demo')
+// ?test=1 — coach-only door: lets a '__test__' dry run show on this page so the
+// family experience can be rehearsed. No family-facing link ever carries it.
+var SHOW_TEST = new URLSearchParams(location.search).has('test')
 window.DEMO = DEMO
 
 var db = null
@@ -626,7 +629,7 @@ async function loadLiveGame() {
       var {data:baseRow} = await db.from('games').select('base_1b,base_2b,base_3b,is_home,season').eq('id', game.id).single()
       // the view doesn't expose season either — a '__test__' dry run must not
       // reach families as a live gamecast
-      if (baseRow && baseRow.season === '__test__') { await loadNextGame(); return }
+      if (baseRow && baseRow.season === '__test__' && !SHOW_TEST) { await loadNextGame(); return }
       if (baseRow) { game.base_1b = baseRow.base_1b; game.base_2b = baseRow.base_2b; game.base_3b = baseRow.base_3b; game.is_home = baseRow.is_home }
     } catch(e) {}
     liveGame = game
