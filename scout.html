@@ -161,7 +161,6 @@
       <button id="btnReset">Reset</button>
     </div>
 
-    <div id="meta"></div>
     <div id="err"></div>
 
     <div class="tbl-wrap">
@@ -199,7 +198,7 @@ const db = supabase.createClient(ACES_CONFIG.supabaseUrl, ACES_CONFIG.supabaseKe
 const el = id => document.getElementById(id);
 const tournSel=el("tournament"), teamSel=el("team"), levelSel=el("level"),
       minAb=el("minAb"), sortSel=el("sortSel"), searchBox=el("q"), combineEl=el("combinePlayers"),
-      hdr=el("hdr"), tbody=el("tbody"), watch=el("watchList"), metaEl=el("meta"), errEl=el("err");
+      hdr=el("hdr"), tbody=el("tbody"), watch=el("watchList"), errEl=el("err");
 
 let state={teams:[], players:[], sortKey:"score", sortOrder:"desc"};
 
@@ -306,10 +305,7 @@ async function loadPlayers(){
   }catch(e){setErr(e.message||String(e));state.players=[];clearTable("Failed to load.");renderWatch();setMeta();}
 }
 
-function setMeta(){
-  const t=teamSel.options[teamSel.selectedIndex]?.text||"(none)";
-  metaEl.textContent=`Team ${t} · Tournament ${tournSel.value||"ALL"} · Level ${levelSel.value} · MinAB ${minAb.value||0} · ${state.players.length} players`;
-}
+function setMeta(){}   // the filter-echo line under the controls was removed (it restated the dropdowns)
 function clearTable(msg){hdr.innerHTML="";tbody.innerHTML=`<tr><td class="muted" style="padding:14px">${msg||""}</td></tr>`;}
 
 function filtered(){
