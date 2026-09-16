@@ -652,6 +652,18 @@ async function saveLineup() {
 
   // Store in games table notes field (or a dedicated lineups table if you add one)
   try {
+    // The scorer owns notes once the game is live: it publishes its batting-
+    // order pointers + clock in the same JSON and rebuilds the whole payload
+    // on every play. Saving from here mid-game (a) wiped those fields, so
+    // viewers fell back to count math for the batter, and (b) is overwritten
+    // by the scorer's next tap anyway. Keep the scorer's fields, and warn.
+    var {data:cur} = await db.from('games').select('status,notes').eq('id', gameId).single()
+    var keep = {}
+    try { keep = cur && cur.notes ? JSON.parse(cur.notes) : {} } catch(e) { keep = {} }
+    ;['cur_batter_idx','cur_opp_batter_idx','scoring_start_utc'].forEach(function(k){ if (keep[k] !== undefined) payload[k] = keep[k] })
+    if (cur && cur.status === 'live') {
+      if (!confirm('This game is LIVE.\n\nThe scorer rewrites the lineup on its next play, so a change made here will be lost. Mid-game changes belong in the scorer\'s ⇄ Subs sheet.\n\nSave anyway?')) return
+    }
     await db.from('games').update({notes: JSON.stringify(payload)}).eq('id', gameId)
     showToast('Lineup saved ✓')
   } catch(e) { showToast('Save failed — check connection') }

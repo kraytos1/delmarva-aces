@@ -927,7 +927,7 @@ function renderSubs(){
 
 function logSub(type, info){
   S.subsLog = S.subsLog || []
-  var base={type:type, time:new Date().toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'}), inning:S.inning, half:S.isTop?'top':'bottom'}
+  var base={type:type, time:new Date().toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'}), ts:new Date().toISOString(), inning:S.inning, half:S.isTop?'top':'bottom'}
   for(var k in info) base[k]=info[k]
   S.subsLog.push(base)
 }
@@ -982,7 +982,9 @@ async function applyAcePos(idx, pos){
 }
 async function applyOppPitch(){
   var v=(document.getElementById('opp-pitch-inp').value||'').trim()
+  if(v===S.oppPitcher){ closeSubs(); return }   // same name re-saved: not a change
   S.oppPitcher=v
+  S.oppPitchCount=0   // a new arm starts from zero (resume recounts from this ts)
   logSub('opp-pitching-change',{playerName:v})
   updateBatterDisplay()
   closeSubs(); await saveNotes()
@@ -1272,6 +1274,22 @@ async function startScoring() {
   // off the scorebug/gamecast in the DB.
   S.balls=g.balls||0; S.strikes=g.strikes||0
   S.bases=[!!g.base_1b, !!g.base_2b, !!g.base_3b]
+  // Offline resume: pushState mirrors the state to localStorage BEFORE its
+  // online check, so while plays for this game are still queued the mirror is
+  // newer than the games row (which last saw the pre-outage state). Restore
+  // from the mirror — otherwise flushQueue's pushState republished the stale
+  // score/outs/bases/pointers over everything scored during the outage.
+  try{
+    var _pendingQ = getQueue().some(function(it){ return it.data && it.data.game_id===gid })
+    var _loc = JSON.parse(localStorage.getItem('aces_game_state_'+gid)||'null')
+    if(_pendingQ && _loc && _loc.bases){
+      S.scores.us=_loc.our_score||0; S.scores.them=_loc.opp_score||0
+      S.inning=_loc.inning||1; S.isTop=_loc.half!=='bottom'; S.outs=_loc.outs||0
+      S.balls=_loc.balls||0; S.strikes=_loc.strikes||0; S.bases=_loc.bases.slice()
+      if(_loc.notes) g.notes=_loc.notes   // order pointers + subs ride in notes
+      setTimeout(function(){ showToast('Restored unsynced plays from this device') }, 1500)
+    }
+  }catch(e){}
   // Keep the original stream_start_utc on resume — resetting it skews the
   // wall-clock fallback used for clip offsets when no video player is up.
   var wasLive = g.status === 'live'
@@ -1371,9 +1389,25 @@ async function startScoring() {
 
   // Initialize per-pitcher pitch counts from the DB (correct on resume / reload).
   try {
-    var {count:opc}=await db.from('pitches').select('id',{count:'exact',head:true}).eq('game_id',gid).is('pitcher_id',null)
+    // Their pitches carry no pitcher id, so the reliever's count starts at
+    // the last opponent pitching change (subs_log stamps an ISO ts).
+    var _oq=db.from('pitches').select('id',{count:'exact',head:true}).eq('game_id',gid).is('pitcher_id',null)
+    var _lastOppChg=null
+    ;(S.subsLog||[]).forEach(function(s){ if(s.type==='opp-pitching-change' && s.ts) _lastOppChg=s.ts })
+    if(_lastOppChg) _oq=_oq.gte('created_at',_lastOppChg)
+    var {count:opc}=await _oq
     S.oppPitchCount = opc||0
   } catch(e){ S.oppPitchCount = 0 }
+  // Per-batter pitch number: count the pitches since the last completed
+  // at-bat so a mid-at-bat reload continues the sequence instead of
+  // restarting pitch_num at 1 (duplicate numbers inside one at-bat).
+  try {
+    var {data:_lastAb}=await db.from('at_bats').select('created_at').eq('game_id',gid).not('result','in',baserunnerEvents).order('created_at',{ascending:false}).limit(1)
+    var _pq=db.from('pitches').select('id',{count:'exact',head:true}).eq('game_id',gid)
+    if(_lastAb&&_lastAb.length) _pq=_pq.gt('created_at',_lastAb[0].created_at)
+    var {count:_pcnt}=await _pq
+    S.pitchCount=_pcnt||0
+  } catch(e){ S.pitchCount=0 }
   try {
     if(S.currentPitcherId){
       var {count:apc}=await db.from('pitches').select('id',{count:'exact',head:true}).eq('game_id',gid).eq('pitcher_id',S.currentPitcherId)
@@ -1625,10 +1659,19 @@ async function quickLog(result, opts) {
   if(acesUp()) S.oppPitchCount++; else S.acesPitchCount++
   // Arm care: warn the moment OUR pitcher crosses a rest threshold
   if(!acesUp()) checkArmCare(pcBefore, S.acesPitchCount)
+  // The count the batter actually saw. logAB resets balls/strikes BEFORE it
+  // records the outcome's pitch, so it hands the pre-play count in — without
+  // this every in-play pitch row read 0-0 and the count splits were fiction.
   var bBefore=S.balls, sBefore=S.strikes
+  if(inAB && opts.countBefore){ bBefore=opts.countBefore.b; sBefore=opts.countBefore.s }
   var autoWalk=false, autoK=false, autoKLooking=false
 
-  if(result==='ball'){
+  // Inside logAB the outcome already settled the count and the feed; the
+  // pitch row is purely the record of the payoff pitch (in_play, the 3rd
+  // strike of a modal K, the HBP ball). It must never re-run the count math —
+  // a 'strike_swinging' row for a modal K would otherwise trip auto-K again.
+  if(inAB){}
+  else if(result==='ball'){
     S.balls++
     if(S.balls>=4){
       // Walk! Log the pitch then trigger walk AB
@@ -1659,7 +1702,7 @@ async function quickLog(result, opts) {
   }
 
   // feed the recent-plays panel for raw pitch taps (outcomes push separately)
-  if(result==='ball'||result==='strike_called'||result==='strike_swinging'||result==='foul'){
+  if(!inAB && (result==='ball'||result==='strike_called'||result==='strike_swinging'||result==='foul')){
     var _plbl = result==='ball'?'Ball':result==='foul'?'Foul':result==='strike_called'?'Strike (looking)':'Strike (swinging)'
     var _pdot = result==='ball'?'ball':result==='foul'?'foul':'strike'
     pushRecent(_pdot, _plbl, S.balls+'-'+S.strikes)
@@ -1760,6 +1803,15 @@ async function logAB(result, label, skipPitchLog, fromAuto, runnerId, entryOverr
   // fact from the play sequence, so it has to be recorded as it happens.
   var basesBefore=S.bases.slice()   // also feeds the post-play base check offer
   var outsBefore=S.outs
+  var countBefore={b:S.balls, s:S.strikes}   // for the payoff pitch's row
+  // A "sacrifice" with two outs is just the third out — nothing can score
+  // behind it and the batter is charged an AB. Record what actually happened
+  // rather than a sac_fly row that every stat page would excuse from an AB.
+  if(S.outs>=2 && (result==='sac_fly' || result==='sac_bunt')){
+    result = result==='sac_fly' ? 'flyout' : 'groundout'
+    label  = result==='flyout' ? 'Fly out' : 'Ground out'
+    showToast('2 outs — recorded as '+label.toLowerCase()+' (no sacrifice)')
+  }
   var scoreUsBefore=S.scores.us, scoreThemBefore=S.scores.them
   // Batting-order spot (1-9) — Aces half only; the opponent has no slot here.
   var lineupSlot=null
@@ -1844,8 +1896,19 @@ async function logAB(result, label, skipPitchLog, fromAuto, runnerId, entryOverr
   }
   // The in_play pitch goes in BEFORE the at-bat row (the gamecast closes the
   // live at-bat card on the at_bats insert, so the pitch chip must precede it).
-  if(!skipPitchLog && (isHit&&!/(walk|hbp|intentional_walk)/i.test(result)||isOut&&!/(strikeout)/i.test(result))){
-    await quickLog('in_play', {fromLogAB:true, entry:entry, pitchNum:_inPlayNum})
+  // Which pitch ended the at-bat, if the outcome came from a modal rather than
+  // a pitch tap: a ball in play, the 3rd strike of a modal K (foul-bunt K,
+  // catch-up scoring), the dropped 3rd, or the pitch that hit the batter.
+  // Every one of these is a real pitch — it counts against the arm and has
+  // to exist as a row. Walks stay pitch-less here (ball 4 logs itself, and a
+  // modal Walk is the deliberate no-pitch catch-up path).
+  if(!skipPitchLog && !/(walk|intentional_walk)/i.test(result)){
+    var _payoff = null
+    if(result==='hbp') _payoff='hbp'
+    else if(result==='strikeout_looking') _payoff='strike_called'
+    else if(result==='strikeout_swinging' || result==='dropped_third' || result==='dropped_third_k') _payoff='strike_swinging'
+    else if(isHit || isOut) _payoff='in_play'
+    if(_payoff) await quickLog(_payoff, {fromLogAB:true, entry:entry, pitchNum:_inPlayNum, countBefore:countBefore})
   }
   try{
     if (!isOnline) throw new Error('offline')
@@ -1912,7 +1975,12 @@ function applyBaserunners(r) {
     if(b[0]&&b[1]&&b[2]){ b=[true,true,true] }   // force at home: R3 out, chain advances behind him
     else if(b[0]&&b[1]){ b=[true,true,b[2]] }    // force at 3rd: R2 out, R1 to 2nd
     else if(b[0]){ b=[true,false,b[2]] }         // force at 2nd: R1 out; 3rd holds
-    else { b=[true,b[1],b[2]] }                  // nobody forced — batter just reaches
+    // Nobody forced: the batter reached BECAUSE the defense took a runner
+    // instead (R3 at the plate, or R2 at 3rd) — that runner is the out logAB
+    // adds. Leaving him on base made an impossible state: +1 out, nobody gone.
+    else if(b[2]){ b=[true,b[1],false] }         // R3 cut down at the plate
+    else if(b[1]){ b=[true,false,false] }        // R2 cut down at 3rd
+    else { b=[true,false,false] }                // bases were empty — treat as a plain reach
   } else if(o==='sac_fly'){
     // Runner on 3rd scores, out recorded elsewhere. With 2 outs the catch is
     // the 3rd out — no tag-up run can ever score behind it.
@@ -1990,9 +2058,10 @@ async function pushState() {
     our_score:S.scores.us, opp_score:S.scores.them,
     inning:S.inning, half:S.isTop?'top':'bottom',
     outs:S.outs, balls:S.balls, strikes:S.strikes,
+    bases:S.bases.slice(), ts:Date.now(),
     notes: notesJson || S.game?.notes
   }
-  // Save locally first
+  // Save locally first (the offline-resume source in startScoring)
   try { localStorage.setItem('aces_game_state_'+S.gameId, JSON.stringify(state)) } catch(e){}
   // Push to Supabase
   try{
@@ -2175,11 +2244,13 @@ function closeModal(e){if(!e||e.target.id==='modal-overlay')document.getElementB
 var RUNNER_EVENTS = /^(stolen_base|caught_stealing|pickoff_1b|pickoff_2b|pickoff_3b|out_advancing)$/
 var _pendingBR = null
 function pickOutcome(v,l){
-  // Walks/HBP: pitch already logged as in_play, skip double logging.
+  // Walks: ball 4 already logged itself (a modal Walk is the no-pitch catch-up
+  // path). HBP is NOT skipped — the pitch that hit the batter was never tapped,
+  // so logAB records it (it used to vanish from the pitcher's count entirely).
   // Baserunner-only events (steal/WP/PB/balk/caught stealing/pickoff/out
   // advancing): either the pitch was already logged separately, or there
   // was no pitch at all (pickoff throw) — never log a phantom pitch for these.
-  var skipPitch = /(walk|hbp|intentional_walk|stolen_base|wp_advance|pb_advance|balk|caught_stealing|pickoff|out_advancing)/i.test(v)
+  var skipPitch = /(walk|intentional_walk|stolen_base|wp_advance|pb_advance|balk|caught_stealing|pickoff|out_advancing)/i.test(v)
   // Aces runner event -> ask who (opponent's half = their runners, skip)
   if(RUNNER_EVENTS.test(v) && acesUp() && S.acesLineup.length){
     _pendingBR = {v:v, l:l, skipPitch:skipPitch}
@@ -2531,6 +2602,9 @@ async function convertD3K(safe){
   showToast(safe ? '✓ Batter safe at 1st' : '✓ Out at 1st recorded')
   // Our catcher threw out their runner at 1st on the dropped 3rd — tag-worthy
   if(!safe && !acesUp()) offerFielderTag('dropped_third_k', label, entry)
+  // Batter safe with runners aboard: the forced advances (and a bases-loaded
+  // run) were by-the-book guesses — same check every ball in play gets.
+  if(safe && (S.bases.some(Boolean) || runs>0)) offerBaseCheck(result, label, runs)
 }
 
 // ── POST-PLAY BASE CHECK ─────────────────────────────────────
@@ -2544,7 +2618,11 @@ async function convertD3K(safe){
 // scoreboard. Only offered when runners were on before the play — that's
 // where the by-the-book assumption can be wrong.
 var _baseCheck = null, _bcTimer = null, _bcDraft = null
-var BC_RESULTS = /^(single|double|triple|error|fielders_choice|sac_fly|sac_bunt|double_play|groundout|flyout|lineout|popout|dropped_third)$/
+// out_advancing / caught_stealing are here too: the scorer only tracks WHICH
+// bases are occupied, not who is on them, so "thrown out" has to guess a base
+// (lead runner / the stealing runner). When the guess is wrong the Fix sheet
+// is the repair — without it the only path was the raw base pips.
+var BC_RESULTS = /^(single|double|triple|error|fielders_choice|sac_fly|sac_bunt|double_play|groundout|flyout|lineout|popout|dropped_third|out_advancing|caught_stealing)$/
 
 function bcSummary(bases, runs){
   var on = []

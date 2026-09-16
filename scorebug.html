@@ -539,7 +539,10 @@ function render(g, n, isAcesBatting, acesAbs, oppAbs, oppPC, acesPC, lastPitch, 
     else { batName = 'Aces batter'; }
   } else {
     var ol = n.oppLineup || [];
-    var ob = ol.length ? ol[oppAbs.length % ol.length] : null;
+    // the scorer's published pointer, like computeDueUp and the gamecast —
+    // count math drifts from it whenever rows lag the scorer (offline queue)
+    var oi = (typeof n.curOppBatterIdx === 'number') ? n.curOppBatterIdx : oppAbs.length;
+    var ob = ol.length ? ol[oi % ol.length] : null;
     batName = ob ? (ob.name + (ob.position?' · '+ob.position:'')) : (teamAbbr((g.opponents&&g.opponents.name)||'')+' batter');
   }
   document.getElementById('batName').textContent = batName;

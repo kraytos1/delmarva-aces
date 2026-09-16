@@ -475,8 +475,43 @@ var bases = [false,false,false]
 // whose identity is unknown renders the plain dot instead of a wrong face.
 var runners = [null,null,null]
 var totalPitches = 0
-var acesPitches = 0   // Aces pitcher's pitches this game
-var oppPitches = 0    // opponent pitcher's pitches this game (pitcher_id is null)
+var acesPitches = 0   // the CURRENT Aces pitcher's pitches this game
+var oppPitches = 0    // the current opponent pitcher's pitches (pitcher_id is null)
+// The counts come from the DB, not from tallying the feed: the reload replay
+// is capped at 150 pitches (a 13U game passes that by the 4th), a pitching
+// change must restart the card at the reliever's own count (the scorer and
+// scorebug both count per pitcher id), and an undone pitch's DELETE event
+// carries only its id. addPitch keeps them moving between syncs.
+var _curAcesPitcherId = null
+var _lastOppPitchChg = null
+function _notesObj(){ try { return liveGame && liveGame.notes ? JSON.parse(liveGame.notes) : {} } catch(e) { return {} } }
+async function syncPitchCounts(){
+  if (!liveGame || !db) return
+  try {
+    var n = _notesObj()
+    var pid = n.aces_pitcher_id || null
+    _curAcesPitcherId = pid
+    // the opponent's reliever starts from his own change (subs_log ts), like the scorer
+    var chg = null
+    ;(n.subs_log || []).forEach(function(s){ if (s.type === 'opp-pitching-change' && s.ts) chg = s.ts })
+    _lastOppPitchChg = chg
+    var qa = pid ? db.from('pitches').select('id',{count:'exact',head:true}).eq('game_id',liveGame.id).eq('pitcher_id',pid) : Promise.resolve({count:0})
+    var qo = db.from('pitches').select('id',{count:'exact',head:true}).eq('game_id',liveGame.id).is('pitcher_id',null)
+    if (chg) qo = qo.gte('created_at', chg)
+    var qt = db.from('pitches').select('id',{count:'exact',head:true}).eq('game_id',liveGame.id)
+    var r = await Promise.all([qa, qo, qt])
+    acesPitches = r[0].count || 0; oppPitches = r[1].count || 0; totalPitches = r[2].count || 0
+    setText('p-count', pcForHalf()); updateFeedCounts()
+  } catch(e) {}
+}
+// A notes change that swapped a pitcher means the card's count belongs to
+// someone else now — resync (cheap: three HEAD counts).
+function maybeResyncPitchers(){
+  var n = _notesObj()
+  var chg = null
+  ;(n.subs_log || []).forEach(function(s){ if (s.type === 'opp-pitching-change' && s.ts) chg = s.ts })
+  if ((n.aces_pitcher_id || null) !== _curAcesPitcherId || chg !== _lastOppPitchChg) syncPitchCounts()
+}
 // Which half belongs to the Aces: the home team bats the bottom (games.is_home;
 // live_game_summary doesn't expose it, so loadLiveGame copies it from games).
 function acesHalfG(){ return (liveGame && liveGame.is_home) ? 'bottom' : 'top' }
@@ -567,8 +602,11 @@ async function checkYouTubeLive() {
   }
   try {
     if (db) {
-      var {data:lg} = await db.from('games').select('id,youtube_stream_id')
-        .eq('status','live').limit(1).maybeSingle()
+      // same test-game gate as loadLiveGame — a dry run's stream must not
+      // embed itself over the family pregame screen with a "Live now" badge
+      var lq = db.from('games').select('id,youtube_stream_id').eq('status','live')
+      if (!SHOW_TEST) lq = lq.neq('season','__test__')
+      var {data:lg} = await lq.limit(1).maybeSingle()
       if (lg && lg.youtube_stream_id) {
         if (liveGame && liveGame.id === lg.id) liveGame.youtube_stream_id = lg.youtube_stream_id
         showStream(lg.youtube_stream_id); return
@@ -621,8 +659,27 @@ async function loadLiveGame() {
   try {
     var {data, error} = await db.from('live_game_summary').select('*')
       .order('stream_start_utc', {ascending:false}).limit(1)
-    if (error || !data || !data.length) { await loadNextGame(); return }
-    var game = data[0]
+    var game = (!error && data && data.length) ? data[0] : null
+    var isFinal = false
+    if (!game) {
+      // No live game: if one FINISHED in the last day, show its final (score,
+      // feed, scoreboard) instead of the countdown to the next one — a family
+      // opening the page after the last out used to get "pregame" and no score.
+      try {
+        var d0 = new Date(); d0.setDate(d0.getDate()-1)
+        var since = d0.getFullYear()+'-'+String(d0.getMonth()+1).padStart(2,'0')+'-'+String(d0.getDate()).padStart(2,'0')
+        var fq = db.from('games').select('*,opponents(name)').eq('status','final').gte('game_date', since)
+        if (!SHOW_TEST) fq = fq.neq('season','__test__')
+        var {data:fg} = await fq.order('game_date',{ascending:false}).order('stream_start_utc',{ascending:false}).limit(1)
+        if (fg && fg.length) {
+          game = fg[0]
+          game.team_name = 'Delmarva Aces'
+          game.opponent_name = (game.opponents && game.opponents.name) || 'Opponent'
+          isFinal = true
+        }
+      } catch(e) {}
+    }
+    if (!game) { await loadNextGame(); return }
     // live_game_summary doesn't expose base_1b/2b/3b (or is_home) — pull those
     // directly from the underlying table instead of relying on the view.
     try {
@@ -687,6 +744,8 @@ async function loadLiveGame() {
     } catch(e) { window._wpAtBats = [] }
     try { updateWP() } catch(e) {}
 
+    try { await syncPitchCounts() } catch(e) {}
+    if (isFinal) { setBadge('pre', 'Final'); return }   // nothing more will change
     subscribeToGame(game.id)
     setBadge('live', 'Live · scoring')
   } catch(e) { await loadNextGame() }
@@ -825,6 +884,7 @@ function subscribeToGame(gameId) {
           // byte-identical notes (pointer unchanged), and gating on
           // notesChanged left the card showing the other team's hitter.
           refreshCurrentBatter()
+          maybeResyncPitchers()
         } catch(e) {
           updateScoreboard(Object.assign({}, liveGame || {}, p.new))
         }
@@ -857,6 +917,8 @@ function subscribeToGame(gameId) {
       function(p){
         var el = document.querySelector('#play-log [data-abid="'+p.old.id+'"]')
         if (el){ el.remove(); updateFeedCounts() }
+        // the win-probability curve must forget the undone play too
+        try { window._wpAtBats = (window._wpAtBats||[]).filter(function(a){ return a.id !== p.old.id }); updateWP() } catch(e) {}
         // The runner identities inferred from the undone play are now wrong
         // (e.g. the batter's face on 1st while he's back at the plate). The
         // undo's pushState brings the true occupancy; show plain dots until then.
@@ -866,6 +928,9 @@ function subscribeToGame(gameId) {
       function(p){
         var c = document.querySelector('#play-log [data-pid="'+p.old.id+'"]')
         if (c){ totalPitches = Math.max(0, totalPitches-1); c.remove(); updateFeedCounts() }
+        // the DELETE payload carries only the id — recount so the pitcher's
+        // card doesn't keep the undone pitch for the rest of the game
+        syncPitchCounts()
       })
     .subscribe()
 
@@ -882,7 +947,7 @@ function subscribeToGame(gameId) {
 var _lastEventTs = null
 function _bumpTs(t){ if (t && (!_lastEventTs || t > _lastEventTs)) _lastEventTs = t }
 
-var _pollBusy = false
+var _pollBusy = false, _pollN = 0
 async function pollReconcile(){
   if (window.DEMO || !db || _pollBusy) return
   _pollBusy = true
@@ -924,6 +989,18 @@ async function pollReconcile(){
       liveGame = g2
       updateScoreboard(g2)
       refreshCurrentBatter()   // unconditional — see the realtime handler note
+      maybeResyncPitchers()
+      if (++_pollN % 6 === 0) syncPitchCounts()   // ~once a minute: absorb anything realtime dropped
+    } else if (!g2 && liveGame.status !== 'final') {
+      // The view is live-only, so it goes silent the moment the coach taps
+      // Final — the realtime UPDATE carries that, but a backgrounded phone
+      // that missed it would sit on "Live · scoring" forever.
+      var {data:fin} = await db.from('games').select('*').eq('id', liveGame.id).single()
+      if (fin && fin.status === 'final') {
+        liveGame = Object.assign({}, liveGame, fin)
+        updateScoreboard(liveGame)
+        setBadge('pre', 'Final')
+      }
     }
   } catch(e) {} finally { _pollBusy = false }
 }
@@ -1154,7 +1231,8 @@ function feedEmptyClear(feed) {
 function addPitch(pitch, isNew) {
   totalPitches++
   _bumpTs(pitch.created_at)
-  if(pitch.pitcher_id) acesPitches++; else oppPitches++
+  if(pitch.pitcher_id){ if(!_curAcesPitcherId || pitch.pitcher_id===_curAcesPitcherId) acesPitches++ }
+  else oppPitches++
   setText('p-count', pcForHalf())
   updateFeedCounts()
 
@@ -1180,7 +1258,7 @@ function addPitch(pitch, isNew) {
   }
 
   var r = (pitch.result||'').toLowerCase()
-  var cls = r==='ball'?'b' : r==='foul'?'f' : r.indexOf('strike')===0?'s' : 'x'
+  var cls = r==='ball'||r==='hbp'?'b' : r==='foul'?'f' : r.indexOf('strike')===0?'s' : 'x'
   var suffix = /strike[_ ]called/.test(r)?'✓' : /strike[_ ]swinging/.test(r)?'✗' : ''
   var chip = document.createElement('span')
   chip.className = 'pchip '+cls
@@ -1188,7 +1266,7 @@ function addPitch(pitch, isNew) {
   chip.title = (pitch.result||'').replace(/_/g,' ') + (pitch.velocity_mph ? ' · '+pitch.velocity_mph+' mph' : '')
   chip.textContent = pitch.velocity_mph
     ? pitch.velocity_mph + suffix
-    : (cls==='b'?'B' : cls==='f'?'F' : cls==='x'?'●' : (suffix||'S'))
+    : (r==='hbp'?'HB' : cls==='b'?'B' : cls==='f'?'F' : cls==='x'?'●' : (suffix||'S'))
   curAB.chips.appendChild(chip)
 
   if (isNew && window.fxPitch) try { fxPitch(pitch) } catch(e) {}
@@ -1495,6 +1573,7 @@ init()
     var r = (pitch.result||'').toLowerCase().replace(/_/g,' ')
     var call, color
     if (r === 'ball')                { call='BALL';         color='#4da8e8' }
+    else if (r === 'hbp')            { call='HIT BY PITCH'; color='#4da8e8' }
     else if (r.indexOf('swing')>=0)  { call='SWING & MISS'; color='#e74c3c' }
     else if (r.indexOf('strike')>=0) { call='STRIKE';       color='#e74c3c' }
     else if (r === 'foul')           { call='FOUL';         color='#d4a042' }
