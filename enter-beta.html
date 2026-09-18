@@ -396,8 +396,14 @@ async function saveEntry(){
   // Optimistic save: confirm instantly and move on. The background send plus
   // the retry queue guarantee delivery, and client validation mirrors the
   // server's rules - a real rejection is a shout-worthy edge case.
+  // Results rows carry the SHORT team ("East", "Coastal"), matching the Google
+  // Forms path - the team-site player pages filter on it. Rosters keep full labels.
+  const teamShort = t => { t = String(t || '').trim();
+    if (t.indexOf('American') >= 0) return 'American';
+    if (t.indexOf('DCP') === 0) return 'DCP';
+    const sp = t.indexOf(' '); return sp > 0 ? t.slice(sp + 1) : t; };
   const payload = { kind:'result', sandbox: SANDBOX, divLabel: S.div.label,
-    team: S.player.team, jersey: S.player.num, player: S.player.full, entries };
+    team: teamShort(S.player.team), jersey: S.player.num, player: S.player.full, entries };
   const who = S.player.full;
   toast('Saved ✔' + (SANDBOX ? ' (sandbox)' : ''));
   goto('player');   // straight back to the list for the next player
