@@ -660,7 +660,7 @@ async function saveLineup() {
     var {data:cur} = await db.from('games').select('status,notes').eq('id', gameId).single()
     var keep = {}
     try { keep = cur && cur.notes ? JSON.parse(cur.notes) : {} } catch(e) { keep = {} }
-    ;['cur_batter_idx','cur_opp_batter_idx','scoring_start_utc'].forEach(function(k){ if (keep[k] !== undefined) payload[k] = keep[k] })
+    ;['cur_batter_idx','cur_opp_batter_idx','scoring_start_utc','scorer_dev'].forEach(function(k){ if (keep[k] !== undefined) payload[k] = keep[k] })
     if (cur && cur.status === 'live') {
       if (!confirm('This game is LIVE.\n\nThe scorer rewrites the lineup on its next play, so a change made here will be lost. Mid-game changes belong in the scorer\'s ⇄ Subs sheet.\n\nSave anyway?')) return
     }

@@ -641,6 +641,16 @@ html,body{overscroll-behavior-y:none;}
   </div>
 </div>
 
+<!-- Another device took over scoring (see ONE SCORER AT A TIME) -->
+<div id="takeover-overlay" style="display:none;position:fixed;inset:0;z-index:400;background:rgba(6,8,10,.93);align-items:center;justify-content:center;padding:24px;">
+  <div style="max-width:420px;text-align:center;">
+    <div class="modal-title" style="font-size:22px;margin-bottom:10px;">Another device is scoring this game</div>
+    <p style="color:var(--muted);font-size:14px;line-height:1.5;margin:0 0 20px;">It took over after this screen last synced, so what's shown here is out of date. Nothing more from this screen is being published.</p>
+    <button class="oc-btn" style="width:100%;font-size:16px;padding:16px;background:var(--orange);border-color:var(--orange);color:#fff;" onclick="takeoverReload()">Reload &amp; catch up</button>
+    <button class="oc-btn" style="width:100%;margin-top:10px;" onclick="takeoverKeep()">No — keep scoring on this device</button>
+  </div>
+</div>
+
 <!-- Outcome modal -->
 <div class="modal-overlay" id="modal-overlay" style="display:none;" onclick="closeModal(event)">
   <div class="modal-sheet" onclick="event.stopPropagation()">
@@ -942,14 +952,76 @@ function buildNotesPayload(){
   return { aces_lineup:S.acesLineup, aces_pitcher_id:S.currentPitcherId||null,
     aces_pitcher_name:S.currentPitcherName||null, aces_pitcher_num:S.currentPitcherNum||null,
     opp_pitcher:S.oppPitcher||'', opp_lineup:S.oppLineup||[], subs_log:S.subsLog||[], scoring_start_utc:S.scoringStartUtc||null,
-    cur_batter_idx:S.currentBatterIdx||0, cur_opp_batter_idx:S.currentOppBatterIdx||0 }
+    cur_batter_idx:S.currentBatterIdx||0, cur_opp_batter_idx:S.currentOppBatterIdx||0,
+    scorer_dev:SCORER_ID }
 }
 async function saveNotes(){
   var payload=buildNotesPayload()
   try{
     if(S.game) S.game.notes = JSON.stringify(payload)
-    await db.from('games').update({notes: JSON.stringify(payload)}).eq('id',S.gameId)
+    await guardedGameUpdate({notes: JSON.stringify(payload)})
   }catch(e){ showToast('Sub not saved — check connection') }
+}
+
+/* ── ONE SCORER AT A TIME ── */
+// Two devices can have this page open on the same game (the Stream Deck PC and
+// a phone). Neither sees the other's taps, and each republishes its WHOLE
+// state on every action — so a device left sitting on an old inning silently
+// overwrote the live game the moment it was touched again. Every page load
+// gets an id; Start/Resume Scoring stamps it into notes (the claim), and every
+// later write to the games row only lands while that stamp is still ours.
+// FAILS OPEN: anything short of a clear "another scorer holds it" writes
+// exactly as before — this must never be the reason a play doesn't publish.
+var SCORER_ID = Math.random().toString(36).slice(2,10) + Date.now().toString(36)
+var _claimed = false, _takenOver = false
+function stillMine(q){ return q.like('notes','%"scorer_dev":"'+SCORER_ID+'"%') }
+// Another scorer's id, or null (ours / nobody's / can't tell).
+async function whoHolds(){
+  try{
+    var r = await db.from('games').select('notes').eq('id',S.gameId).single()
+    var d = JSON.parse((r.data && r.data.notes) || '{}').scorer_dev
+    return (d && d !== SCORER_ID) ? d : null
+  }catch(e){ return null }
+}
+async function guardedGameUpdate(upd){
+  if(_takenOver) return false
+  if(!_claimed){   // Start/Resume Scoring, or "keep scoring here": take the game
+    var c = await db.from('games').update(upd).eq('id',S.gameId)
+    if(!c.error && upd.notes) _claimed = true
+    return true
+  }
+  var res = await stillMine(db.from('games').update(upd).eq('id',S.gameId)).select('id')
+  if(!res.error && res.data && res.data.length) return true
+  // Nothing matched. Someone else's stamp -> stop publishing. No stamp at all
+  // (lineup.html / admin rewrote notes) or an errored check -> write anyway.
+  if(!res.error && await whoHolds()){ showTakenOver(); return false }
+  await db.from('games').update(upd).eq('id',S.gameId)
+  return true
+}
+// Catch it BEFORE a tap: a bodyless count query, so the poll costs no egress.
+async function checkStillMine(){
+  if(!S.gameId || !_claimed || _takenOver || GAME_OVER || !isOnline || document.visibilityState!=='visible') return
+  try{
+    var r = await stillMine(db.from('games').select('id',{count:'exact',head:true}).eq('id',S.gameId))
+    if(r.error || r.count !== 0) return
+    if(await whoHolds()) showTakenOver()
+  }catch(e){}
+}
+setInterval(checkStillMine, 8000)
+window.addEventListener('focus', checkStillMine)
+function showTakenOver(){
+  if(_takenOver) return
+  _takenOver = true
+  closeModal(); closeNumpad(); closeSubs()
+  document.getElementById('takeover-overlay').style.display='flex'
+}
+function takeoverReload(){ GAME_OVER = true; location.reload() }   // skip the unload prompt
+async function takeoverKeep(){
+  if(!confirm('Publish THIS screen\'s score, inning and count over the other device\'s?\n\nOnly do this if the other device is the one that is out of date.')) return
+  _takenOver = false; _claimed = false
+  document.getElementById('takeover-overlay').style.display='none'
+  await pushState()
+  showToast('This device is scoring again')
 }
 
 async function applyAcePitch(playerId){
@@ -1122,7 +1194,7 @@ async function keepAwake(){
   try{ _wake=await navigator.wakeLock.request('screen') }catch(e){}
 }
 document.addEventListener('visibilitychange',function(){
-  if(document.visibilityState==='visible') keepAwake()
+  if(document.visibilityState==='visible'){ keepAwake(); checkStillMine() }
 })
 
 // One tap instead of copy-pasting an 11-char video ID at the field: ask
@@ -1426,6 +1498,11 @@ async function startScoring() {
     var pr = (S.roster||[]).find(function(r){ return r.id === S.currentPitcherId })
     if(pr){ S.currentPitcherName = pr.first_name+' '+pr.last_name; S.currentPitcherNum = pr.jersey_num }
   }
+  // Claim the game for THIS device now that everything notes carries (lineup,
+  // pointers, subs, pitcher, clock) is loaded — any other device still holding
+  // it gets the "another device is scoring" screen instead of overwriting us.
+  _claimed = false; _takenOver = false
+  await pushState()
 
   // Preload each Aces batter's game line so a mid-game reload keeps it
   try {
@@ -2073,7 +2150,7 @@ async function pushState() {
       base_1b:S.bases[0], base_2b:S.bases[1], base_3b:S.bases[2]
     }
     if (notesJson) upd.notes = notesJson
-    await db.from('games').update(upd).eq('id',S.gameId)
+    await guardedGameUpdate(upd)   // refuses if another device took over scoring
   }catch(e){}
 }
 
@@ -2220,6 +2297,7 @@ function openModal(type){
   // contact, while the result pick can come 10-30s later. Stamp the offset
   // NOW so the clip window brackets the play, not the scoring pause.
   _abAnchor = { off: currentClipOffset(), t: Date.now() }
+  _modalType = type
   document.getElementById('modal-title').textContent=def.title
   var html=''
   def.sections.forEach(function(sec){
@@ -2236,7 +2314,15 @@ function openModal(type){
   document.getElementById('modal-body').innerHTML=html
   document.getElementById('modal-overlay').style.display='flex'
 }
-function closeModal(e){if(!e||e.target.id==='modal-overlay')document.getElementById('modal-overlay').style.display='none'}
+var _modalType = null
+function closeModal(e){
+  if(e && e.target.id!=='modal-overlay') return
+  document.getElementById('modal-overlay').style.display='none'
+  // Backed out without picking: drop the clip anchor (a mis-opened menu used
+  // to leave it armed for 90s, mis-timing the NEXT play's clip) and any
+  // half-finished runner pick.
+  _modalType = null; _abAnchor = null; _pendingBR = null
+}
 // Single-runner events need to know WHO the runner was — the at_bats row
 // otherwise carries only the at-plate batter, and SB/CS can't be credited to
 // anyone (the season SB column would read 0 forever). Multi-runner advances
@@ -2258,6 +2344,7 @@ function pickOutcome(v,l){
     return
   }
   document.getElementById('modal-overlay').style.display='none'
+  _modalType = null
   logAB(v,l,skipPitch)
 }
 function renderRunnerPick(label){
@@ -2273,7 +2360,7 @@ function renderRunnerPick(label){
   document.getElementById('modal-body').innerHTML = html
 }
 function finishRunnerPick(rid){
-  var p = _pendingBR; _pendingBR = null
+  var p = _pendingBR; _pendingBR = null; _modalType = null
   document.getElementById('modal-overlay').style.display='none'
   if(!p) return
   logAB(p.v, p.l, p.skipPitch, false, rid || null)
@@ -3010,10 +3097,27 @@ var KEY_ACTIONS = {
   'r': function(){ openModal('base') },
   'u': function(){ undoLast() },
   'n': function(){ skipBatter() },
-  'e': function(){ endHalfManual() }
+  'e': function(){ endHalfManual() },
+  // Manual corrections (Stream Deck bottom row / right block). Same functions
+  // the on-screen pips and arrows call, so each one snapshots and is undoable.
+  // + keys sit on the keyboard row above their − key: P/L, Y/H, I/J, Q/A.
+  '7': function(){ toggleBase(1) },
+  '8': function(){ toggleBase(2) },
+  '9': function(){ toggleBase(3) },
+  'p': function(){ adjScore('us',1) },
+  'l': function(){ adjScore('us',-1) },
+  'y': function(){ adjScore('them',1) },
+  'h': function(){ adjScore('them',-1) },
+  // The 3rd out belongs to End half (it flips the inning) — cap at 2 here.
+  'i': function(){ if(S.outs<2) setOuts(S.outs+1) },
+  'j': function(){ if(S.outs>0) setOuts(S.outs) },   // setOuts(current) steps down one
+  'q': function(){ adjInn(1) },
+  'a': function(){ adjInn(-1) },
+  'x': function(){ openSubs() }
 }
+var MENU_KEYS = { m:'inplay', k:'outk', r:'base' }
 function overlayOpen(){
-  return ['modal-overlay','numpad-sheet','subs-sheet'].some(function(id){
+  return ['modal-overlay','numpad-sheet','subs-sheet','takeover-overlay'].some(function(id){
     var el=document.getElementById(id)
     return el && el.style.display && el.style.display!=='none'
   })
@@ -3026,6 +3130,18 @@ document.addEventListener('keydown', function(e){
     closeModal(); closeNumpad(); closeSubs()
     return
   }
+  // A menu opened by a mis-press has to be escapable from the Deck itself:
+  // Undo backs out of it (and undoes nothing), the same menu key closes it,
+  // a different menu key switches to that menu.
+  var mo=document.getElementById('modal-overlay'), k=e.key.toLowerCase()
+  if(_modalType && mo.style.display==='flex' && !_takenOver && (k==='u' || MENU_KEYS[k])){
+    e.preventDefault()
+    if(k==='u' || MENU_KEYS[k]===_modalType) closeModal(); else openModal(MENU_KEYS[k])
+    return
+  }
+  // Subs sheet: its own key (or Undo) backs out, same as the menus.
+  var ss=document.getElementById('subs-sheet')
+  if(ss.style.display==='flex' && !_takenOver && (k==='x' || k==='u')){ e.preventDefault(); closeSubs(); return }
   if(overlayOpen()) return   // keys must not fire behind an open picker/sheet
   var fn=KEY_ACTIONS[e.key.toLowerCase()]
   if(fn){ e.preventDefault(); fn() }
