@@ -472,6 +472,17 @@ function buildDemo(){
     const isPR = (d.best - d.prev) * s.dir > 0 && i % 3 !== 1;
     FEED.push({ p, s, v:d.best, prev:d.prev, isPR, when: i<12 ? 'TODAY' : 'YESTERDAY' });
   });
+  // fake a "Today at the Combine" recap so the demo rotation shows all 7 boards:
+  // the 12 TODAY ticker players each ran their full eligible battery
+  const todays = FEED.filter(f => f.when === 'TODAY');
+  const prN = [...new Set(todays.filter(f => f.isPR).map(f => f.p.name))];
+  TODAY = {
+    tests: todays.reduce((n,f) => n + STATIONS.filter(s => eligible(s, f.p.age)).length, 0),
+    kids: new Set(todays.map(f => f.p.id)).size,
+    prs: todays.filter(f => f.isPR).length,
+    divs: new Set(todays.map(f => f.p.div)).size,
+    prNames: prN.slice(0, 8)
+  };
 }
 
 const fmt = (v,s) => v.toFixed(s.dec);
