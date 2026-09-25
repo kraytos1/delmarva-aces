@@ -178,8 +178,10 @@ the verdict, and DESIGN.md
   .cc .col .gh{ font-family:var(--display); font-weight:600; font-size:24px; letter-spacing:.24em;
     text-transform:uppercase; color:var(--orange-hot); padding-bottom:16px;
     border-bottom:1px solid var(--line); }
-  .cc .m{ flex:1; display:flex; flex-direction:column; justify-content:center; gap:9px;
-    border-bottom:1px solid var(--line-soft); }
+  /* rows are top-aligned at one fixed rhythm so a 1-stat column and an
+     8-stat column read as the same system */
+  .cc .m{ flex:none; display:flex; flex-direction:column; justify-content:center; gap:9px;
+    padding:15px 0; border-bottom:1px solid var(--line-soft); }
   .cc .m:last-child{ border-bottom:0; }
   .cc .m .l{ display:flex; align-items:baseline; }
   .cc .m .l .lab{ font-size:18px; font-weight:700; letter-spacing:.12em; text-transform:uppercase;
@@ -230,6 +232,13 @@ the verdict, and DESIGN.md
   .rw .cell .v .unit{ font-size:19px; }
   .rw .cell .who{ font-family:var(--display); font-weight:500; font-size:25px; color:var(--orange-hot);
     text-transform:uppercase; letter-spacing:.05em; margin-top:4px; }
+  /* fewer cells = bigger type, so a 9-cell youth wall isn't half empty */
+  .rw.c3 .cell .st{ font-size:24px; }
+  .rw.c3 .cell .v{ font-size:76px; }  .rw.c3 .cell .v .unit{ font-size:26px; }
+  .rw.c3 .cell .who{ font-size:32px; }
+  .rw.c2 .cell .st{ font-size:26px; }
+  .rw.c2 .cell .v{ font-size:88px; }  .rw.c2 .cell .v .unit{ font-size:30px; }
+  .rw.c2 .cell .who{ font-size:36px; }
   .rw .cell .who small{ font:800 14px var(--body); letter-spacing:.14em; color:#AEB6C2;
     margin-left:10px; vertical-align:middle; }
 
@@ -558,8 +567,11 @@ function miRows(){
     const [lo,hi] = rangeFor(s, p.age);
     return { p, s, d, gain, norm: gain / (hi - lo) };
   })).filter(r => r && r.gain > 0).sort((a,b)=>b.norm-a.norm);
-  const seen = new Set(), rows = [];
-  for (const r of all){ if (!seen.has(r.p.id)){ seen.add(r.p.id); rows.push(r);
+  // one row per player AND per station - small-range stations (pull-ups) would
+  // otherwise crowd out the whole board
+  const seenP = new Set(), seenS = new Set(), rows = [];
+  for (const r of all){ if (!seenP.has(r.p.id) && !seenS.has(r.s.id)){
+    seenP.add(r.p.id); seenS.add(r.s.id); rows.push(r);
     if (rows.length === 5) break; } }
   return rows;
 }
@@ -681,8 +693,8 @@ function renderRW({div}){
       <div class="who">${esc(top.p.name)}</div>
     </div>`; }).join('');
   const cols = sts.length > 12 ? 4 : sts.length > 6 ? 3 : 2;
-  return el(`<section class="board rw">
-    <div class="hd"><h2 class="bt">Facility Records</h2><span class="chip">${div.label}</span></div>
+  return el(`<section class="board rw c${cols}">
+    <div class="hd"><h2 class="bt">Age Group Records</h2><span class="chip">${div.label}</span></div>
     <div class="grid" style="grid-template-columns:repeat(${cols},1fr)">${cells}</div>
   </section>`);
 }
@@ -735,7 +747,7 @@ function renderBR(){
     </div>`; }).filter(Boolean);
   const cols = cells.length > 12 ? 4 : cells.length > 6 ? 3 : 2;
   return el(`<section class="board rw">
-    <div class="hd"><h2 class="bt">Building Records</h2><span class="chip org">EVERY AGE GROUP</span></div>
+    <div class="hd"><h2 class="bt">Facility Records</h2><span class="chip org">ALL AGES</span></div>
     <div class="grid" style="grid-template-columns:repeat(${cols},1fr)">${cells.join('')}</div>
   </section>`);
 }
