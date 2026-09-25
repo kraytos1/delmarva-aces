@@ -236,13 +236,23 @@ async function send(payload){
   const r = await fetch(EXEC_URL, { method:'POST', body: JSON.stringify(payload) });
   return r.json();
 }
+let flushing = false;   // one flush at a time - overlapping runs would double-send row 0
 async function flush(){
-  let list = q();
-  while (list.length && EXEC_URL){
-    try { const res = await send(list[0]); if (!res.ok && !res.preview) { /* rejected: drop it */ } }
-    catch(e){ break; }
-    list.shift(); qSave(list);
-  }
+  if (flushing) return;
+  flushing = true;
+  try {
+    let list = q();
+    while (list.length && EXEC_URL){
+      try {
+        const res = await send(list[0]);
+        if (!res.ok && !res.preview)
+          toast('⚠ ' + (list[0].player || list[0].name || 'entry') + ' NOT saved: ' +
+                (res.error || 'rejected'), true);
+      }
+      catch(e){ break; }
+      list.shift(); qSave(list);
+    }
+  } finally { flushing = false; }
   setNet();
 }
 setInterval(flush, 20000);
@@ -398,10 +408,6 @@ async function saveEntry(){
   // server's rules - a real rejection is a shout-worthy edge case.
   // Results rows carry the SHORT team ("East", "Coastal"), matching the Google
   // Forms path - the team-site player pages filter on it. Rosters keep full labels.
-  const teamShort = t => { t = String(t || '').trim();
-    if (t.indexOf('American') >= 0) return 'American';
-    if (t.indexOf('DCP') === 0) return 'DCP';
-    const sp = t.indexOf(' '); return sp > 0 ? t.slice(sp + 1) : t; };
   const payload = { kind:'result', sandbox: SANDBOX, divLabel: S.div.label,
     team: teamShort(S.player.team), jersey: S.player.num, player: S.player.full, entries };
   const who = S.player.full;
