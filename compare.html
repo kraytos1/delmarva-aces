@@ -162,6 +162,11 @@ touch-first, idle-resets for the next kid in line.
   #picker .close{ margin-left:auto; font:700 14px var(--body); letter-spacing:.14em;
     text-transform:uppercase; color:var(--cream); background:none; border:1px solid var(--line);
     border-radius:8px; padding:10px 18px; cursor:pointer; }
+  #picker .close + .close{ margin-left:0; }
+  header .homebtn{ margin-left:12px; font:700 13px var(--body); letter-spacing:.14em;
+    text-transform:uppercase; color:var(--cream); background:none; border:1px solid var(--line);
+    border-radius:8px; padding:9px 16px; cursor:pointer; }
+  header .homebtn:hover{ border-color:var(--orange); color:var(--orange-hot); }
   #divchips{ display:flex; gap:8px; flex-wrap:wrap; margin-bottom:14px; }
   #divchips button{ font:800 13px var(--body); letter-spacing:.14em; text-transform:uppercase;
     color:var(--cream); background:var(--panel-a); border:1px solid var(--line); border-radius:99px;
@@ -207,10 +212,12 @@ touch-first, idle-resets for the next kid in line.
   <img src="logo.png" alt="Delmarva Aces logo">
   <div class="t1">ACES <em>HEAD TO HEAD</em></div>
   <span class="status" id="status">&#8230;</span>
+  <button class="homebtn" id="homebtn" hidden>&#8962; Home</button>
 </header>
 <main id="main"></main>
 <div id="picker" role="dialog" aria-label="Pick a player">
   <div class="ph"><h2 id="ptitle">Pick <em>Player A</em></h2>
+    <button class="close" id="phome">&#8962; Home</button>
     <button class="close" id="pclose">Close</button></div>
   <div id="divchips"></div>
   <div id="teamchips"></div>
@@ -570,6 +577,7 @@ function profileRow(s){
 
 function render(){
   if (pickSlot){ renderPicker(); }
+  document.getElementById('homebtn').hidden = !(A || B);
   if (!A && !B){
     mainEl.innerHTML = `<div id="attract">
       <img src="logo.png" alt="">
@@ -656,6 +664,10 @@ function openPicker(slot){
 }
 function closePicker(){ pickSlot = null; pickerEl.classList.remove('open'); render(); }
 document.getElementById('pclose').addEventListener('click', closePicker);
+// Home = start over from anywhere: clears both players and lands on the splash
+function goHome(){ A = B = null; closePicker(); }
+document.getElementById('phome').addEventListener('click', goHome);
+document.getElementById('homebtn').addEventListener('click', goHome);
 
 function renderPicker(){
   const chips = [{key:'all', label:'All'}].concat(DIVS);
