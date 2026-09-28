@@ -55,7 +55,8 @@ h1 span{color:var(--orange);}
 .ang .id b{color:var(--text);font-weight:500;}
 .ang .st{font-family:var(--mono);font-size:10.5px;margin-top:2px;}
 .ang .st.ok{color:var(--green);} .ang .st.no{color:var(--amber);}
-.acts{display:flex;gap:6px;}
+.acts{display:flex;gap:6px;flex-wrap:wrap;}
+@media(max-width:560px){.ang{grid-template-columns:70px 1fr;}.ang .acts{grid-column:1/-1;}}
 .icon{background:var(--dark2);border:1px solid var(--bdr);color:var(--muted);border-radius:7px;padding:6px 10px;font-size:12px;cursor:pointer;line-height:1;}
 .icon:hover{color:var(--text);border-color:var(--orange);}
 .icon.del:hover{color:#fca5a5;border-color:var(--red);}
