@@ -1,0 +1,331 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<link rel="icon" href="/icon-192.png"/>
+<meta name="theme-color" content="#E8530A"/>
+<meta name="robots" content="noindex"/>
+<title>Camera Angles · Delmarva Aces</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="config.js"></script>
+<script src="/pin.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Oswald:wght@400;600;700&family=Inter:wght@400;500;600&family=Roboto+Mono:wght@400;500&display=swap');
+:root{--orange:#E8530A;--black:#0A0C0E;--dark:#111418;--dark2:#181C22;--dark3:#1F242C;
+  --bdr:rgba(255,255,255,.08);--bdr-a:rgba(232,83,10,.35);--text:#F0EDE8;--muted:#7A8290;
+  --green:#3DDC6A;--amber:#F59E0B;--red:#ef4444;
+  --mono:'Roboto Mono',monospace;--display:'Oswald',sans-serif;--body:'Inter',sans-serif;}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--black);color:var(--text);font-family:var(--body);line-height:1.6;}
+.wrap{max-width:1080px;margin:0 auto;padding:26px 18px 90px;}
+.head{display:flex;align-items:center;gap:12px;margin-bottom:2px;}
+.head img{width:40px;height:40px;object-fit:contain;filter:drop-shadow(0 0 12px rgba(232,83,10,.4));}
+h1{font-family:var(--display);font-size:30px;font-weight:700;letter-spacing:.5px;}
+h1 span{color:var(--orange);}
+.sub{color:var(--muted);font-size:13.5px;margin-bottom:22px;max-width:70ch;}
+.back{font-family:var(--mono);font-size:11px;color:var(--muted);text-decoration:none;}
+.back:hover{color:var(--orange);}
+.panel{background:var(--dark2);border:1px solid var(--bdr);border-radius:12px;padding:17px;margin-bottom:20px;}
+.panel h2{font-family:var(--mono);font-size:10.5px;letter-spacing:2px;text-transform:uppercase;color:var(--orange);
+  margin-bottom:12px;padding-bottom:7px;border-bottom:1px solid var(--bdr);}
+.row{display:flex;gap:9px;flex-wrap:wrap;align-items:center;}
+.inp,select.inp{background:var(--dark3);border:1px solid var(--bdr);border-radius:8px;padding:10px 12px;color:var(--text);
+  font-family:var(--body);font-size:14px;outline:none;min-width:0;}
+.inp:focus{border-color:var(--orange);}
+.btn{background:var(--orange);color:#fff;border:none;border-radius:9px;padding:11px 17px;
+  font-family:var(--display);font-size:14px;font-weight:600;letter-spacing:.5px;text-transform:uppercase;cursor:pointer;}
+.btn:disabled{opacity:.5;cursor:default;}
+.btn.ghost{background:var(--dark3);color:var(--text);border:1px solid var(--bdr);font-family:var(--body);
+  text-transform:none;letter-spacing:0;font-weight:500;font-size:13px;padding:9px 14px;}
+.btn.ghost:hover{border-color:var(--orange);}
+.hint{font-family:var(--mono);font-size:10.5px;color:var(--muted);margin-top:9px;line-height:1.6;}
+.msg{border-radius:8px;padding:10px 13px;font-size:13px;margin-top:11px;display:none;}
+.msg.ok{display:block;background:rgba(61,220,106,.1);border:1px solid rgba(61,220,106,.35);color:var(--green);}
+.msg.err{display:block;background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.35);color:#fca5a5;}
+.chips{display:flex;gap:6px;flex-wrap:wrap;}
+.chip{font-family:var(--display);font-size:13px;letter-spacing:.06em;text-transform:uppercase;background:var(--dark3);
+  border:1px solid var(--bdr);color:var(--text);padding:7px 12px;border-radius:6px;cursor:pointer;}
+.chip:hover,.chip.on{border-color:var(--orange);}
+.chip.on{background:rgba(232,83,10,.2);color:#fff;}
+.list{display:flex;flex-direction:column;gap:8px;}
+.ang{display:grid;grid-template-columns:70px 1fr auto;gap:12px;align-items:center;background:var(--dark3);border:1px solid var(--bdr);border-radius:9px;padding:10px 12px;}
+.ang .lbl{font-family:var(--display);font-size:16px;letter-spacing:.06em;text-transform:uppercase;}
+.ang .id{font-family:var(--mono);font-size:11px;color:var(--muted);word-break:break-all;}
+.ang .id b{color:var(--text);font-weight:500;}
+.ang .st{font-family:var(--mono);font-size:10.5px;margin-top:2px;}
+.ang .st.ok{color:var(--green);} .ang .st.no{color:var(--amber);}
+.acts{display:flex;gap:6px;}
+.icon{background:var(--dark2);border:1px solid var(--bdr);color:var(--muted);border-radius:7px;padding:6px 10px;font-size:12px;cursor:pointer;line-height:1;}
+.icon:hover{color:var(--text);border-color:var(--orange);}
+.icon.del:hover{color:#fca5a5;border-color:var(--red);}
+.empty{color:var(--muted);font-family:var(--mono);font-size:12.5px;text-align:center;padding:24px 0;}
+/* sync */
+.sync{display:none;}
+.sync.on{display:block;}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+@media(max-width:760px){.two{grid-template-columns:1fr;}}
+.vid{background:#000;border-radius:9px;overflow:hidden;aspect-ratio:16/9;position:relative;}
+.vid > div,.vid iframe{width:100%;height:100%;border:0;}
+.vlbl{font-family:var(--mono);font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:6px;display:flex;justify-content:space-between;align-items:baseline;gap:8px;}
+.vlbl b{color:var(--text);font-weight:500;letter-spacing:0;text-transform:none;font-variant-numeric:tabular-nums;}
+.delta{font-family:var(--display);font-size:22px;letter-spacing:.04em;font-variant-numeric:tabular-nums;}
+.delta small{font-family:var(--mono);font-size:10.5px;letter-spacing:.1em;color:var(--muted);margin-left:6px;}
+.steps{display:grid;grid-template-columns:24px 1fr;gap:6px 10px;font-size:13.5px;color:var(--muted);margin:10px 0 14px;max-width:70ch;}
+.steps b{font-family:var(--display);color:var(--orange);font-size:15px;}
+.steps span{color:var(--text);}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <a class="back" href="/tools.html">← Coach HQ</a>
+  <div class="head"><img src="/logo.png" alt=""/><h1>Camera <span>Angles</span></h1></div>
+  <p class="sub">Upload each cart camera's recording to the team channel as <b>Unlisted</b>, paste the link here and sync it once against the broadcast. Every clip and the full replay for that game get angle buttons. A game with no uploads looks exactly as it does today.</p>
+
+  <div class="panel">
+    <h2>Game</h2>
+    <div class="row">
+      <select id="game" class="inp" style="flex:1;min-width:240px;"></select>
+    </div>
+    <div class="hint" id="gameHint"></div>
+  </div>
+
+  <div class="panel">
+    <h2>Cameras on this game</h2>
+    <div class="list" id="list"><div class="empty">Pick a game</div></div>
+  </div>
+
+  <div class="panel">
+    <h2>Add a camera</h2>
+    <div class="row" style="margin-bottom:10px;">
+      <div class="chips" id="presets">
+        <button class="chip" data-l="HP">HP</button><button class="chip" data-l="CF">CF</button>
+        <button class="chip" data-l="1B">1B</button><button class="chip" data-l="3B">3B</button>
+      </div>
+      <input id="label" class="inp" placeholder="Label" style="width:120px;" maxlength="18"/>
+    </div>
+    <div class="row">
+      <input id="url" class="inp" placeholder="Paste the YouTube link (unlisted upload)" style="flex:1;min-width:240px;"/>
+      <button class="btn" id="add">Add camera</button>
+    </div>
+    <div class="hint">Accepts youtube.com/watch?v=…, youtu.be/…, youtube.com/live/… or a bare 11-character id. Two-part recordings (camera stopped mid-game) go in as two cameras, e.g. "CF" and "CF 2", each synced on its own.</div>
+    <div class="msg" id="addMsg"></div>
+  </div>
+
+  <div class="panel sync" id="sync">
+    <h2>Sync <span id="syncName"></span></h2>
+    <div class="steps">
+      <b>1</b><span>Jump the broadcast to a play, then pause it right on the pitch or the contact.</span>
+      <b>2</b><span>Scrub the camera to that same instant and pause it too.</span>
+      <b>3</b><span>Tap <em>Sync at this moment</em>. Use the nudge buttons if it's a beat off, then Save.</span>
+    </div>
+    <div class="row" style="margin-bottom:12px;">
+      <select id="play" class="inp" style="flex:1;min-width:220px;"></select>
+      <button class="btn ghost" id="jump">Jump broadcast there</button>
+    </div>
+    <div class="two">
+      <div>
+        <div class="vlbl">Broadcast <b id="tBc">0:00</b></div>
+        <div class="vid"><div id="pBc"></div></div>
+      </div>
+      <div>
+        <div class="vlbl"><span id="camLbl">Camera</span> <b id="tCam">0:00</b></div>
+        <div class="vid"><div id="pCam"></div></div>
+      </div>
+    </div>
+    <div class="row" style="margin-top:14px;align-items:center;">
+      <button class="btn" id="syncNow">Sync at this moment</button>
+      <div class="delta" id="delta">—<small>offset</small></div>
+      <span style="flex:1"></span>
+      <button class="btn ghost" data-n="-2">−2s</button><button class="btn ghost" data-n="-0.5">−½</button>
+      <button class="btn ghost" data-n="0.5">+½</button><button class="btn ghost" data-n="2">+2s</button>
+      <button class="btn ghost" id="check">▶ Play both from here</button>
+      <button class="btn" id="save" disabled>Save sync</button>
+    </div>
+    <div class="hint">Offset = how far the broadcast runs ahead of this camera. Nudging re-seeks the camera so you can eyeball it. YouTube lands on the nearest keyframe, so within about a second is as good as it gets.</div>
+    <div class="msg" id="syncMsg"></div>
+  </div>
+</div>
+
+<script>
+var db = supabase.createClient(ACES_CONFIG.supabaseUrl, ACES_CONFIG.supabaseKey);
+var GAMES = [], ANG = [], PLAYS = [], cur = null, curAngle = null, delta = null;
+var ytReady = false, pBc = null, pCam = null;
+
+function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]}); }
+function msg(id, cls, t){ var m=document.getElementById(id); m.className='msg'+(t?' '+cls:''); m.textContent=t||''; }
+function fmt(s){ s=Math.max(0,Math.floor(s||0)); var h=Math.floor(s/3600),m=Math.floor(s%3600/60),x=s%60; return (h?h+':':'')+(h?String(m).padStart(2,'0'):m)+':'+String(x).padStart(2,'0'); }
+function vidId(s){
+  s=(s||'').trim(); if(!s) return null;
+  if(/^[A-Za-z0-9_-]{11}$/.test(s)) return s;
+  var m=/[?&]v=([A-Za-z0-9_-]{11})/.exec(s) || /youtu\.be\/([A-Za-z0-9_-]{11})/.exec(s) ||
+        /\/(?:live|embed|shorts)\/([A-Za-z0-9_-]{11})/.exec(s);
+  return m?m[1]:null;
+}
+
+async function loadGames(){
+  var r = await db.from('games').select('id,game_date,season,youtube_stream_id,our_score,opp_score,opponents(name)')
+    .not('youtube_stream_id','is',null).order('game_date',{ascending:false}).limit(60);
+  GAMES = r.data||[];
+  var sel=document.getElementById('game');
+  sel.innerHTML = '<option value="">Select a game…</option>' + GAMES.map(function(g){
+    var d=g.game_date?new Date(g.game_date+'T00:00:00').toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'}):'';
+    return '<option value="'+g.id+'">'+esc(d)+' · vs '+esc(g.opponents&&g.opponents.name||'?')+(g.season==='__test__'?' · TEST':'')+'</option>';
+  }).join('');
+  var last=null; try{ last=localStorage.getItem('aces_angles_game'); }catch(e){}
+  if(last && GAMES.some(function(g){return g.id===last})){ sel.value=last; pickGame(); }
+}
+async function pickGame(){
+  var id=document.getElementById('game').value; cur=GAMES.find(function(g){return g.id===id})||null;
+  try{ localStorage.setItem('aces_angles_game', id||''); }catch(e){}
+  closeSync();
+  document.getElementById('gameHint').textContent = cur ? 'Broadcast video: '+cur.youtube_stream_id : '';
+  if(!cur){ document.getElementById('list').innerHTML='<div class="empty">Pick a game</div>'; return; }
+  await loadAngles();
+  // plays for the sync jump list (any at-bat with a clip offset)
+  try{
+    var p = await db.from('at_bats').select('id,inning,half,result,yt_offset_sec,players!batter_id(last_name,jersey_num)')
+      .eq('game_id',cur.id).not('yt_offset_sec','is',null).order('created_at');
+    PLAYS = p.data||[];
+  }catch(e){ PLAYS=[]; }
+  var ps=document.getElementById('play');
+  ps.innerHTML = PLAYS.length ? PLAYS.map(function(a,i){
+    var who=a.players?('#'+(a.players.jersey_num||'')+' '+(a.players.last_name||'')):'Opp';
+    return '<option value="'+i+'">'+(a.half==='top'?'Top':'Bot')+' '+a.inning+' · '+esc(who)+' · '+esc(String(a.result||'').replace(/_/g,' '))+' · '+fmt(a.yt_offset_sec)+'</option>';
+  }).join('') : '<option value="">No scored plays with clips yet — scrub the broadcast by hand</option>';
+}
+async function loadAngles(){
+  var r = await db.from('game_angles').select('*').eq('game_id',cur.id).order('sort_order').order('created_at');
+  ANG = r.data||[];
+  var el=document.getElementById('list');
+  if(!ANG.length){ el.innerHTML='<div class="empty">No extra cameras on this game yet</div>'; return; }
+  el.innerHTML = ANG.map(function(a,i){
+    var synced = !!Number(a.delta_sec);   // 0 = never synced (a true 0.0 offset is vanishingly unlikely)
+    return '<div class="ang">'
+      + '<div class="lbl">'+esc(a.label)+'</div>'
+      + '<div><div class="id"><b>'+esc(a.youtube_id)+'</b> · offset '+(Number(a.delta_sec)||0).toFixed(1)+'s</div>'
+      +   '<div class="st '+(synced?'ok':'no')+'">'+(synced?'synced':'not synced yet — tap Sync')+'</div></div>'
+      + '<div class="acts">'
+      +   '<button class="icon" onclick="openSync('+i+')" title="Sync this camera">🎯 Sync</button>'
+      +   '<button class="icon" onclick="moveAngle('+i+',-1)" title="Earlier in the row">↑</button>'
+      +   '<button class="icon" onclick="moveAngle('+i+',1)" title="Later in the row">↓</button>'
+      +   '<button class="icon del" onclick="delAngle('+i+')" title="Remove">✕</button>'
+      + '</div></div>';
+  }).join('');
+}
+async function addAngle(){
+  if(!cur){ msg('addMsg','err','Pick a game first'); return; }
+  var label=document.getElementById('label').value.trim(), id=vidId(document.getElementById('url').value);
+  if(!label){ msg('addMsg','err','Give the camera a label (HP, CF, 1B…)'); return; }
+  if(!id){ msg('addMsg','err','That doesn\'t look like a YouTube link'); return; }
+  if(id===cur.youtube_stream_id){ msg('addMsg','err','That\'s the broadcast itself'); return; }
+  var r = await db.from('game_angles').insert({game_id:cur.id,label:label,youtube_id:id,delta_sec:0,sort_order:ANG.length}).select().single();
+  if(r.error){ msg('addMsg','err','Not saved: '+r.error.message); return; }
+  document.getElementById('url').value=''; document.getElementById('label').value='';
+  document.querySelectorAll('#presets .chip').forEach(function(c){c.classList.remove('on')});
+  msg('addMsg','ok','Added '+label+' — now sync it');
+  await loadAngles();
+  openSync(ANG.findIndex(function(a){return a.id===r.data.id}));
+}
+async function delAngle(i){
+  var a=ANG[i]; if(!a) return;
+  if(!confirm('Remove the '+a.label+' camera from this game?')) return;
+  var r = await db.from('game_angles').delete().eq('id',a.id).select('id');
+  if(r.error||!(r.data&&r.data.length)){ alert('Not removed — check the connection'); return; }
+  if(curAngle && curAngle.id===a.id) closeSync();
+  loadAngles();
+}
+async function moveAngle(i,d){
+  var j=i+d; if(j<0||j>=ANG.length) return;
+  var a=ANG[i], b=ANG[j];
+  await db.from('game_angles').update({sort_order:j}).eq('id',a.id);
+  await db.from('game_angles').update({sort_order:i}).eq('id',b.id);
+  loadAngles();
+}
+
+/* ── SYNC ── */
+function loadYt(cb){
+  if(ytReady) return cb();
+  window.onYouTubeIframeAPIReady=function(){ ytReady=true; cb(); };
+  var s=document.createElement('script'); s.src='https://www.youtube.com/iframe_api'; document.head.appendChild(s);
+}
+function openSync(i){
+  curAngle=ANG[i]; if(!curAngle) return;
+  delta = Number(curAngle.delta_sec)||0;
+  document.getElementById('syncName').textContent='· '+curAngle.label;
+  document.getElementById('camLbl').textContent=curAngle.label;
+  document.getElementById('sync').classList.add('on');
+  document.getElementById('save').disabled=true;
+  msg('syncMsg','', '');
+  paintDelta();
+  document.getElementById('sync').scrollIntoView({behavior:'smooth',block:'start'});
+  loadYt(function(){
+    var mk=function(host,id,ready){ return new YT.Player(host,{videoId:id,playerVars:{rel:0,modestbranding:1,playsinline:1,controls:1},events:{onReady:ready}}); };
+    if(pBc){ try{pBc.destroy()}catch(e){} } if(pCam){ try{pCam.destroy()}catch(e){} }
+    document.getElementById('pBc').innerHTML=''; document.getElementById('pCam').innerHTML='';
+    var h1=document.createElement('div'); document.getElementById('pBc').appendChild(h1);
+    var h2=document.createElement('div'); document.getElementById('pCam').appendChild(h2);
+    pBc = mk(h1, cur.youtube_stream_id, function(){ jumpToPlay(); });
+    pCam = mk(h2, curAngle.youtube_id, function(){});
+  });
+}
+function closeSync(){
+  curAngle=null; document.getElementById('sync').classList.remove('on');
+  if(pBc){ try{pBc.destroy()}catch(e){} pBc=null; } if(pCam){ try{pCam.destroy()}catch(e){} pCam=null; }
+}
+function paintDelta(){
+  document.getElementById('delta').innerHTML = (delta===null?'—':(delta>=0?'+':'')+delta.toFixed(1)+'s')+'<small>offset</small>';
+}
+function jumpToPlay(){
+  var i=document.getElementById('play').value; var a=PLAYS[+i]; if(!a||!pBc) return;
+  try{ pBc.seekTo(Math.max(0,(a.yt_offset_sec||0)-10), true); pBc.playVideo(); }catch(e){}
+  // if this camera already has an offset, bring it along so a re-sync starts close
+  if(pCam && delta){ try{ pCam.seekTo(Math.max(0,(a.yt_offset_sec||0)-10-delta), true); pCam.pauseVideo(); }catch(e){} }
+}
+function syncNow(){
+  if(!pBc||!pCam) return;
+  var tb=0,tc=0; try{ tb=pBc.getCurrentTime()||0; tc=pCam.getCurrentTime()||0; }catch(e){}
+  delta = Math.round((tb-tc)*10)/10;
+  try{ pBc.pauseVideo(); pCam.pauseVideo(); }catch(e){}
+  paintDelta(); document.getElementById('save').disabled=false;
+  msg('syncMsg','ok','Broadcast is '+fmt(tb)+', '+curAngle.label+' is '+fmt(tc)+'. Nudge if it\'s a beat off, then Save.');
+}
+function nudge(n){
+  if(delta===null) delta=0;
+  delta = Math.round((delta+n)*10)/10; paintDelta(); document.getElementById('save').disabled=false;
+  // re-seek the camera to where the broadcast is, under the new offset
+  try{ var tb=pBc.getCurrentTime()||0; pCam.seekTo(Math.max(0,tb-delta), true); pCam.pauseVideo(); }catch(e){}
+}
+function playBoth(){
+  if(!pBc||!pCam||delta===null) return;
+  try{ var tb=pBc.getCurrentTime()||0; pCam.seekTo(Math.max(0,tb-delta),true); pBc.playVideo(); pCam.playVideo(); }catch(e){}
+}
+async function saveSync(){
+  if(!curAngle||delta===null) return;
+  var r = await db.from('game_angles').update({delta_sec:delta}).eq('id',curAngle.id).select('id');
+  if(r.error||!(r.data&&r.data.length)){ msg('syncMsg','err','Not saved — check the connection'); return; }
+  msg('syncMsg','ok','Saved. '+curAngle.label+' is live on every clip from this game.');
+  document.getElementById('save').disabled=true;
+  loadAngles();
+}
+function tick(){
+  try{ if(pBc&&pBc.getCurrentTime) document.getElementById('tBc').textContent=fmt(pBc.getCurrentTime()); }catch(e){}
+  try{ if(pCam&&pCam.getCurrentTime) document.getElementById('tCam').textContent=fmt(pCam.getCurrentTime()); }catch(e){}
+}
+setInterval(tick,500);
+
+document.getElementById('game').addEventListener('change', pickGame);
+document.getElementById('add').addEventListener('click', addAngle);
+document.getElementById('jump').addEventListener('click', jumpToPlay);
+document.getElementById('syncNow').addEventListener('click', syncNow);
+document.getElementById('check').addEventListener('click', playBoth);
+document.getElementById('save').addEventListener('click', saveSync);
+document.querySelectorAll('[data-n]').forEach(function(b){ b.addEventListener('click', function(){ nudge(parseFloat(b.dataset.n)); }); });
+document.querySelectorAll('#presets .chip').forEach(function(c){ c.addEventListener('click', function(){
+  document.querySelectorAll('#presets .chip').forEach(function(x){x.classList.toggle('on',x===c)});
+  document.getElementById('label').value=c.dataset.l;
+}); });
+loadGames();
+</script>
+</body>
+</html>

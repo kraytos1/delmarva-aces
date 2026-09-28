@@ -43,9 +43,77 @@
       return r ? parseInt(r[1], 10) : null;
     };
     var start = q('start') || 0, end = q('end');
-    if (end == null || end <= start) end = start + CLIP_PRE + CLIP_POST;
+    // No end = a full-game embed (the watch hub). It used to inherit the clip
+    // window here and the watchdog cut the whole game off after 30 seconds.
+    if (end == null) end = Infinity;
+    else if (end <= start) end = start + CLIP_PRE + CLIP_POST;
     return { id: m[1], start: start, end: end };
   }
+
+  // ── MULTI-ANGLE ─────────────────────────────────────────────
+  // Extra cameras per game (game_angles rows: the cart cameras' internal
+  // recordings uploaded unlisted). delta_sec = broadcast seconds minus that
+  // angle's seconds at the same moment, so angle_time = broadcast_time - delta.
+  // The card keeps its broadcast window in data-bc-start/-end; every angle is
+  // derived from those, so switching back and forth never accumulates drift.
+  var styleDone = false;
+  function angleStyle() {
+    if (styleDone) return; styleDone = true;
+    var s = document.createElement('style');
+    s.textContent = '.angle-row{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:9px}' +
+      '.angle-row .angle-lbl{font-family:"Roboto Mono",monospace;font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;color:#7A8290;margin-right:2px}' +
+      '.angle-btn{font-family:"Oswald",sans-serif;font-size:12px;letter-spacing:.06em;text-transform:uppercase;' +
+      'background:#1F242C;border:1px solid rgba(255,255,255,.1);color:#F0EDE8;padding:4px 10px;border-radius:5px;cursor:pointer;line-height:1.3}' +
+      '.angle-btn:hover{border-color:rgba(232,83,10,.5)}' +
+      '.angle-btn.on{background:rgba(232,83,10,.2);border-color:#E8530A;color:#fff}';
+    document.head.appendChild(s);
+  }
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+
+  // Button row for a card. Empty string when the game has no extra cameras,
+  // so a game without uploads renders exactly as before.
+  window.angleRow = function (angles, broadcastId) {
+    if (!angles || !angles.length || !broadcastId) return '';
+    angleStyle();
+    return '<div class="angle-row"><span class="angle-lbl">Angle</span>' +
+      '<button type="button" class="angle-btn on" data-vid="' + esc(broadcastId) + '" data-delta="0" onclick="pickAngle(this)">Broadcast</button>' +
+      angles.map(function (a) {
+        return '<button type="button" class="angle-btn" data-vid="' + esc(a.youtube_id) + '" data-delta="' + (parseFloat(a.delta_sec) || 0) +
+          '" onclick="pickAngle(this)">' + esc(a.label) + '</button>';
+      }).join('') + '</div>';
+  };
+
+  window.pickAngle = function (btn) {
+    var card = btn.closest('.clip,.pclip');
+    var el = card && card.querySelector('[data-embed]');
+    if (!el) return;
+    var cur = parseEmbed(el.getAttribute('data-embed')); if (!cur) return;
+    var curDelta = parseFloat(el.dataset.delta || 0), nd = parseFloat(btn.dataset.delta || 0);
+    var vid = btn.dataset.vid;
+    // remember the broadcast window once (first switch happens from delta 0)
+    if (el.dataset.bcStart == null) { el.dataset.bcStart = cur.start + curDelta; el.dataset.bcEnd = isFinite(cur.end) ? cur.end + curDelta : ''; }
+    var bcStart = parseFloat(el.dataset.bcStart), bcEnd = el.dataset.bcEnd === '' ? Infinity : parseFloat(el.dataset.bcEnd);
+    var ns = Math.max(0, bcStart - nd), ne = isFinite(bcEnd) ? Math.max(ns + 1, bcEnd - nd) : Infinity;
+    el.setAttribute('data-embed', 'https://www.youtube.com/embed/' + vid + '?start=' + Math.round(ns) +
+      (isFinite(ne) ? '&end=' + Math.round(ne) : '') + '&rel=0&modestbranding=1');
+    el.dataset.delta = nd;
+    btn.parentNode.querySelectorAll('.angle-btn').forEach(function (b) { b.classList.toggle('on', b === btn); });
+    if (el._player && el._info) {
+      // mid-play: keep the moment — same wall-clock instant on the other camera
+      var t = 0; try { t = el._player.getCurrentTime() || 0; } catch (e) {}
+      var nt = Math.max(0, t - (nd - curDelta));
+      el._info.id = vid; el._info.start = ns; el._info.end = ne;
+      var rb = el.querySelector('.clip-replay'); if (rb) rb.remove();
+      try {
+        var opts = { videoId: vid, startSeconds: nt };
+        if (isFinite(ne)) opts.endSeconds = ne;
+        el._player.loadVideoById(opts);
+        if (el._arm) el._arm();
+      } catch (e) {}
+    } else {
+      var img = el.querySelector('img'); if (img) img.src = ytThumb(vid);
+    }
+  };
 
   function loadApi(cb) {
     if (apiReady) return cb();
@@ -115,6 +183,7 @@
       };
       var arm = function () {
         if (watchdog) clearInterval(watchdog);
+        if (!isFinite(info.end)) return;   // full game: nothing to cut off
         // the only thing that reliably ends a clip
         watchdog = setInterval(function () {
           var t = 0;
@@ -122,15 +191,16 @@
           if (t >= info.end) stop();
         }, 250);
       };
+      // pickAngle() reaches these to swap cameras without losing the moment
+      el._info = info; el._arm = arm;
 
+      var pv = { autoplay: 1, rel: 0, modestbranding: 1, playsinline: 1, start: info.start };
+      if (isFinite(info.end)) pv.end = info.end;   // end is advisory; the watchdog is the guarantee
       player = new YT.Player(host, {
         videoId: info.id,
-        playerVars: {
-          start: info.start, end: info.end,   // end is advisory; the watchdog is the guarantee
-          autoplay: 1, rel: 0, modestbranding: 1, playsinline: 1
-        },
+        playerVars: pv,
         events: {
-          onReady: function (e) { try { e.target.playVideo(); } catch (err) {} arm(); },
+          onReady: function (e) { el._player = player; try { e.target.playVideo(); } catch (err) {} arm(); },
           onStateChange: function (e) {
             if (e.data === YT.PlayerState.PLAYING) arm();
             if (e.data === YT.PlayerState.ENDED) stop();

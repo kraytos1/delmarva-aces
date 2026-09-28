@@ -779,7 +779,7 @@ async function loadPlayerClips(playerId) {
   try {
     // Hitting clips — this player's positive plays (not their own K/DP)
     var hit = await db.from('at_bats')
-      .select('id,result,rbi,inning,half,yt_offset_sec,created_at, games(game_date, youtube_stream_id, opponents(name))')
+      .select('id,game_id,result,rbi,inning,half,yt_offset_sec,created_at, games(game_date, youtube_stream_id, opponents(name))')
       .eq('batter_id', playerId).neq('clip_status', 'none').not('yt_offset_sec', 'is', null)
       .order('created_at', { ascending: false })
     if (hit.error) throw hit.error
@@ -787,7 +787,7 @@ async function loadPlayerClips(playerId) {
     var hitting = (hit.data || []).filter(function(ab){ return ab.games && ab.games.youtube_stream_id && !SKIP[ab.result] })
     // Pitching clips — this player striking out the opponent (attributed via aces_pitcher_id)
     var pit = await db.from('at_bats')
-      .select('id,result,rbi,inning,half,yt_offset_sec,created_at, games(game_date, youtube_stream_id, opponents(name))')
+      .select('id,game_id,result,rbi,inning,half,yt_offset_sec,created_at, games(game_date, youtube_stream_id, opponents(name))')
       .eq('aces_pitcher_id', playerId).is('batter_id', null)
       .in('result', ['strikeout_looking','strikeout_swinging'])
       .neq('clip_status', 'none').not('yt_offset_sec', 'is', null)
@@ -799,7 +799,7 @@ async function loadPlayerClips(playerId) {
     var defense = []
     try {
       var dfr = await db.from('at_bats')
-        .select('id,result,fielder_ids,inning,half,yt_offset_sec,created_at, games(game_date, youtube_stream_id, opponents(name))')
+        .select('id,game_id,result,fielder_ids,inning,half,yt_offset_sec,created_at, games(game_date, youtube_stream_id, opponents(name))')
         .contains('fielder_ids', [playerId]).not('yt_offset_sec', 'is', null)
         .order('created_at', { ascending: false })
       defense = (dfr.data || []).filter(function(ab){ return ab.games && ab.games.youtube_stream_id })
@@ -807,6 +807,15 @@ async function loadPlayerClips(playerId) {
     } catch(e) {}
     var clips = hitting.concat(pitching, defense).sort(function(a,b){ return (b.created_at||'').localeCompare(a.created_at||'') })
     if (!clips.length) { section.insertAdjacentHTML('beforeend', backLink); return }
+    // extra cameras (game_angles) for the games these clips came from
+    var ANGLES = {}
+    try {
+      var gids = clips.map(function(ab){ return ab.game_id }).filter(function(v,i,a){ return v && a.indexOf(v)===i })
+      if (gids.length) {
+        var ar = await db.from('game_angles').select('game_id,label,youtube_id,delta_sec,sort_order').in('game_id', gids).order('sort_order')
+        ;(ar.data||[]).forEach(function(a){ (ANGLES[a.game_id] = ANGLES[a.game_id] || []).push(a) })
+      }
+    } catch(e) {}
     var cards = clips.map(function(ab) {
       var g = ab.games || {}
       var opp = (g.opponents && g.opponents.name) ? g.opponents.name : 'opp'
@@ -824,7 +833,9 @@ async function loadPlayerClips(playerId) {
         +   '<div class="pclip-play"><span></span></div>'
         + '</div>'
         + '<div class="pclip-body"><div class="pclip-top">'+badge+rbi+'</div>'
-        + '<div class="pclip-meta">Inn '+ab.inning+' ('+half+') · vs '+opp+' · '+dt+'</div></div></div>'
+        + '<div class="pclip-meta">Inn '+ab.inning+' ('+half+') · vs '+opp+' · '+dt+'</div>'
+        + angleRow(ANGLES[ab.game_id], g.youtube_stream_id)
+        + '</div></div>'
     }).join('')
     area.outerHTML = '<div class="clips-grid">'+cards+'</div>'+backLink
   } catch(e) { section.insertAdjacentHTML('beforeend', backLink) }
