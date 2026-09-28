@@ -296,15 +296,19 @@ function showEmpty(){
     + '</div>';
 }
 
+// ?test=1 = coach rehearsal door (same as game.html): show the __test__ game's
+// clips so the angle buttons can be tried on a dry run. Families never pass it.
+var SHOW_TEST = new URLSearchParams(location.search).has('test');
+
 // Full-game VOD streams (watch hub): any game with a youtube_stream_id.
 async function loadFullGames(){
   try{
     var res = await db.from('games')
-      .select('id, game_date, our_score, opp_score, is_home, youtube_stream_id, opponents(name)')
-      .not('youtube_stream_id','is',null).neq('season','__test__')
+      .select('id, game_date, our_score, opp_score, is_home, youtube_stream_id, season, opponents(name)')
+      .not('youtube_stream_id','is',null)
       .order('game_date',{ascending:false});
     if(res.error) throw res.error;
-    var games = res.data || [];
+    var games = (res.data || []).filter(function(g){ return SHOW_TEST || g.season !== '__test__'; });
     if(!games.length) return;
     document.getElementById('games-grid').innerHTML = games.map(function(g){
       var opp = (g.opponents && g.opponents.name) ? g.opponents.name : 'Opponent';
@@ -338,7 +342,7 @@ async function init(){
     if(hitRes.error) throw hitRes.error;
     var hitting = (hitRes.data || []).filter(function(ab){
       var grp = (RESULT[ab.result]||{}).grp;
-      return ab.games && ab.games.youtube_stream_id && ab.games.season !== '__test__' && grp !== 'k';
+      return ab.games && ab.games.youtube_stream_id && (SHOW_TEST || ab.games.season !== '__test__') && grp !== 'k';
     });
 
     // Pitching highlights — our pitcher striking out the opponent (batter_id null,
@@ -350,7 +354,7 @@ async function init(){
       .neq('clip_status','none').not('yt_offset_sec','is',null)
       .order('created_at',{ascending:false});
     if(pitRes.error) throw pitRes.error;
-    var pitching = (pitRes.data || []).filter(function(ab){ return ab.games && ab.games.youtube_stream_id && ab.games.season !== '__test__'; });
+    var pitching = (pitRes.data || []).filter(function(ab){ return ab.games && ab.games.youtube_stream_id && (SHOW_TEST || ab.games.season !== '__test__'); });
     pitching.forEach(function(ab){ ab._kind = 'pitching'; });
 
     // Defensive highlights — outs where the scorer tagged the fielders.
@@ -361,7 +365,7 @@ async function init(){
         .select('id,game_id,result,fielder_ids,inning,half,yt_offset_sec,created_at, games(game_date, youtube_stream_id, season, opponents(name))')
         .not('fielder_ids','is',null).not('yt_offset_sec','is',null)
         .order('created_at',{ascending:false});
-      var defRows = (defRes.data || []).filter(function(ab){ return ab.games && ab.games.youtube_stream_id && ab.games.season !== '__test__' && (ab.fielder_ids||[]).length; });
+      var defRows = (defRes.data || []).filter(function(ab){ return ab.games && ab.games.youtube_stream_id && (SHOW_TEST || ab.games.season !== '__test__') && (ab.fielder_ids||[]).length; });
       if(defRows.length){
         var ros = await db.from('players').select('id,first_name,last_name,jersey_num');
         var byId = {};
