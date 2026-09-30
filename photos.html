@@ -47,6 +47,16 @@ select.psel:focus{border-color:var(--orange);}
   color:var(--muted);border-radius:6px;font-size:13px;line-height:1;padding:4px 7px;cursor:pointer;display:none;}
 .coach .ph-del{display:block;}
 .ph-del:hover{color:var(--red);border-color:var(--red);}
+/* videos: a YouTube-hosted tile with a play badge; adding one is coach-only */
+.ph-play{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;}
+.ph-play span{width:46px;height:46px;border-radius:50%;background:rgba(232,83,10,.92);box-shadow:0 4px 16px rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;}
+.ph-play span::after{content:'';border-style:solid;border-width:8px 0 8px 13px;border-color:transparent transparent transparent #fff;margin-left:3px;}
+.coach-only{display:none;}
+.coach .coach-only{display:inline-block;}
+.lb-vid{width:min(94vw,1100px);aspect-ratio:16/9;max-height:82vh;display:none;border-radius:8px;overflow:hidden;background:#000;}
+.lb-vid iframe{width:100%;height:100%;border:0;display:block;}
+.lb.vid .lb-vid{display:block;}
+.lb.vid img{display:none;}
 
 .empty{text-align:center;padding:56px 20px;color:var(--muted);}
 .empty .ic{font-size:42px;display:block;margin-bottom:10px;}
@@ -100,6 +110,40 @@ select.psel:focus{border-color:var(--orange);}
        same 7-day PIN unlock every coach page shares). -->
   <div class="unlock" id="addRow">
     <button class="btn" onclick="openUp()">Add photos</button>
+    <button class="btn ghost coach-only" onclick="openVid()">Add video</button>
+  </div>
+
+  <!-- Videos are coach-only: the file lives on YouTube (unlisted), the gallery
+       stores the link. Nothing goes in the storage bucket. -->
+  <div class="up" id="vidBox" style="display:none;">
+    <div class="up-head">
+      <span style="font-size:20px;">🎬</span>
+      <h2>Add a video</h2>
+      <button class="btn ghost" onclick="closeVid()" style="padding:7px 12px;font-size:13px;">Done</button>
+    </div>
+    <div class="lbl">YouTube link — upload it to the team channel as Unlisted first</div>
+    <input id="vidUrl" type="text" placeholder="https://youtu.be/…" style="margin-bottom:11px;"/>
+    <div class="frow">
+      <div>
+        <div class="lbl">Album</div>
+        <select id="vidCat">
+          <option value="team">Team</option>
+          <option value="coaches">Coaches</option>
+          <option value="family">Family</option>
+        </select>
+      </div>
+      <div>
+        <div class="lbl">Tag a player (optional)</div>
+        <select id="vidPlayer"><option value="">— none —</option></select>
+      </div>
+      <div>
+        <div class="lbl">Date (optional)</div>
+        <input id="vidDate" type="date"/>
+      </div>
+    </div>
+    <div class="lbl">Caption (optional)</div>
+    <input id="vidCap" type="text" placeholder="e.g. Walk-off celebration" style="margin-bottom:12px;"/>
+    <div><button class="btn" id="vidBtn" onclick="addVideo()">Add video</button></div>
   </div>
 
   <div class="up" id="upBox" style="display:none;">
@@ -149,6 +193,7 @@ select.psel:focus{border-color:var(--orange);}
     <button class="chip" data-cat="team" onclick="setCat('team',this)">Team</button>
     <button class="chip" data-cat="coaches" onclick="setCat('coaches',this)">Coaches</button>
     <button class="chip" data-cat="family" onclick="setCat('family',this)">Family</button>
+    <button class="chip" data-cat="video" id="vidChip" onclick="setCat('video',this)" style="display:none;">🎬 Videos</button>
     <select class="psel" id="playerSel" onchange="render()"><option value="">All players</option></select>
   </div>
 
@@ -159,6 +204,7 @@ select.psel:focus{border-color:var(--orange);}
   <button class="lb-x" onclick="closeLb()">×</button>
   <button class="lb-nav lb-prev" onclick="stepLb(event,-1)">‹</button>
   <img id="lbImg" src="" alt=""/>
+  <div class="lb-vid" id="lbVid"></div>
   <button class="lb-nav lb-next" onclick="stepLb(event,1)">›</button>
   <div class="lb-cap" id="lbCap"></div>
 </div>
@@ -185,6 +231,41 @@ function openUp(){
   document.getElementById('addRow').style.display='none';
 }
 function lockUp(){ document.getElementById('upBox').style.display='none'; document.getElementById('addRow').style.display='flex'; }
+function openVid(){
+  if(!isCoach()) return;
+  document.getElementById('vidBox').style.display='block';
+  document.getElementById('addRow').style.display='none';
+}
+function closeVid(){ document.getElementById('vidBox').style.display='none'; document.getElementById('addRow').style.display='flex'; }
+function ytId(s){
+  s=(s||'').trim(); if(!s) return null;
+  if(/^[A-Za-z0-9_-]{11}$/.test(s)) return s;
+  var m=/[?&]v=([A-Za-z0-9_-]{11})/.exec(s) || /youtu\.be\/([A-Za-z0-9_-]{11})/.exec(s) ||
+        /\/(?:live|embed|shorts)\/([A-Za-z0-9_-]{11})/.exec(s);
+  return m?m[1]:null;
+}
+async function addVideo(){
+  if(!isCoach()){ msg('err','Videos are coach-only.'); return; }
+  var id = ytId(document.getElementById('vidUrl').value);
+  if(!id){ msg('err','That doesn\'t look like a YouTube link.'); return; }
+  var btn = document.getElementById('vidBtn'); btn.disabled = true;
+  try{
+    var ins = await db.from('team_photos').insert({
+      url: 'https://i.ytimg.com/vi/'+id+'/hqdefault.jpg', storage_key: null, youtube_id: id,
+      caption: (document.getElementById('vidCap').value||'').trim() || null,
+      category: document.getElementById('vidCat').value,
+      player_id: document.getElementById('vidPlayer').value || null,
+      taken_on: document.getElementById('vidDate').value || null,
+      season: (typeof ACES_CONFIG!=='undefined' && ACES_CONFIG.activeSeason) || null
+    }).select();
+    if(ins.error) throw ins.error;
+    if(!ins.data || !ins.data.length) throw new Error('the database rejected the row');
+    document.getElementById('vidUrl').value=''; document.getElementById('vidCap').value='';
+    msg('ok','Video added ✓');
+    await loadPhotos();
+  }catch(e){ msg('err','Couldn\'t add the video: '+(e.message||e)); }
+  btn.disabled = false;
+}
 function msg(cls, text){
   document.getElementById('msgArea').innerHTML = text ? '<div class="msg '+cls+'">'+text+'</div>' : '';
   if(text) setTimeout(function(){ var m=document.getElementById('msgArea'); if(m) m.innerHTML=''; }, 6000);
@@ -199,6 +280,7 @@ async function loadPlayers(){
   }).join('');
   document.getElementById('playerSel').innerHTML = '<option value="">All players</option>'+opts;
   document.getElementById('upPlayer').innerHTML  = '<option value="">— none —</option>'+opts;
+  document.getElementById('vidPlayer').innerHTML = '<option value="">— none —</option>'+opts;
 }
 async function loadGames(){
   var {data} = await db.from('games').select('id,game_date,opponents(name)').order('game_date',{ascending:false}).limit(40);
@@ -211,6 +293,8 @@ async function loadPhotos(){
   var {data, error} = await db.from('team_photos').select('*').order('created_at',{ascending:false});
   if(error){ document.getElementById('content').innerHTML = '<div class="empty">Couldn\'t load photos: '+error.message+'</div>'; return; }
   PHOTOS = data || [];
+  // the Videos chip only appears once there is one
+  document.getElementById('vidChip').style.display = PHOTOS.some(function(p){ return p.youtube_id; }) ? '' : 'none';
   render();
 }
 
@@ -225,7 +309,8 @@ function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,function(c){retur
 function visible(){
   var pid = document.getElementById('playerSel').value;
   return PHOTOS.filter(function(p){
-    if(state.cat !== 'all' && p.category !== state.cat) return false;
+    if(state.cat === 'video'){ if(!p.youtube_id) return false; }
+    else if(state.cat !== 'all' && p.category !== state.cat) return false;
     if(pid && p.player_id !== pid) return false;
     return true;
   });
@@ -245,8 +330,9 @@ function render(){
     var cap = p.caption ? '<div class="ph-cap">'+esc(p.caption)+'</div>' : '';
     return '<div class="ph" onclick="openLb('+i+')">'
       + '<img loading="lazy" src="'+esc(p.url)+'" alt="'+esc(p.caption||'Aces photo')+'"/>'
+      + (p.youtube_id ? '<div class="ph-play"><span></span></div>' : '')
       + '<span class="ph-tag">'+esc(tag)+'</span>'
-      + '<button class="ph-del" title="Delete photo" onclick="delPhoto(event,\''+p.id+'\')">🗑</button>'
+      + '<button class="ph-del" title="Delete" onclick="delPhoto(event,\''+p.id+'\')">🗑</button>'
       + cap + '</div>';
   }).join('') + '</div>';
 }
@@ -254,13 +340,25 @@ function render(){
 /* ── lightbox ── */
 function openLb(i){
   lbIdx = i; var p = lbList[i]; if(!p) return;
-  document.getElementById('lbImg').src = p.url;
+  var lb = document.getElementById('lb'), vid = document.getElementById('lbVid');
+  if(p.youtube_id){
+    lb.classList.add('vid');
+    vid.innerHTML = '<iframe src="https://www.youtube.com/embed/'+encodeURIComponent(p.youtube_id)+'?autoplay=1&rel=0&modestbranding=1&playsinline=1" allow="autoplay; encrypted-media; fullscreen" allowfullscreen></iframe>';
+  } else {
+    lb.classList.remove('vid'); vid.innerHTML = '';   // dropping the iframe stops a playing video
+    document.getElementById('lbImg').src = p.url;
+  }
   var who = p.player_id && PLAYERS[p.player_id];
   document.getElementById('lbCap').textContent =
     [p.caption||'', who ? '#'+who.jersey_num+' '+who.first_name+' '+who.last_name : ''].filter(Boolean).join('  ·  ');
   document.getElementById('lb').classList.add('on');
 }
-function closeLb(e){ if(!e || e.target.id==='lb' || e.target.classList.contains('lb-x')) document.getElementById('lb').classList.remove('on'); }
+function hideLb(){
+  var lb = document.getElementById('lb');
+  lb.classList.remove('on'); lb.classList.remove('vid');
+  document.getElementById('lbVid').innerHTML = '';   // stop the video
+}
+function closeLb(e){ if(!e || e.target.id==='lb' || e.target.classList.contains('lb-x')) hideLb(); }
 function stepLb(e, d){
   e.stopPropagation();
   if(!lbList.length) return;
@@ -269,7 +367,7 @@ function stepLb(e, d){
 }
 document.addEventListener('keydown', function(e){
   if(!document.getElementById('lb').classList.contains('on')) return;
-  if(e.key==='Escape') document.getElementById('lb').classList.remove('on');
+  if(e.key==='Escape') hideLb();
   if(e.key==='ArrowRight') stepLb(e,1);
   if(e.key==='ArrowLeft')  stepLb(e,-1);
 });
@@ -330,13 +428,14 @@ async function delPhoto(e, id){
   e.stopPropagation();
   if(!isCoach()) return;
   var p = PHOTOS.find(function(x){ return x.id===id; });
-  if(!confirm('Delete this photo? This cannot be undone.')) return;
+  var isVid = !!(p && p.youtube_id);
+  if(!confirm(isVid ? 'Remove this video from the gallery? (It stays on YouTube.)' : 'Delete this photo? This cannot be undone.')) return;
   try{
     var d = await db.from('team_photos').delete().eq('id',id).select();
     if(d.error) throw d.error;
     if(!d.data || !d.data.length) throw new Error('the database removed 0 rows');
     if(p && p.storage_key){ try{ await db.storage.from(BUCKET).remove([p.storage_key]); }catch(_){} }
-    msg('ok','Photo deleted ✓');
+    msg('ok', isVid ? 'Video removed ✓' : 'Photo deleted ✓');
     await loadPhotos();
   }catch(err){ msg('err','Couldn\'t delete: '+(err.message||err)); }
 }
