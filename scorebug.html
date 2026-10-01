@@ -40,9 +40,10 @@
      any camera feed and matches how these looked on the old broadcast. */
   .sp-dock{ display:none; align-items:center; justify-content:center;
     width:190px; height:76px; padding:9px 13px; background:#fff; border-radius:12px;
-    box-shadow:0 12px 34px rgba(0,0,0,.55); flex-shrink:0; }
+    box-shadow:0 12px 34px rgba(0,0,0,.55); flex-shrink:0;
+    transition:width .45s ease; }   /* width is set per logo by spinDock() */
   .sp-dock.show{ display:flex; }
-  .sp-dock img{ max-width:100%; max-height:100%; object-fit:contain;
+  .sp-dock img{ width:100%; height:100%; object-fit:contain;
     opacity:0; transition:opacity .5s ease; }
   .sp-dock img.in{ opacity:1; }
   /* floated plate: its own corner + its own scale, independent of the bug.
@@ -62,8 +63,8 @@
   .sp-break.in{ opacity:1; transform:translate(-50%,0); }
   .sp-break .plate{ display:flex; align-items:center; justify-content:center;
     width:430px; height:180px; padding:26px 34px; background:#fff; border-radius:18px;
-    box-shadow:0 20px 60px rgba(0,0,0,.65); }
-  .sp-break .plate img{ max-width:100%; max-height:100%; object-fit:contain; }
+    box-shadow:0 20px 60px rgba(0,0,0,.65); transition:width .45s ease; }
+  .sp-break .plate img{ width:100%; height:100%; object-fit:contain; }
   .sp-break .cap{ font-size:11px; letter-spacing:.22em; text-transform:uppercase; font-weight:700;
     color:#fff; text-shadow:0 2px 10px rgba(0,0,0,.9); }
   /* the sponsor plate and the due-up panel share the break slot */
@@ -646,9 +647,47 @@ async function loadSponsors(){
       .eq('active', true).order('sort_order').order('name');
     if (r.error || !r.data) return;
     SP.list = r.data; SP.loadedAt = Date.now();
-    // warm the cache so the first fade doesn't show an empty plate
-    SP.list.forEach(function(s){ var im = new Image(); im.src = spUrl(s.image_path); });
+    // warm the cache so the first fade doesn't show an empty plate — and trim
+    // each logo to its artwork while we're at it (see spTrim)
+    SP.list.forEach(function(s){ spTrim(s.image_path); });
   }catch(e){}
+}
+// Sponsor files arrive with big empty margins baked in (several marks fill a
+// quarter of their own image), so a plate sized to the FILE looks like a huge
+// white box around a tiny logo. Crop each one to the pixels that are actually
+// ink — not transparent, not near-white — and remember the result. Falls back
+// to the untouched file if the canvas is blocked.
+SP.trim = {};
+function spTrim(path){
+  if (SP.trim[path]) return SP.trim[path].promise;
+  var rec = SP.trim[path] = { src: spUrl(path), ratio: null };
+  rec.promise = new Promise(function(resolve){
+    var im = new Image(); im.crossOrigin = 'anonymous';
+    im.onload = function(){
+      try{
+        var w = im.naturalWidth, h = im.naturalHeight;
+        var c = document.createElement('canvas'); c.width = w; c.height = h;
+        var x = c.getContext('2d'); x.drawImage(im, 0, 0);
+        var d = x.getImageData(0, 0, w, h).data, x0 = w, y0 = h, x1 = -1, y1 = -1;
+        for (var yy = 0; yy < h; yy++) for (var xx = 0; xx < w; xx++){
+          var i = (yy * w + xx) * 4;
+          if (d[i+3] > 24 && !(d[i] > 244 && d[i+1] > 244 && d[i+2] > 244)){
+            if (xx < x0) x0 = xx; if (xx > x1) x1 = xx; if (yy < y0) y0 = yy; if (yy > y1) y1 = yy;
+          }
+        }
+        if (x1 >= x0 && y1 >= y0){
+          var cw = x1 - x0 + 1, ch = y1 - y0 + 1;
+          var o = document.createElement('canvas'); o.width = cw; o.height = ch;
+          o.getContext('2d').drawImage(im, x0, y0, cw, ch, 0, 0, cw, ch);
+          rec.src = o.toDataURL('image/png'); rec.ratio = cw / ch;
+        } else { rec.ratio = w / h; }
+      }catch(e){ rec.ratio = im.naturalWidth / im.naturalHeight; }
+      resolve(rec);
+    };
+    im.onerror = function(){ resolve(rec); };
+    im.src = spUrl(path);
+  });
+  return rec.promise;
 }
 function spNext(){
   if (!SP.list.length) return null;
@@ -666,10 +705,17 @@ function spinDock(){
   var s = spNext(); if (!s) return;
   img.classList.remove('in');                       // fade out
   setTimeout(function(){
-    img.onload = function(){ img.classList.add('in'); };
-    img.src = spUrl(s.image_path); img.alt = s.name;
-    dock.classList.add('show');
-    if (img.complete) img.classList.add('in');      // cached: onload may not fire
+    // The plate hugs the logo: a round or square mark used to float in the
+    // middle of a fixed 190px-wide white box. Width follows the logo's own
+    // shape at the plate's inner height (58px), clamped square..190.
+    spTrim(s.image_path).then(function(t){
+      var r = t.ratio || 2.3;
+      dock.style.width = Math.round(Math.max(76, Math.min(190, r * 58 + 26))) + 'px';
+      img.onload = function(){ img.classList.add('in'); };
+      img.src = t.src; img.alt = s.name;
+      dock.classList.add('show');
+      if (img.complete && img.naturalWidth) img.classList.add('in');   // data URL: often already decoded
+    });
   }, 500);
 }
 // Break card: 3 sponsors, ~5s each, then out. Skipped if one is already
@@ -772,9 +818,14 @@ function playBreak(dueUp){
     var s = spNext(); shown++;
     el.classList.remove('in');
     setTimeout(function(){
-      img.onload = function(){ el.classList.add('in'); };
-      img.src = spUrl(s.image_path); img.alt = s.name;
-      if (img.complete) el.classList.add('in');
+      // same hug-the-logo rule as the dock: inner height 128px, square..430 wide
+      spTrim(s.image_path).then(function(t){
+        var r = t.ratio || 2.3;
+        plate.style.width = Math.round(Math.max(180, Math.min(430, r * 128 + 68))) + 'px';
+        img.onload = function(){ el.classList.add('in'); };
+        img.src = t.src; img.alt = s.name;
+        if (img.complete && img.naturalWidth) el.classList.add('in');
+      });
       SP.breakTimer = setTimeout(step, 5000);
     }, shown === 1 ? 0 : 600);
   };
