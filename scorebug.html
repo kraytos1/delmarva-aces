@@ -97,6 +97,15 @@
     white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .due-pos{ margin-left:auto; font-family:ui-monospace,monospace; font-size:11px; color:var(--muted); }
 
+  /* Conditions card — shares the due-up panel's skin and the break slot */
+  .wx-body{ display:flex; align-items:center; gap:18px; padding:16px 22px 18px; }
+  .wx-ic{ font-size:46px; line-height:1; }
+  .wx-temp{ font-size:50px; font-weight:800; color:var(--cream); line-height:1; letter-spacing:-.01em; }
+  .wx-temp sup{ font-size:22px; font-weight:700; color:var(--muted); margin-left:2px; }
+  .wx-txt{ display:flex; flex-direction:column; gap:4px; margin-left:4px; }
+  .wx-desc{ font-size:17px; font-weight:700; color:var(--cream); }
+  .wx-wind{ font-family:ui-monospace,monospace; font-size:12.5px; color:var(--muted); letter-spacing:.02em; }
+
   /* preview-only standby chip (never shows on the live overlay) */
   .standby{ position:fixed; left:26px; bottom:26px; z-index:9; display:none; align-items:center; gap:9px;
     background:rgba(12,15,20,.92); border:1px solid var(--line); border-radius:10px; padding:11px 15px;
@@ -211,6 +220,14 @@
     <div class="due-h"><span class="t">Due Up</span><span class="team" id="dueTeam"></span></div>
     <div id="dueRows"></div>
   </div>
+  <div class="due hide" id="wxCard">
+    <div class="due-h"><span class="t">Conditions</span><span class="team" id="wxPlace"></span></div>
+    <div class="wx-body">
+      <span class="wx-ic" id="wxIc"></span>
+      <span class="wx-temp" id="wxTemp"></span>
+      <div class="wx-txt"><span class="wx-desc" id="wxDesc"></span><span class="wx-wind" id="wxWind"></span></div>
+    </div>
+  </div>
 </div>
 
 <div class="standby" id="standby"><span class="d"></span>Scorebug ready — waiting for a live game</div>
@@ -230,6 +247,8 @@ var db = supabase.createClient(ACES_CONFIG.supabaseUrl, ACES_CONFIG.supabaseKey)
 // ?sponsorpos=dock|bl|br|tl|tr  float the plate in its own corner (default dock)
 // ?sponsorscale=N  floated-plate size, 0.5–2   ?sponsorsecs=N dock rotation seconds
 // ?dueup=off     no due-up card between innings ?dueupsecs=N (default 9)
+// ?weather=on|off  conditions card in the break (default: the Controls toggle)
+// ?wxplace=City,ST  where to read the weather (default: Controls, else the game's location)
 // The pitching and at-bat lines can each be flipped live from overlay.html via
 // the game's bug_show_pitching / bug_show_atbat flags. A URL "off" is a hard
 // override (always hidden); otherwise the live flag decides.
@@ -584,6 +603,8 @@ var SHOW_VELO = !urlVeloOff, SHOW_EXIT = !urlExitOff;
 var urlPos      = Q.get('pos') ? (Q.get('pos')||'').toLowerCase() : null;
 var urlDueOff   = Q.get('dueup')==='off';
 var urlDueSecs  = Q.get('dueupsecs') ? Math.max(3, parseInt(Q.get('dueupsecs'),10)||9) : null;
+var urlWx       = Q.get('weather') ? Q.get('weather').toLowerCase() : null;   // 'on' | 'off' | null
+var urlWxPlace  = Q.get('wxplace') || null;
 var SP = {
   list: [], i: 0, loadedAt: 0,
   dockOn:  !urlDockOff,
@@ -591,8 +612,10 @@ var SP = {
   dueOn:   !urlDueOff,
   everySec: urlSecs || 40,
   dueSec:  urlDueSecs || 9,
-  lastHalfKey: null, breakTimer: null, breakBusy: false
+  lastHalfKey: null, breakTimer: null, breakBusy: false, breakN: 0
 };
+// Conditions card. Off unless the Controls toggle (or ?weather=on) says so.
+var WX = { on: urlWx === 'on', place: urlWxPlace, gameLoc: null, data: null, at: 0, key: null, busy: false };
 
 // ── Live settings (controls.html) ───────────────────────────────────────────
 var CFG = null, _cfgAt = 0;
@@ -612,6 +635,8 @@ function applyCfg(){
   if (!urlBreakOff) SP.breakOn = CFG.sponsor_break !== false;
   if (!urlDueOff)   SP.dueOn   = CFG.break_dueup !== false;
   if (!urlDueSecs && CFG.dueup_secs) SP.dueSec = Math.max(3, CFG.dueup_secs);
+  if (!urlWx)      WX.on    = CFG.break_weather === true;
+  if (!urlWxPlace) WX.place = (CFG.weather_place || '').trim() || null;
   if (!urlSecs && CFG.sponsor_secs && CFG.sponsor_secs !== SP.everySec){
     SP.everySec = Math.max(8, CFG.sponsor_secs);
     if (_dockTimer){ clearInterval(_dockTimer); _dockTimer = setInterval(spinDock, SP.everySec*1000); }
@@ -777,17 +802,88 @@ function computeDueUp(n, isAcesBatting, acesAbs, oppAbs, oppName){
   })};
 }
 
+// ── Conditions (weather) ─────────────────────────────────────────────────────
+// Open-Meteo: free, no key. The place is the Controls field if set, else the
+// game's own location; it's geocoded once (cached on this device) and the
+// reading refreshes every 20 minutes. No place or no answer = no card.
+var WX_CODES = {0:['☀️','Clear'],1:['🌤️','Mostly clear'],2:['⛅','Partly cloudy'],3:['☁️','Overcast'],
+  45:['🌫️','Fog'],48:['🌫️','Fog'],51:['🌦️','Light drizzle'],53:['🌦️','Drizzle'],55:['🌦️','Drizzle'],
+  56:['🌧️','Freezing drizzle'],57:['🌧️','Freezing drizzle'],61:['🌧️','Light rain'],63:['🌧️','Rain'],65:['🌧️','Heavy rain'],
+  66:['🌧️','Freezing rain'],67:['🌧️','Freezing rain'],71:['🌨️','Light snow'],73:['🌨️','Snow'],75:['🌨️','Heavy snow'],77:['🌨️','Snow'],
+  80:['🌦️','Showers'],81:['🌧️','Showers'],82:['🌧️','Heavy showers'],85:['🌨️','Snow showers'],86:['🌨️','Snow showers'],
+  95:['⛈️','Thunderstorm'],96:['⛈️','Thunderstorm'],99:['⛈️','Thunderstorm']};
+function wxCompass(deg){
+  var d = ['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSW','SW','WSW','W','WNW','NW','NNW'];
+  return d[Math.round(((deg % 360) / 22.5)) % 16];
+}
+async function wxGeocode(place){
+  var k = 'aces_geo_' + place.toLowerCase();
+  try { var c = JSON.parse(localStorage.getItem(k) || 'null'); if (c && c.lat) return c; } catch(e){}
+  var hit = null;
+  try {   // venue names and street addresses
+    var r = await fetch('https://nominatim.openstreetmap.org/search?format=json&limit=1&q=' + encodeURIComponent(place));
+    var j = await r.json();
+    if (j && j.length) hit = { lat: +j[0].lat, lon: +j[0].lon };
+  } catch(e){}
+  if (!hit) try {   // plain "City, ST"
+    var city = place.split(',')[0].trim();
+    var r2 = await fetch('https://geocoding-api.open-meteo.com/v1/search?count=1&language=en&format=json&name=' + encodeURIComponent(city));
+    var j2 = await r2.json();
+    if (j2 && j2.results && j2.results.length) hit = { lat: j2.results[0].latitude, lon: j2.results[0].longitude };
+  } catch(e){}
+  if (hit) try { localStorage.setItem(k, JSON.stringify(hit)); } catch(e){}
+  return hit;
+}
+async function wxRefresh(){
+  if (!WX.on || WX.busy) return;
+  var place = WX.place || WX.gameLoc;
+  if (!place){ WX.data = null; return; }
+  if (WX.key === place && WX.data && Date.now() - WX.at < 20*60*1000) return;
+  if (WX.key === place && !WX.data && Date.now() - WX.at < 60*1000) return;   // failed: retry once a minute, not every poll
+  WX.busy = true; WX.key = place; WX.at = Date.now();
+  try {
+    var geo = await wxGeocode(place);
+    if (!geo){ WX.data = null; return; }
+    var r = await fetch('https://api.open-meteo.com/v1/forecast?latitude=' + geo.lat + '&longitude=' + geo.lon +
+      '&current=temperature_2m,weather_code,wind_speed_10m,wind_direction_10m,wind_gusts_10m,is_day' +
+      '&temperature_unit=fahrenheit&wind_speed_unit=mph');
+    var j = await r.json(), c = j && j.current;
+    if (!c || typeof c.temperature_2m !== 'number'){ WX.data = null; return; }
+    WX.data = { temp: Math.round(c.temperature_2m), code: c.weather_code, wind: Math.round(c.wind_speed_10m),
+                dir: c.wind_direction_10m, gust: Math.round(c.wind_gusts_10m || 0), day: c.is_day !== 0, place: place };
+  } catch(e){ WX.data = null; }
+  finally { WX.busy = false; }
+}
+function wxPaint(){
+  var w = WX.data; if (!w) return;
+  var m = WX_CODES[w.code] || ['🌡️','—'];
+  var ic = (!w.day && (w.code === 0 || w.code === 1)) ? '🌙' : m[0];
+  document.getElementById('wxIc').textContent = ic;
+  document.getElementById('wxTemp').innerHTML = w.temp + '<sup>°F</sup>';
+  document.getElementById('wxDesc').textContent = m[1];
+  var wind = w.wind < 3 ? 'Calm' : 'Wind ' + w.wind + ' mph from the ' + wxCompass(w.dir);
+  if (w.wind >= 3 && w.gust >= w.wind + 8) wind += ' · gusts ' + w.gust;
+  document.getElementById('wxWind').textContent = wind;
+  document.getElementById('wxPlace').textContent = String(w.place).split(',')[0];
+}
+
 function playBreak(dueUp){
   if (SP.breakBusy) return;
   var wantSponsors = SP.breakOn && SP.list.length > 0;
   var wantDue      = SP.dueOn && dueUp && dueUp.list.length > 0;
-  if (!wantSponsors && !wantDue) return;
+  // Conditions: the first break, then every fourth — weather doesn't change
+  // inning to inning, so it shouldn't crowd every break.
+  SP.breakN++;
+  var wantWx       = WX.on && !!WX.data && ((SP.breakN - 1) % 4 === 0);
+  if (!wantSponsors && !wantDue && !wantWx) return;
 
   var el   = document.getElementById('spBreak');
   var img  = document.getElementById('spBreakImg');
   var plate= document.getElementById('spPlate');
   var cap  = document.getElementById('spBreakCap');
   var due  = document.getElementById('dueCard');
+  var wx   = document.getElementById('wxCard');
+  var wxShown = false;
 
   SP.breakBusy = true;
   el.classList.add('show');
@@ -797,7 +893,7 @@ function playBreak(dueUp){
     el.classList.remove('in');
     setTimeout(function(){
       el.classList.remove('show');
-      plate.classList.remove('hide'); cap.classList.remove('hide'); due.classList.add('hide');
+      plate.classList.remove('hide'); cap.classList.remove('hide'); due.classList.add('hide'); wx.classList.add('hide');
       SP.breakBusy = false;
     }, 650);
   };
@@ -805,16 +901,27 @@ function playBreak(dueUp){
     if (!wantDue) return finish();
     el.classList.remove('in');
     setTimeout(function(){
-      plate.classList.add('hide'); cap.classList.add('hide');
+      plate.classList.add('hide'); cap.classList.add('hide'); wx.classList.add('hide');
       document.getElementById('dueTeam').textContent = dueUp.team;
       document.getElementById('dueRows').innerHTML = dueRowsHtml(dueUp.list);
       due.classList.remove('hide');
       el.classList.add('in');
       SP.breakTimer = setTimeout(finish, SP.dueSec * 1000);
+    }, (shown || wxShown) ? 600 : 0);
+  };
+  // sponsors -> conditions -> due up: Due Up still closes the break
+  var showWx = function(){
+    if (!wantWx) return showDue();
+    el.classList.remove('in');
+    setTimeout(function(){
+      plate.classList.add('hide'); cap.classList.add('hide'); due.classList.add('hide');
+      wxPaint(); wx.classList.remove('hide'); wxShown = true;
+      el.classList.add('in');
+      SP.breakTimer = setTimeout(showDue, 6500);
     }, shown ? 600 : 0);
   };
   var step = function(){
-    if (shown >= count) return showDue();
+    if (shown >= count) return showWx();
     var s = spNext(); shown++;
     el.classList.remove('in');
     setTimeout(function(){
@@ -833,6 +940,8 @@ function playBreak(dueUp){
 }
 // Called from poll() with the live row: fire on a real half-inning change.
 function spOnState(g, n, isAcesBatting, acesAbs, oppAbs, oppName){
+  WX.gameLoc = (g.location || '').trim() || null;
+  wxRefresh();   // keeps the conditions fresh so the card is ready at the break
   var key = (g.inning||1) + ':' + (g.half||'top');
   if (SP.lastHalfKey === null){ SP.lastHalfKey = key; return; }  // first sight isn't a change
   if (key !== SP.lastHalfKey){

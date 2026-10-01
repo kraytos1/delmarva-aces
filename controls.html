@@ -107,6 +107,18 @@ h1 span{color:var(--orange);}
       <div class="sw" id="sw-break_dueup" onclick="flip('break_dueup')"></div>
     </div>
     <div class="row">
+      <div class="row-txt"><div class="row-n">Weather card between innings</div>
+        <div class="row-s">Temperature, sky and wind, shown on the first break and every fourth after. Uses the game's location unless you type a place below.</div></div>
+      <div class="sw" id="sw-break_weather" onclick="flip('break_weather')"></div>
+    </div>
+    <div class="row">
+      <div class="row-txt"><div class="row-n">Weather location</div>
+        <div class="row-s">Optional. A town or field name, like "Salisbury, MD". Leave blank to use the location on the game.</div></div>
+      <input id="in-weather_place" type="text" placeholder="game's location" maxlength="80"
+        style="width:170px;background:#1F242C;border:1px solid rgba(255,255,255,.1);border-radius:8px;padding:8px 10px;color:#F0EDE8;font:inherit;font-size:13px;outline:none;"
+        onchange="savePlace(this.value)"/>
+    </div>
+    <div class="row">
       <div class="row-txt"><div class="row-n">Logo rotation speed</div>
         <div class="row-s">How long each sponsor holds beside the bug.</div></div>
       <div class="num"><button onclick="bump('sponsor_secs',-10)">−</button>
@@ -247,7 +259,7 @@ h1 span{color:var(--orange);}
 <script>
 var db = supabase.createClient(ACES_CONFIG.supabaseUrl, ACES_CONFIG.supabaseKey);
 var S = null, LIVE = null, busy = false;
-var BOOLS = ['sponsor_dock','sponsor_break','break_dueup','bug_show_bases','bug_show_velo','bug_show_exit_velo',
+var BOOLS = ['sponsor_dock','sponsor_break','break_dueup','break_weather','bug_show_bases','bug_show_velo','bug_show_exit_velo',
              'chip_base_check','chip_fielder_tag','chip_spray','chip_d3k','show_home_squad'];
 
 function say(kind, text){
@@ -262,6 +274,8 @@ function paint(){
     var el = document.getElementById('sw-'+k); if(el) el.classList.toggle('on', !!S[k]);
   });
   document.getElementById('v-sponsor_secs').textContent = S.sponsor_secs + 's';
+  var wp = document.getElementById('in-weather_place');
+  if (wp && document.activeElement !== wp) wp.value = S.weather_place || '';
   document.getElementById('v-bug_scale').textContent = Math.round((S.bug_scale||1)*100) + '%';
   document.getElementById('v-sponsor_scale').textContent = Math.round((S.sponsor_scale||1)*100) + '%';
   Array.prototype.forEach.call(document.querySelectorAll('#segs-pos .seg'), function(b){
@@ -310,6 +324,7 @@ function bump(key, by){
   if(v !== S[key]) save(defineOne(key, v));
 }
 function defineOne(k, v){ var o = {}; o[k] = v; return o; }
+function savePlace(v){ if(S){ v = (v||'').trim() || null; if(v !== (S.weather_place||null)) save({weather_place: v}); } }
 
 async function flipGame(key){
   if(!LIVE || busy) return;
