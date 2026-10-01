@@ -1715,6 +1715,7 @@ async function quickLog(result, opts) {
     if (result === _lastPitchTap.r && _pt - _lastPitchTap.t < 300) return
     _lastPitchTap = { t: _pt, r: result }
   }
+  if (!inAB && threeOutsGuard()) return
   markClockStart()   // the first recorded pitch starts the tournament clock
   if (!inAB){ hideD3K(); hideBaseCheck() }   // a new pitch invalidates pending offers
   // Save state before this pitch for undo — unless we're inside logAB, whose
@@ -1850,12 +1851,29 @@ async function quickLog(result, opts) {
   await pushState(); renderAll()
 }
 
+// Three outs are on the board and the half never ended (the "end half?" prompt
+// was cancelled, or a dropped-third chip resolved after it). Scoring a 4th out
+// into the same half is never right, so the next tap asks first. OK ends the
+// half and swallows the tap — the coach re-taps it in the right half; Cancel
+// lets them carry on (they're about to fix the outs by hand).
+function threeOutsGuard(){
+  if(S.outs < 3) return false
+  var cur=(S.isTop?'Top':'Bot')+' '+S.inning
+  if(confirm('There are already 3 outs in the '+cur+'.\n\nOK = end the half now\nCancel = keep scoring in this half')){
+    newHalf()
+    showToast('Half ended — tap that play again')
+    return true
+  }
+  return false
+}
+
 async function logAB(result, label, skipPitchLog, fromAuto, runnerId, entryOverride) {
   // Double-tap guard: two OUTCOMES inside 450ms is a phone double-tap, not
   // two real plays. Raw pitch taps (Ball/Strike) stay unguarded — those can
   // legitimately come fast — and auto walk/K calls are exempt.
   var _dtNow = Date.now()
   if(!fromAuto && _dtNow - (window._lastLogAB||0) < 450) return
+  if(!fromAuto && threeOutsGuard()) return
   window._lastLogAB = _dtNow
   markClockStart()   // covers a first play logged without a pitch (e.g. quick walk)
   hideD3K(); hideBaseCheck()   // any new action invalidates pending offers
@@ -1970,6 +1988,11 @@ async function logAB(result, label, skipPitchLog, fromAuto, runnerId, entryOverr
       S.currentOppBatterIdx=(S.currentOppBatterIdx+1)%S.oppLineup.length
       updateBatterDisplay()
     }
+    // New batter, new pitch sequence — for EITHER side. advanceBatter() only
+    // runs for our hitters, so while the Aces pitched the per-batter count
+    // never reset and every opposing batter's pitch_num carried on from the
+    // last one (3, 3, 3, 4, 5…), which wrecks pitches-per-batter for our arms.
+    S.pitchCount = 0
   }
   // The in_play pitch goes in BEFORE the at-bat row (the gamecast closes the
   // live at-bat card on the at_bats insert, so the pitch chip must precede it).
@@ -2010,7 +2033,10 @@ async function logAB(result, label, skipPitchLog, fromAuto, runnerId, entryOverr
   // Decide NOW whether this play ends the half — the confirm below can flip
   // the half while pushState is still awaiting, and S.outs would read 0 again.
   var endsHalf = S.outs>=3
-  if(endsHalf){setTimeout(function(){ if(S.outs>=3 && confirm('3 outs — end half?')) newHalf() },300)}
+  // A third-out strikeout may still be a dropped third — say so, because
+  // answering OK here ends the half and takes the chip with it.
+  var _ehMsg = /strikeout/i.test(result) ? '3 outs — end half?\n\n(Dropped third strike? Tap Cancel, then use the chip.)' : '3 outs — end half?'
+  if(endsHalf){setTimeout(function(){ if(S.outs>=3 && confirm(_ehMsg)) newHalf() },300)}
   await pushState(); renderAll()
   // Runners were on before a ball in play — the by-the-book advance may not
   // match the field. Offer the check while the play is fresh (skip on the 3rd
@@ -2692,6 +2718,12 @@ async function convertD3K(safe){
   // Batter safe with runners aboard: the forced advances (and a bases-loaded
   // run) were by-the-book guesses — same check every ball in play gets.
   if(safe && (S.bases.some(Boolean) || runs>0)) offerBaseCheck(result, label, runs)
+  // The K was the third out and the coach cancelled "end half?" to resolve
+  // the dropped third. Out at 1st leaves it at three outs — ask again, or the
+  // scorer just sits there with nothing prompting the half to end.
+  if(!safe && S.outs>=3){
+    setTimeout(function(){ if(S.outs>=3 && confirm('3 outs — end half?')) newHalf() },300)
+  }
 }
 
 // ── POST-PLAY BASE CHECK ─────────────────────────────────────
