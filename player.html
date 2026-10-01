@@ -790,30 +790,32 @@ async function loadPlayerClips(playerId) {
   try {
     // Hitting clips — this player's positive plays (not their own K/DP)
     var hit = await db.from('at_bats')
-      .select('id,game_id,result,rbi,inning,half,yt_offset_sec,created_at, games(game_date, youtube_stream_id, opponents(name))')
+      .select('id,game_id,result,rbi,inning,half,yt_offset_sec,created_at, games(game_date, youtube_stream_id, season, opponents(name))')
       .eq('batter_id', playerId).neq('clip_status', 'none').not('yt_offset_sec', 'is', null)
       .order('created_at', { ascending: false })
     if (hit.error) throw hit.error
     var SKIP = { strikeout_looking:1, strikeout_swinging:1, double_play:1 }
-    var hitting = (hit.data || []).filter(function(ab){ return ab.games && ab.games.youtube_stream_id && !SKIP[ab.result] })
+    // a dry run scored with the real lineup must not put clips on a kid's public page
+    var notTest = function(ab){ return ab.games && ab.games.season !== '__test__' }
+    var hitting = (hit.data || []).filter(function(ab){ return ab.games && ab.games.youtube_stream_id && notTest(ab) && !SKIP[ab.result] })
     // Pitching clips — this player striking out the opponent (attributed via aces_pitcher_id)
     var pit = await db.from('at_bats')
-      .select('id,game_id,result,rbi,inning,half,yt_offset_sec,created_at, games(game_date, youtube_stream_id, opponents(name))')
+      .select('id,game_id,result,rbi,inning,half,yt_offset_sec,created_at, games(game_date, youtube_stream_id, season, opponents(name))')
       .eq('aces_pitcher_id', playerId).is('batter_id', null)
       .in('result', ['strikeout_looking','strikeout_swinging'])
       .neq('clip_status', 'none').not('yt_offset_sec', 'is', null)
       .order('created_at', { ascending: false })
     if (pit.error) throw pit.error
-    var pitching = (pit.data || []).filter(function(ab){ return ab.games && ab.games.youtube_stream_id })
+    var pitching = (pit.data || []).filter(function(ab){ return ab.games && ab.games.youtube_stream_id && notTest(ab) })
     pitching.forEach(function(ab){ ab._kind = 'pitching' })
     // Defensive clips — plays where this kid was tagged as one of the fielders
     var defense = []
     try {
       var dfr = await db.from('at_bats')
-        .select('id,game_id,result,fielder_ids,inning,half,yt_offset_sec,created_at, games(game_date, youtube_stream_id, opponents(name))')
+        .select('id,game_id,result,fielder_ids,inning,half,yt_offset_sec,created_at, games(game_date, youtube_stream_id, season, opponents(name))')
         .contains('fielder_ids', [playerId]).not('yt_offset_sec', 'is', null)
         .order('created_at', { ascending: false })
-      defense = (dfr.data || []).filter(function(ab){ return ab.games && ab.games.youtube_stream_id })
+      defense = (dfr.data || []).filter(function(ab){ return ab.games && ab.games.youtube_stream_id && notTest(ab) })
       defense.forEach(function(ab){ ab._kind = 'defense' })
     } catch(e) {}
     var clips = hitting.concat(pitching, defense).sort(function(a,b){ return (b.created_at||'').localeCompare(a.created_at||'') })

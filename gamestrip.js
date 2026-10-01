@@ -96,25 +96,27 @@
         setPolling(true);
         return;
       }
-      setPolling(false);
       var today = new Date(); var ymd = today.getFullYear() + '-' +
         String(today.getMonth() + 1).padStart(2, '0') + '-' + String(today.getDate()).padStart(2, '0');
       var next = await db.from('games')
         .select('id,game_date,game_time,location,opponents(name)')
         .eq('status', 'scheduled').neq('season', '__test__').gte('game_date', ymd)
         .order('game_date').order('game_time', { nullsFirst: false }).limit(1);
-      if (!next.data || !next.data.length) { render(''); return; }
+      if (!next.data || !next.data.length) { setPolling(false); render(''); return; }
       var n = next.data[0];
       var opp = (n.opponents && n.opponents.name) ? n.opponents.name : 'TBD';
       var when = dayLabel(n.game_date), time = fmtTime(n.game_time);
       var isToday = when === 'Today';
+      // keep checking on a game day, so an open page flips to LIVE on its own
+      setPolling(isToday);
+      var esc = function (t) { return String(t).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); };
       var maps = (isToday && n.location)
         ? '<a class="dva-maps" href="https://maps.google.com/?q=' + encodeURIComponent(n.location) +
           '" target="_blank" rel="noopener" onclick="event.stopPropagation()">📍 Directions</a>'
         : '';
       render('<a class="dva-strip" href="' + (isToday ? '/game.html' : '/#schedule') + '">' +
         '<b>' + (isToday ? 'Game today' : 'Next') + '</b>' +
-        '<span>' + (isToday ? '' : when + ' · ') + 'vs ' + opp + (time ? ' · ' + time : '') + '</span>' +
+        '<span>' + (isToday ? '' : when + ' · ') + 'vs ' + esc(opp) + (time ? ' · ' + esc(time) : '') + '</span>' +
         maps + '</a>');
     } catch (e) {}
   }

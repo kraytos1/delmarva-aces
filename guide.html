@@ -158,6 +158,8 @@ td:first-child{white-space:nowrap;}
       <li><b>Ball / Strike / Foul</b> are raw pitch taps. Ball four logs the walk by itself; strike three logs the K by itself. A foul with two strikes stays at two. One Undo removes the pitch <i>and</i> the outcome it triggered, together.</li>
       <li><b>Outcome buttons</b> (hits, outs, reach-on) end the at-bat and advance the order automatically. A same-button double-tap inside half a second is ignored — that's a phone bounce, not two plays.</li>
       <li><b>Baserunner events</b> (steal, WP/PB, balk, caught stealing, pickoffs, out advancing) live behind their own button. They never advance the batter or reset his count. Steals and caught-stealings ask <b>who ran</b> — that's how the kid gets SB credit.</li>
+      <li><b>It won't take a play that can't happen</b> <span class="pill new">Oct 2026</span>: a pickoff at an empty base, a steal or caught-stealing with nobody on, a double play or fielder's choice with the bases empty — the scorer says why and leaves the menu open. A sac fly with nobody on third (or a sac bunt with the bases empty, or either with two outs) is booked as the plain fly out / ground out it really is, so it costs the at-bat.</li>
+      <li><b>Three outs</b>: the scorer asks to end the half on the third out. If you cancel (say, to sort out a dropped third strike) it asks again as soon as that's settled, and it will not let you tap another pitch into a half that already has three outs without asking first.</li>
       <li><b>Velocity</b>: with the radar gun running (see <a class="pg" href="#radar">Radar gun</a>) the number fills itself — <b>📡</b> in the unit label means the gun set it, <b>📡 last</b> means it just attached to the pitch you already tapped. No gun? Nudge or tap it before the pitch. Either way it rides on that pitch's row and feeds the scorebug, bullpen and player pages.</li>
     </ul>
 
@@ -175,12 +177,16 @@ td:first-child{white-space:nowrap;}
       <li><b>⇄ HOME/AWAY</b> chip in the count bar if the sides were set wrong at lineup time.</li>
       <li><b>Skip batter</b> (the de-emphasised button) names exactly who it will skip and asks first. The order advances by itself after every at-bat — you almost never need this.</li>
       <li><b>Manual corrections</b> (score, count pips, outs, bases, inning) are all undoable, and Undo always names what it's about to take back.</li>
-      <li><b>Arm care</b>: your pitcher's live pitch count wears Pitch Smart tier colors and toasts at each rest threshold.</li>
+      <li><b>Arm care</b>: your pitcher's live pitch count wears Pitch Smart tier colors and toasts at each rest threshold. The tier is on his total for the <b>day</b> — if he threw in an earlier game today the line reads "PC 12 (+40 earlier today)".</li>
+      <li><b>Stream link</b>: if no stream is linked, an amber bar under the top row says so — tap it and it finds the channel's live broadcast (or lets you paste a link). Plays you scored before linking are re-timed to the video automatically. If the stream restarts mid-game, <b>🔗 change stream</b> under the video relinks it.</li>
     </ul>
 
     <h3>It's built to survive the field</h3>
     <ul>
       <li>Works offline — plays queue locally and sync when signal returns. The sync dot tells you which mode you're in.</li>
+      <li>It can <b>start</b> offline too: with no signal at first pitch, Start Scoring uses the copy of the game this device saved the last time the scorer was opened with a connection. Open the scorer once at home on game day and you're covered.</li>
+      <li>A request that stalls for 9 seconds is treated as offline and queued — a weak signal no longer leaves a tap hanging. Every tap repaints the screen immediately, before the network answers.</li>
+      <li><b>End game</b> syncs anything still queued first, and tells you if it couldn't mark the game Final (no signal) instead of leaving quietly.</li>
       <li>Screen wake lock while scoring; pull-to-refresh and accidental-close are guarded.</li>
       <li>The video panel collapses on phones (your choice is remembered); every spare pixel goes to the buttons.</li>
     </ul>
@@ -341,14 +347,15 @@ td:first-child{white-space:nowrap;}
       <li><b>Roster</b> — photo cards → full player pages: stats, badges, spray chart, highlight reel, shareable player card.</li>
       <li><b>Highlights / Rafters / Photos</b> — clip gallery and watch hub (with an <b>Angle</b> row on games that have extra cameras) · the ten championship banners with recaps · the team photo gallery (any family can add photos; deleting is coach-only).</li>
       <li><b>Live Game</b> — the gamecast. The strip under the nav on every page says live score / today's game / next game.</li>
+      <li><b>After the last out</b> the gamecast shows the finished game — final score, the play-by-play, the replay — for the rest of that day, and switches to the next game by itself when it starts (doubleheaders). If a phone misses a few plays in a dead spot, the feed rebuilds itself within about ten seconds.</li>
       <li><b>🔔 bell</b> — push notifications at first pitch and final. <b>Install as app</b> — the site prompts once; it runs full-screen like a native app.</li>
     </ul>
   </div>
 
   <!-- ═══════════ 8. HOW PLAYS COUNT ═══════════ -->
   <div class="sec" id="stats">
-    <h2><span class="n">09</span>How plays count <span class="pill new">audited Aug 2026</span></h2>
-    <div class="sec-d">The scoring engine was audited play-by-play against the rulebook (71 checks). The short version:</div>
+    <h2><span class="n">09</span>How plays count <span class="pill new">machine-tested Oct 2026</span></h2>
+    <div class="sec-d">The scoring engine is checked by a test rig that plays the real scorer and the real gamecast against a fake database: every outcome from every base/out situation for both teams (1,392 cases), 400 random pitch sequences, full simulated games with undos and pitching changes, a wifi-drops-and-returns drill, and 150 rapid taps over a slow connection — comparing the scorer, the saved plays and the gamecast after every tap. The short version of the rules:</div>
     <ul>
       <li><b>At-bats</b>: walks, HBP, sacrifices, and baserunner events are <i>not</i> ABs. Errors, fielder's choices, and dropped-third strikes are.</li>
       <li><b>Strikeouts</b>: dropped 3rd counts as a K — batter and pitcher — whether or not the kid reached.</li>

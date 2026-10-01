@@ -485,8 +485,14 @@ var oppPitches = 0    // the current opponent pitcher's pitches (pitcher_id is n
 var _curAcesPitcherId = null
 var _lastOppPitchChg = null
 function _notesObj(){ try { return liveGame && liveGame.notes ? JSON.parse(liveGame.notes) : {} } catch(e) { return {} } }
+var _pcSyncing = false, _pcDirty = false
 async function syncPitchCounts(){
   if (!liveGame || !db) return
+  // A pitch that arrives WHILE this recount is in flight gets counted twice
+  // (once in the recount, once by its own event) and the card sat one high
+  // until the next sync. Note it, and recount once more right after.
+  if (_pcSyncing) { _pcDirty = true; return }
+  _pcSyncing = true
   try {
     var n = _notesObj()
     var pid = n.aces_pitcher_id || null
@@ -503,6 +509,10 @@ async function syncPitchCounts(){
     acesPitches = r[0].count || 0; oppPitches = r[1].count || 0; totalPitches = r[2].count || 0
     setText('p-count', pcForHalf()); updateFeedCounts()
   } catch(e) {}
+  finally {
+    _pcSyncing = false
+    if (_pcDirty) { _pcDirty = false; setTimeout(syncPitchCounts, 150) }
+  }
 }
 // A notes change that swapped a pitcher means the card's count belongs to
 // someone else now — resync (cheap: three HEAD counts).
@@ -574,7 +584,10 @@ async function init() {
   if (DEMO) { setBadge('live', 'DEMO · animation preview'); return }
   if (ACES_CONFIG.supabaseUrl && ACES_CONFIG.supabaseKey) {
     db = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
-    await loadLiveGame()
+    // hold the poll off until the first load is done — on a slow connection
+    // both used to run loadLiveGame and every feed row was drawn twice
+    _pollBusy = true
+    try { await loadLiveGame() } finally { _pollBusy = false }
   }
   checkYouTubeLive()
   var ytInterval = setInterval(function(){
@@ -596,24 +609,46 @@ async function init() {
 // ONCE per page load, and whoever finds the stream writes the id BACK to the
 // game row so every other viewer takes the free path.
 var _ytSearched = false
+function localYmd(d){
+  d = d || new Date()
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')
+}
 async function checkYouTubeLive() {
+  var isFinal = !!(liveGame && liveGame.status === 'final')
   if (liveGame && liveGame.youtube_stream_id) {
-    showStream(liveGame.youtube_stream_id); return
+    showStream(liveGame.youtube_stream_id, isFinal); return
   }
+  if (isFinal) return   // a finished game with no video linked: nothing to look for
+  // haveReason: is there a real game that could be on the air right now?
+  var testLive = false, haveReason = !!liveGame
   try {
     if (db) {
+      var lq = await db.from('games').select('id,youtube_stream_id,season').eq('status','live').limit(4)
+      var rows = lq.data || []
+      testLive = rows.some(function(r){ return r.season === '__test__' })
       // same test-game gate as loadLiveGame — a dry run's stream must not
       // embed itself over the family pregame screen with a "Live now" badge
-      var lq = db.from('games').select('id,youtube_stream_id').eq('status','live')
-      if (!SHOW_TEST) lq = lq.neq('season','__test__')
-      var {data:lg} = await lq.limit(1).maybeSingle()
+      var lg = rows.filter(function(r){ return SHOW_TEST || r.season !== '__test__' })[0]
+      if (lg) haveReason = true
       if (lg && lg.youtube_stream_id) {
         if (liveGame && liveGame.id === lg.id) liveGame.youtube_stream_id = lg.youtube_stream_id
         showStream(lg.youtube_stream_id); return
       }
+      if (!haveReason) {
+        var sq = await db.from('games').select('id').eq('status','scheduled').neq('season','__test__').eq('game_date', localYmd()).limit(1)
+        haveReason = !!(sq.data && sq.data.length)
+      }
     }
   } catch(e) {}
   if (_ytSearched) return   // the 2-min retries ride the free DB path only
+  // The search costs 100 of the day's 10,000 quota units PER PAGE LOAD. Only
+  // spend it when a real game is live or on today's schedule — it used to run
+  // on off days and for a whole day after a final with no video, and ~100
+  // loads empties the card (which then breaks clip timing in the scorer).
+  if (!haveReason) { setBadge('pre', 'No game right now'); return }   // was stuck on "Checking stream" all day
+  // A rehearsal is on the air: whatever is live on the channel is the dry
+  // run, and it must not reach families through this fallback.
+  if (testLive && !SHOW_TEST) return
   if (YT_API_KEY && YT_API_KEY !== 'YOUR_YT_API_KEY') {
     _ytSearched = true
     try {
@@ -623,17 +658,15 @@ async function checkYouTubeLive() {
       if (data.items && data.items.length > 0) {
         var vid = data.items[0].id.videoId
         showStream(vid)
-        // first-viewer-pays: persist so nobody else needs the expensive ask
+        // first-viewer-pays: persist so nobody else needs the expensive ask —
+        // but ONLY onto the game that is live right now, and only if it has
+        // no id yet. This used to fall back to "a scheduled game today" (by
+        // UTC date, in no order) or to a FINISHED game still on screen, and
+        // stamped tonight's stream onto the wrong game: every clip of that
+        // game then played random moments of another game's video.
         try {
-          if (db) {
-            var targetId = (liveGame && liveGame.id) || null
-            if (!targetId) {
-              var today = new Date().toISOString().split('T')[0]
-              var {data:ng} = await db.from('games').select('id')
-                .eq('status','scheduled').eq('game_date',today).limit(1).maybeSingle()
-              if (ng) targetId = ng.id
-            }
-            if (targetId) await db.from('games').update({youtube_stream_id: vid}).eq('id', targetId)
+          if (db && liveGame && liveGame.id && liveGame.status !== 'final') {
+            await db.from('games').update({youtube_stream_id: vid}).eq('id', liveGame.id).eq('status','live').is('youtube_stream_id', null)
           }
         } catch(e2) {}
       }
@@ -641,18 +674,20 @@ async function checkYouTubeLive() {
   }
 }
 
-function showStream(videoId) {
+function showStream(videoId, isFinal) {
   if (document.getElementById('yt-iframe')) return
+  if (!/^[A-Za-z0-9_-]{11}$/.test(String(videoId||''))) return   // never embed a junk id
   var wrap = document.getElementById('video-wrap')
   var offline = document.getElementById('video-offline')
   var iframe = document.createElement('iframe')
   iframe.id = 'yt-iframe'
-  iframe.src = 'https://www.youtube.com/embed/'+videoId+'?autoplay=1'
+  // a finished game: the replay is there to tap, not to blare on page load
+  iframe.src = 'https://www.youtube.com/embed/'+videoId+(isFinal ? '?rel=0' : '?autoplay=1')
   iframe.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture'
   iframe.allowFullscreen = true
   wrap.appendChild(iframe)
   offline.style.display = 'none'
-  setBadge('live', 'Live now')
+  if (!isFinal) setBadge('live', 'Live now')   // never over a "Final" badge
 }
 
 async function loadLiveGame() {
@@ -666,9 +701,9 @@ async function loadLiveGame() {
       // feed, scoreboard) instead of the countdown to the next one — a family
       // opening the page after the last out used to get "pregame" and no score.
       try {
-        var d0 = new Date(); d0.setDate(d0.getDate()-1)
-        var since = d0.getFullYear()+'-'+String(d0.getMonth()+1).padStart(2,'0')+'-'+String(d0.getDate()).padStart(2,'0')
-        var fq = db.from('games').select('*,opponents(name)').eq('status','final').gte('game_date', since)
+        // TODAY's final only. Including yesterday meant Saturday's result owned
+        // the page all Sunday morning — no countdown, no next-game card.
+        var fq = db.from('games').select('*,opponents(name)').eq('status','final').eq('game_date', localYmd())
         if (!SHOW_TEST) fq = fq.neq('season','__test__')
         var {data:fg} = await fq.order('game_date',{ascending:false}).order('stream_start_utc',{ascending:false}).limit(1)
         if (fg && fg.length) {
@@ -708,32 +743,7 @@ async function loadLiveGame() {
       try { await refreshCurrentBatter() } catch(e) {}
     }
 
-    // Replay pitches + at-bats as ONE chronological timeline through the same
-    // addPitch/addPlay path the live feed uses (pitches have no at_bat_id, so
-    // grouping is by order: a result row closes whatever pitches preceded it).
-    try {
-      var {data:pitches} = await db.from('pitches').select('*')
-        .eq('game_id', game.id).order('created_at',{ascending:false}).limit(150)
-      var {data:plays} = await db.from('at_bats').select('*')
-        .eq('game_id', game.id).order('created_at',{ascending:false}).limit(30)
-      var tl = []
-      ;(pitches||[]).forEach(function(p){ tl.push({t:p.created_at, k:'p', d:p}) })
-      ;(plays||[]).forEach(function(a){ tl.push({t:a.created_at, k:'a', d:a}) })
-      tl.sort(function(a,b){ return new Date(a.t) - new Date(b.t) })
-      try { await loadGcRoster() } catch(e) {}   // names/photos for the replay
-      var lastH = null
-      tl.forEach(function(e){
-        if (e.k === 'p') { addPitch(e.d,false); return }
-        if (lastH && e.d.half !== lastH) { bases=[false,false,false]; runners=[null,null,null] }
-        lastH = e.d.half
-        addPlay(e.d,false)
-        try { applyViewerBases(e.d.result, abBatterInfo(e.d), e.d.runner_id) } catch(err) {}
-      })
-      // the replay's base model is inference — the games row stays authoritative
-      // (same forward-slide rule as the live path, so a corrected runner keeps
-      // his face after a reload too)
-      applyAuthoritativeBases([!!game.base_1b, !!game.base_2b, !!game.base_3b])
-    } catch(e) {}
+    try { await replayFeed() } catch(e) {}
 
     // Win-probability history: pull every at-bat (light columns) for the curve
     try {
@@ -745,10 +755,81 @@ async function loadLiveGame() {
     try { updateWP() } catch(e) {}
 
     try { await syncPitchCounts() } catch(e) {}
-    if (isFinal) { setBadge('pre', 'Final'); return }   // nothing more will change
+    if (isFinal) { showFinal(); return }   // nothing more will change (the poll watches for the next game)
     subscribeToGame(game.id)
     setBadge('live', 'Live · scoring')
   } catch(e) { await loadNextGame() }
+}
+
+// ── FEED (re)build ──
+// Pitches + at-bats as ONE chronological timeline through the same
+// addPitch/addPlay path the live feed uses (pitches have no at_bat_id, so
+// grouping is by order: a result row closes whatever pitches preceded it).
+// Used on load AND whenever the feed can no longer be trusted: a row the
+// websocket never delivered, an undone play, a play the scorer corrected.
+var _replaying = false, _replayT = null, _abSeen = {}
+function scheduleReplay(){
+  clearTimeout(_replayT)
+  _replayT = setTimeout(function(){ replayFeed().catch(function(){}) }, 600)
+}
+function closeLiveAb(){
+  if (!curAB) return
+  try { curAB.el.remove() } catch(e) {}   // an at-bat that never finished (the half ended on the bases)
+  curAB = null
+}
+var _feedSeq = 0   // bumped by every realtime insert/delete — lets a rebuild notice it raced one
+async function replayFeed(){
+  if (!liveGame || !db) return
+  var gid = liveGame.id, seq0 = _feedSeq
+  var pr = await db.from('pitches').select('*').eq('game_id', gid).order('created_at',{ascending:false}).limit(150)
+  // one extra at-bat: its timestamp is the cut line for pitches, so chips from
+  // an at-bat we are NOT showing can't pile onto the oldest one we are
+  var ar = await db.from('at_bats').select('*').eq('game_id', gid).order('created_at',{ascending:false}).limit(31)
+  if (!liveGame || liveGame.id !== gid) return
+  try { await loadGcRoster() } catch(e) {}   // names/photos for the replay
+  var plays = (ar.data||[]), cutoff = plays.length > 30 ? plays[30].created_at : null
+  plays = plays.slice(0, 30)
+  var tl = []
+  ;(pr.data||[]).forEach(function(p){ if (!cutoff || p.created_at > cutoff) tl.push({t:p.created_at, k:'p', d:p}) })
+  plays.forEach(function(a){ tl.push({t:a.created_at, k:'a', d:a}) })
+  tl.sort(function(a,b){ return new Date(a.t) - new Date(b.t) })
+  var feed = document.getElementById('play-log')
+  _replaying = true
+  try {
+    feed.innerHTML = ''; curAB = null; _abSeen = {}
+    bases = [false,false,false]; runners = [null,null,null]
+    var lastH = null, lastPitch = null
+    tl.forEach(function(e){
+      if (e.k === 'p') {
+        // a runner made the third out mid-at-bat: those chips belong to the half that ended
+        if (lastPitch && curAB && (lastPitch.inning !== e.d.inning || lastPitch.half !== e.d.half)) closeLiveAb()
+        lastPitch = e.d
+        addPitch(e.d,false); return
+      }
+      if (lastH && e.d.half !== lastH) { bases=[false,false,false]; runners=[null,null,null] }
+      lastH = e.d.half
+      addPlay(e.d,false)
+      try { applyViewerBases(e.d.result, abBatterInfo(e.d), e.d.runner_id) } catch(err) {}
+    })
+    // an open at-bat card from a half that is already over
+    if (curAB && lastPitch && liveGame.half && (lastPitch.half !== liveGame.half || lastPitch.inning !== liveGame.inning)) closeLiveAb()
+  } finally { _replaying = false }
+  // the replay's base model is inference — the games row stays authoritative
+  // (same forward-slide rule as the live path, so a corrected runner keeps
+  // his face after a reload too)
+  applyAuthoritativeBases([!!liveGame.base_1b, !!liveGame.base_2b, !!liveGame.base_3b])
+  try { await syncPitchCounts() } catch(e) {}
+  updateFeedCounts()
+  // A row landed (or was undone) between the fetch above and the redraw: the
+  // feed just drawn is already a beat stale — e.g. it dropped a pitch that
+  // arrived mid-rebuild. Go again, shortly.
+  if (_feedSeq !== seq0) scheduleReplay()
+}
+function showFinal(){
+  setBadge('pre', 'Final')
+  setText('inn-half', 'Final')
+  ;['b1','b2','b3','s1','s2','o1','o2'].forEach(function(id){ pip(id, false, '') })
+  closeLiveAb()
 }
 
 function loadLineupIntoCards(lineup, game) {
@@ -836,13 +917,18 @@ async function refreshCurrentBatter() {
 
 async function loadNextGame() {
   try {
-    var today = new Date().toISOString().split('T')[0]
+    // LOCAL date: toISOString() is UTC, so after 8pm Eastern "today" was
+    // already tomorrow and tonight's game dropped off the pregame card.
+    var today = localYmd()
     var {data} = await db.from('games').select('*,opponents(name)')
-      .eq('status','scheduled').neq('season','__test__').gte('game_date',today).order('game_date').limit(1)
+      .eq('status','scheduled').neq('season','__test__').gte('game_date',today)
+      .order('game_date').order('game_time',{nullsFirst:false}).limit(1)
     if (!data || !data.length) return
     var g = data[0]
     var opp = g.opponents?.name || 'TBD'
-    document.getElementById('ng-teams').innerHTML = 'Delmarva Aces <span>vs</span> '+opp
+    var ngt = document.getElementById('ng-teams')
+    ngt.innerHTML = 'Delmarva Aces <span>vs</span> '
+    ngt.appendChild(document.createTextNode(opp))   // the opponent name is typed by hand — never as HTML
     var d = new Date(g.game_date)
     document.getElementById('ng-meta').textContent =
       d.toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',timeZone:'UTC'})+
@@ -861,33 +947,43 @@ function subscribeToGame(gameId) {
         // the 10s reconcile can land a row before its realtime event arrives —
         // never draw the same pitch twice
         if (p.new && p.new.id && document.querySelector('#play-log [data-pid="'+p.new.id+'"]')) return
+        _feedSeq++
         addPitch(p.new,true)
+      })
+    // a radar reading that lands after the tap arrives as an UPDATE on the pitch
+    .on('postgres_changes',{event:'UPDATE',schema:'public',table:'pitches',filter:'game_id=eq.'+gameId},
+      function(p){
+        var c = p.new && p.new.id && document.querySelector('#play-log [data-pid="'+p.new.id+'"]')
+        if (!c || !p.new.velocity_mph) return
+        var r = (p.new.result||'').toLowerCase()
+        var suffix = /strike[_ ]called/.test(r)?'✓' : /strike[_ ]swinging/.test(r)?'✗' : ''
+        c.textContent = p.new.velocity_mph + suffix
+        c.title = r.replace(/_/g,' ') + ' · ' + p.new.velocity_mph + ' mph'
+        var ov = document.getElementById('ov-velo'); if (ov) ov.textContent = p.new.velocity_mph+' MPH'
       })
     .subscribe()
 
   db.channel('game:'+gameId)
     .on('postgres_changes',{event:'UPDATE',schema:'public',table:'games',filter:'id=eq.'+gameId},
-      async function(p) {
-        // Re-fetch full game data from view to get team_name, opponent_name etc
-        try {
-          var {data} = await db.from('live_game_summary').select('*').eq('id', gameId).single()
-          // The view is status='live' only: the moment the coach taps Final it
-          // returns NO row, so keep what we already know (team/opponent names)
-          // under the fresh raw row instead of falling back to a bare row that
-          // would rename the opponent to "Opponent" right as the final shows.
-          var merged = Object.assign({}, liveGame || {}, data || {}, p.new)
-          window._lastGameNotes = p.new.notes
-          liveGame = merged
-          updateScoreboard(merged)
-          if (merged.status === 'final') setBadge('pre', 'Final')
-          // Always re-derive the batter card — a half flip often arrives with
-          // byte-identical notes (pointer unchanged), and gating on
-          // notesChanged left the card showing the other team's hitter.
-          refreshCurrentBatter()
-          maybeResyncPitchers()
-        } catch(e) {
-          updateScoreboard(Object.assign({}, liveGame || {}, p.new))
-        }
+      function(p) {
+        // No re-fetch. The payload IS the row, and the names it lacks are
+        // already on liveGame. Awaiting the view here let two quick updates
+        // (every walk and strikeout sends two) resolve out of order and paint
+        // the OLDER one last — pre-play bases and batter until the next poll.
+        _gSeq++
+        var nw = Object.assign({}, p.new)
+        // a large unchanged text column can arrive empty in the change feed —
+        // never let that blank the lineup we already hold
+        if (nw.notes == null) delete nw.notes
+        var merged = Object.assign({}, liveGame || {}, nw)
+        window._lastGameNotes = merged.notes
+        liveGame = merged
+        updateScoreboard(merged)
+        // Always re-derive the batter card — a half flip often arrives with
+        // byte-identical notes (pointer unchanged), and gating on
+        // notesChanged left the card showing the other team's hitter.
+        refreshCurrentBatter()
+        maybeResyncPitchers()
       })
     .subscribe()
 
@@ -896,40 +992,62 @@ function subscribeToGame(gameId) {
       function(p){
         // same guard: the reconcile may already have drawn (and closed) this at-bat
         if (p.new && p.new.id && document.querySelector('#play-log [data-abid="'+p.new.id+'"]')) return
+        _feedSeq++
         addPlay(p.new,true)
         applyViewerBases(p.new.result, abBatterInfo(p.new), p.new.runner_id)
         updateBatterCard(p.new)
         setText('p-count', pcForHalf())
         try { (window._wpAtBats = window._wpAtBats || []).push(p.new); updateWP() } catch(e) {}
       })
-    // spray tap lands seconds AFTER the play as an UPDATE (hit_x/hit_y) — that's
-    // what triggers the ball-flight animation; fxSpray de-dupes by at-bat id.
     .on('postgres_changes',{event:'UPDATE',schema:'public',table:'at_bats',filter:'game_id=eq.'+gameId},
       function(p){
-        if (p.new && p.new.hit_x != null && window.fxSpray) try { fxSpray(p.new) } catch(e) {}
+        if (!p.new) return
+        // The scorer corrected the play itself (a dropped-third conversion, a
+        // base-check fix): redraw, or the feed keeps saying "strikeout" and
+        // "1 run scored" for a play that is no longer either.
+        var seen = _abSeen[p.new.id]
+        if (seen && (seen.r !== p.new.result || seen.runs !== (p.new.runs_scored||0) || seen.rbi !== (p.new.rbi||0))) {
+          try { window._wpAtBats = (window._wpAtBats||[]).map(function(a){ return a.id === p.new.id ? p.new : a }); updateWP() } catch(e) {}
+          scheduleReplay(); return
+        }
+        // spray tap lands seconds AFTER the play (hit_x/hit_y) — that's what
+        // triggers the ball-flight animation. Only for a play that JUST
+        // happened: a later patch to an old row (a fielder tag) used to
+        // replay its animation on any page opened after the play.
+        if (p.new.hit_x != null && window.fxSpray && (!p.new.created_at || Date.now() - new Date(p.new.created_at) < 120000)) try { fxSpray(p.new) } catch(e) {}
       })
     .subscribe()
 
   // Undo in the scorer DELETEs rows — pull them from the feed so viewers don't
-  // keep a ghost play. No game_id filter: DELETE events only carry the PK.
+  // keep a ghost play. No game_id filter is possible (DELETE events carry only
+  // the PK), so a row we never drew belongs to some other game: ignore it.
   db.channel('del:'+gameId)
     .on('postgres_changes',{event:'DELETE',schema:'public',table:'at_bats'},
       function(p){
         var el = document.querySelector('#play-log [data-abid="'+p.old.id+'"]')
-        if (el){ el.remove(); updateFeedCounts() }
+        if (!el) return
+        _feedSeq++
+        el.remove(); updateFeedCounts()
         // the win-probability curve must forget the undone play too
         try { window._wpAtBats = (window._wpAtBats||[]).filter(function(a){ return a.id !== p.old.id }); updateWP() } catch(e) {}
         // The runner identities inferred from the undone play are now wrong
         // (e.g. the batter's face on 1st while he's back at the plate). The
         // undo's pushState brings the true occupancy; show plain dots until then.
         runners = [null,null,null]; try { renderBases() } catch(e) {}
+        // …and rebuild: removing the card took that at-bat's earlier ball/strike
+        // chips with it, and those pitches still exist (he's back at the plate).
+        scheduleReplay()
       })
     .on('postgres_changes',{event:'DELETE',schema:'public',table:'pitches'},
       function(p){
         var c = document.querySelector('#play-log [data-pid="'+p.old.id+'"]')
-        if (c){ totalPitches = Math.max(0, totalPitches-1); c.remove(); updateFeedCounts() }
-        // the DELETE payload carries only the id — recount so the pitcher's
-        // card doesn't keep the undone pitch for the rest of the game
+        _feedSeq++
+        if (c) { totalPitches = Math.max(0, totalPitches-1); c.remove(); updateFeedCounts() }
+        // The DELETE payload carries only the id — recount so the pitcher's
+        // card doesn't keep the undone pitch for the rest of the game. Recount
+        // even when the chip isn't on the page: a pitch that arrived while the
+        // feed was mid-rebuild has no chip yet but IS in the count. (A delete
+        // from some other game costs three empty HEAD requests — fine.)
         syncPitchCounts()
       })
     .subscribe()
@@ -947,7 +1065,7 @@ function subscribeToGame(gameId) {
 var _lastEventTs = null
 function _bumpTs(t){ if (t && (!_lastEventTs || t > _lastEventTs)) _lastEventTs = t }
 
-var _pollBusy = false, _pollN = 0
+var _pollBusy = false, _pollN = 0, _gSeq = 0
 async function pollReconcile(){
   if (window.DEMO || !db || _pollBusy) return
   _pollBusy = true
@@ -957,31 +1075,31 @@ async function pollReconcile(){
       try { await loadLiveGame() } catch(e) {}
       return
     }
-    // 1) catch up feed rows realtime may have dropped (no fx — this is repair)
-    if (_lastEventTs) {
-      var {data:np} = await db.from('pitches').select('*').eq('game_id', liveGame.id)
-        .gt('created_at', _lastEventTs).order('created_at',{ascending:true}).limit(60)
-      var {data:na} = await db.from('at_bats').select('*').eq('game_id', liveGame.id)
-        .gt('created_at', _lastEventTs).order('created_at',{ascending:true}).limit(30)
-      var tl = []
-      ;(np||[]).forEach(function(p){ tl.push({t:p.created_at, k:'p', d:p}) })
-      ;(na||[]).forEach(function(a){ tl.push({t:a.created_at, k:'a', d:a}) })
-      tl.sort(function(a,b){ return new Date(a.t) - new Date(b.t) })
-      tl.forEach(function(e){
-        if (e.k === 'p') {
-          if (e.d.id && document.querySelector('#play-log [data-pid="'+e.d.id+'"]')) return
-          addPitch(e.d, false)
-        } else {
-          if (e.d.id && document.querySelector('#play-log [data-abid="'+e.d.id+'"]')) return
-          addPlay(e.d, false)
-          try { applyViewerBases(e.d.result, abBatterInfo(e.d), e.d.runner_id) } catch(err) {}
-          try { (window._wpAtBats = window._wpAtBats || []).push(e.d) } catch(err) {}
-        }
-      })
+    _pollN++
+    if (liveGame.status === 'final') {
+      // A finished game owns the page only until the next one starts. Without
+      // this the page sat on game one's final for all of game two.
+      if (_pollN % 3 === 0) {
+        var nx = await db.from('games').select('id,season').eq('status','live').neq('id', liveGame.id).limit(4)
+        if ((nx.data||[]).some(function(r){ return SHOW_TEST || r.season !== '__test__' })) location.reload()
+      }
+      return
     }
+    // 1) feed repair. The newest rows must all be on the page; if any is not
+    // (a websocket gap — Supabase does not replay what it missed) rebuild the
+    // feed. The old "rows newer than the last one I saw" cursor started empty
+    // and jumped ahead with the first row to arrive AFTER a gap, so the plays
+    // in the gap were never fetched.
+    var np = await db.from('pitches').select('id').eq('game_id', liveGame.id).order('created_at',{ascending:false}).limit(25)
+    var na = await db.from('at_bats').select('id').eq('game_id', liveGame.id).order('created_at',{ascending:false}).limit(12)
+    var miss = (np.data||[]).some(function(r){ return !document.querySelector('#play-log [data-pid="'+r.id+'"]') }) ||
+               (na.data||[]).some(function(r){ return !document.querySelector('#play-log [data-abid="'+r.id+'"]') })
+    if (miss) await replayFeed()
     // 2) re-sync the game row — authoritative for score/half/bases/pointer
+    var seq = _gSeq
     var {data:g2} = await db.from('live_game_summary').select('*').eq('id', liveGame.id).single()
     var {data:raw} = await db.from('games').select('base_1b,base_2b,base_3b,is_home,notes').eq('id', liveGame.id).single()
+    if (seq !== _gSeq) return   // realtime delivered something newer while we were asking — don't repaint the older row over it
     if (g2 && raw) {
       g2.base_1b = raw.base_1b; g2.base_2b = raw.base_2b; g2.base_3b = raw.base_3b
       g2.is_home = raw.is_home; g2.notes = raw.notes
@@ -990,8 +1108,8 @@ async function pollReconcile(){
       updateScoreboard(g2)
       refreshCurrentBatter()   // unconditional — see the realtime handler note
       maybeResyncPitchers()
-      if (++_pollN % 6 === 0) syncPitchCounts()   // ~once a minute: absorb anything realtime dropped
-    } else if (!g2 && liveGame.status !== 'final') {
+      if (_pollN % 6 === 0) syncPitchCounts()   // ~once a minute: absorb anything realtime dropped
+    } else if (!g2) {
       // The view is live-only, so it goes silent the moment the coach taps
       // Final — the realtime UPDATE carries that, but a backgrounded phone
       // that missed it would sit on "Live · scoring" forever.
@@ -999,7 +1117,6 @@ async function pollReconcile(){
       if (fin && fin.status === 'final') {
         liveGame = Object.assign({}, liveGame, fin)
         updateScoreboard(liveGame)
-        setBadge('pre', 'Final')
       }
     }
   } catch(e) {} finally { _pollBusy = false }
@@ -1043,7 +1160,15 @@ function updateScoreboard(game) {
   ovPip('ov-o1','ov-o2',null,o,'#666')
 
   // Half flip = bases cleared for real, so the identity model resets too
-  if (game.half && window._lastHalfSeen && game.half !== window._lastHalfSeen) runners = [null,null,null]
+  if (game.half && window._lastHalfSeen && game.half !== window._lastHalfSeen) {
+    runners = [null,null,null]
+    // A runner made the third out with a count on the batter: that at-bat
+    // never gets a result row, so its card stayed open and the next half's
+    // first hitter inherited the chips.
+    closeLiveAb()
+    var _ov = document.getElementById('ov-velo'); if (_ov) _ov.textContent = ''   // last reading belongs to the other pitcher
+    var _ot = document.getElementById('ov-type'); if (_ot) _ot.textContent = ''
+  }
   if (game.half) window._lastHalfSeen = game.half
 
   // Sync bases from game record — the booleans are authoritative. Runners only
@@ -1072,6 +1197,7 @@ function updateScoreboard(game) {
   }
   try { updateFieldScore() } catch(e) {}
   try { updateWP() } catch(e) {}
+  if (game.status === 'final') showFinal()   // after the paint above, so "Final" replaces "▼ Bot Inning" and the count
 }
 
 function updateFieldOverlays(lineup, acesBat) {
@@ -1229,12 +1355,17 @@ function feedEmptyClear(feed) {
 }
 
 function addPitch(pitch, isNew) {
-  totalPitches++
   _bumpTs(pitch.created_at)
-  if(pitch.pitcher_id){ if(!_curAcesPitcherId || pitch.pitcher_id===_curAcesPitcherId) acesPitches++ }
-  else oppPitches++
-  setText('p-count', pcForHalf())
-  updateFeedCounts()
+  // During a feed rebuild the counters are left alone (the replay only holds
+  // the newest 150 pitches); syncPitchCounts() sets them from the database.
+  if (!_replaying) {
+    if (_pcSyncing) _pcDirty = true   // see syncPitchCounts
+    totalPitches++
+    if(pitch.pitcher_id){ if(!_curAcesPitcherId || pitch.pitcher_id===_curAcesPitcherId) acesPitches++ }
+    else oppPitches++
+    setText('p-count', pcForHalf())
+    updateFeedCounts()
+  }
 
   if (pitch.velocity_mph) {
     document.getElementById('ov-velo').textContent = pitch.velocity_mph+' MPH'
@@ -1308,13 +1439,21 @@ function addPlay(ab, isNew) {
     else feed.insertBefore(item, feed.firstChild)
   }
 
-  if (ab.id != null) item.dataset.abid = ab.id   // lets an undo (DELETE) pull the row
+  if (ab.id != null) {
+    item.dataset.abid = ab.id   // lets an undo (DELETE) pull the row
+    _abSeen[ab.id] = { r: ab.result, runs: ab.runs_scored||0, rbi: ab.rbi||0 }   // so a later correction is noticed
+  }
 
   // avatar: headshot > jersey number > drop the circle (opponent rows)
   var av = item.querySelector('.pb-avatar')
   if (av) {
     if (info && info.photo) {
-      av.innerHTML = '<img src="'+info.photo+'" alt="" onerror="this.onerror=null;this.parentNode.textContent=\''+(info.num!=null?'#'+info.num:'')+'\'">'
+      // built as nodes: the URL and number come from the database, never as markup
+      av.textContent = ''
+      var _im = document.createElement('img'); _im.alt = ''; _im.src = info.photo
+      var _fb = info.num != null ? '#'+info.num : ''
+      _im.onerror = function(){ this.onerror = null; if (this.parentNode) this.parentNode.textContent = _fb }
+      av.appendChild(_im)
     } else if (info && info.num != null) {
       av.textContent = '#'+info.num
     } else {
@@ -1432,7 +1571,8 @@ function setBadge(type, txt) {
 function updateCountdown() {
   if (!window._nextGame) return
   var diff = new Date(window._nextGame) - new Date()
-  if (diff<=0) return
+  // game time has passed and nobody is scoring yet: say so, not "-- -- --"
+  if (diff<=0) { setText('cd-d','00'); setText('cd-h','00'); setText('cd-m','00'); return }
   var d=Math.floor(diff/86400000),h=Math.floor((diff%86400000)/3600000),m=Math.floor((diff%3600000)/60000)
   setText('cd-d',String(d).padStart(2,'0'))
   setText('cd-h',String(h).padStart(2,'0'))

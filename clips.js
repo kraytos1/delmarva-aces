@@ -73,7 +73,10 @@
   // Button row for a card. Empty string when the game has no extra cameras,
   // so a game without uploads renders exactly as before.
   window.angleRow = function (angles, broadcastId) {
-    if (!angles || !angles.length || !broadcastId) return '';
+    // an angle that hasn't been synced yet (offset still 0) would play the
+    // wrong moment on every family clip — it appears once Coach HQ saves a sync
+    angles = (angles || []).filter(function (a) { return a && a.youtube_id && Number(a.delta_sec); });
+    if (!angles.length || !broadcastId) return '';
     angleStyle();
     return '<div class="angle-row"><span class="angle-lbl">Angle</span>' +
       '<button type="button" class="angle-btn on" data-vid="' + esc(broadcastId) + '" data-delta="0" onclick="pickAngle(this)">Broadcast</button>' +
@@ -93,6 +96,8 @@
     // remember the broadcast window once (first switch happens from delta 0)
     if (el.dataset.bcStart == null) { el.dataset.bcStart = cur.start + curDelta; el.dataset.bcEnd = isFinite(cur.end) ? cur.end + curDelta : ''; }
     var bcStart = parseFloat(el.dataset.bcStart), bcEnd = el.dataset.bcEnd === '' ? Infinity : parseFloat(el.dataset.bcEnd);
+    // that camera wasn't rolling yet at this moment — stay on the current angle
+    if (isFinite(bcEnd) && bcEnd - nd < 2) { btn.disabled = true; btn.title = 'This camera started after this play'; btn.style.opacity = '.4'; return; }
     var ns = Math.max(0, bcStart - nd), ne = isFinite(bcEnd) ? Math.max(ns + 1, bcEnd - nd) : Infinity;
     el.setAttribute('data-embed', 'https://www.youtube.com/embed/' + vid + '?start=' + Math.round(ns) +
       (isFinite(ne) ? '&end=' + Math.round(ne) : '') + '&rel=0&modestbranding=1');
@@ -102,6 +107,8 @@
       // mid-play: keep the moment — same wall-clock instant on the other camera
       var t = 0; try { t = el._player.getCurrentTime() || 0; } catch (e) {}
       var nt = Math.max(0, t - (nd - curDelta));
+      // the clip had already finished: show the other angle from the top, not its last frame
+      if (isFinite(ne) && nt >= ne - 1) nt = ns;
       el._info.id = vid; el._info.start = ns; el._info.end = ne;
       var rb = el.querySelector('.clip-replay'); if (rb) rb.remove();
       try {
@@ -110,6 +117,10 @@
         el._player.loadVideoById(opts);
         if (el._arm) el._arm();
       } catch (e) {}
+    } else if (el._info && !el._player) {
+      // tapped play, then an angle before the player finished loading: the
+      // player is about to start on the OLD video — point it at the new one
+      el._info.id = vid; el._info.start = ns; el._info.end = ne; el._pendingAngle = true;
     } else {
       var img = el.querySelector('img'); if (img) img.src = ytThumb(vid);
     }
@@ -129,12 +140,13 @@
     var s = document.createElement('script');
     s.src = 'https://www.youtube.com/iframe_api';
     s.onerror = function () {            // blocked or offline — plain iframe still plays
+      apiRequested = false;              // let the NEXT click try again (it used to queue forever and do nothing)
       queue.splice(0).forEach(function (f) { try { f(true); } catch (e) {} });
     };
     document.head.appendChild(s);
     // don't hang forever if the API never arrives
     setTimeout(function () {
-      if (!apiReady) queue.splice(0).forEach(function (f) { try { f(true); } catch (e) {} });
+      if (!apiReady) { apiRequested = false; queue.splice(0).forEach(function (f) { try { f(true); } catch (e) {} }); }
     }, 6000);
   }
 
@@ -200,7 +212,14 @@
         videoId: info.id,
         playerVars: pv,
         events: {
-          onReady: function (e) { el._player = player; try { e.target.playVideo(); } catch (err) {} arm(); },
+          onReady: function (e) {
+            el._player = player;
+            if (el._pendingAngle) {   // an angle was picked while this was loading
+              el._pendingAngle = false;
+              try { var o = { videoId: info.id, startSeconds: info.start }; if (isFinite(info.end)) o.endSeconds = info.end; player.loadVideoById(o); } catch (err) {}
+            } else { try { e.target.playVideo(); } catch (err) {} }
+            arm();
+          },
           onStateChange: function (e) {
             if (e.data === YT.PlayerState.PLAYING) arm();
             if (e.data === YT.PlayerState.ENDED) stop();

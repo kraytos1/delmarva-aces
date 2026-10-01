@@ -200,7 +200,14 @@ async function generate(){
     });
 
     // 4. YouTube requires the list to start at 0:00.
-    if(!merged.length || merged[0].t > 0) merged.unshift({t:0, title:'Pregame'});
+    // …and every chapter to be at least 10s long: a first play at 0:04 can't
+    // follow a 0:00 "Pregame" (YouTube silently drops the WHOLE list), so a
+    // first chapter that early simply becomes the 0:00 one.
+    if(!merged.length) merged.unshift({t:0, title:'Pregame'});
+    else if(merged[0].t > 0){
+      if(merged[0].t < MIN_GAP) merged[0].t = 0;
+      else merged.unshift({t:0, title:'Pregame'});
+    }
 
     var lines = merged.map(function(e){ return ts(e.t)+' '+e.title; });
     document.getElementById('out').value = lines.join('\n');

@@ -404,10 +404,16 @@ html,body{overscroll-behavior-y:none;}
     #vid-panel .vid-wrap{position:relative;width:100%;max-width:520px;margin:0 auto;aspect-ratio:16/9;background:#000;}
     #vid-panel #yt-player{position:absolute;inset:0;width:100%;height:100%;border:0;}
   </style>
+  <!-- No stream linked = every clip from this game is mistimed or missing.
+       Loud on purpose, and one tap to fix. -->
+  <div id="stream-warn" onclick="streamChipTap()" style="display:none;align-items:center;justify-content:center;gap:8px;background:rgba(245,158,11,.12);border-bottom:1px solid rgba(245,158,11,.4);color:#f5d9a0;font-family:var(--mono);font-size:11.5px;padding:7px 12px;cursor:pointer;">
+    <span>No stream linked — clips won't line up</span><b style="color:var(--orange);">🔗 Link stream</b>
+  </div>
   <div id="vid-panel" style="display:none;background:#000;border-bottom:1px solid var(--bdr);">
     <div class="vid-wrap"><div id="yt-player"></div></div>
     <div style="text-align:center;padding:2px 0;">
       <button type="button" id="vid-toggle" onclick="toggleVid()" style="background:none;border:none;color:var(--muted);font-family:var(--mono);font-size:11px;cursor:pointer;letter-spacing:.5px;padding:4px 14px;">▾ hide video</button>
+      <button type="button" id="stream-relink" onclick="streamChipTap()" title="Stream restarted? Link the new one" style="display:none;background:none;border:none;color:var(--muted);font-family:var(--mono);font-size:11px;cursor:pointer;letter-spacing:.5px;padding:4px 14px;">🔗 change stream</button>
     </div>
   </div>
 
@@ -701,7 +707,23 @@ html,body{overscroll-behavior-y:none;}
 <script>
 var SUPABASE_URL      = ACES_CONFIG.supabaseUrl
 var SUPABASE_ANON_KEY = ACES_CONFIG.supabaseKey
-var db = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+// A stalled cell connection is worse than a dead one: with no timeout a tap's
+// insert just hangs — nothing queues and nothing publishes. Give every request
+// 9 seconds; a timeout fails like "offline", so the play goes to the queue.
+// Rows carry a client-made id, so a request that DID land before the timeout
+// is recognised as a duplicate on retry (error 23505) instead of doubling the play.
+function timedFetch(url, opts){
+  var c = new AbortController(), t = setTimeout(function(){ c.abort() }, 9000)
+  return fetch(url, Object.assign({}, opts||{}, {signal:c.signal})).finally(function(){ clearTimeout(t) })
+}
+function newRowId(){
+  try{ if(window.crypto && crypto.randomUUID) return crypto.randomUUID() }catch(e){}
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g,function(c){ var r=Math.random()*16|0; return (c==='x'?r:(r&0x3|0x8)).toString(16) })
+}
+var db = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {global:{fetch:timedFetch}})
+// Our pitchers' counts as THIS device has seen them — the fallback when the
+// database can't be asked (offline pitching change) or hasn't caught up yet.
+var PC_LOCAL = {}
 
 var S = {
   gameId:null, game:null,
@@ -754,11 +776,26 @@ function armTier(count){
 }
 // Fired when our pitcher's count crosses a threshold — the moment a coach
 // actually needs to know, rather than after the game.
+// Pitch Smart limits are per DAY, not per game: a kid who threw 40 in game one
+// starts game two at 40. acesPitchPrior = his pitches in today's other games.
+async function pitcherPriorToday(pid){
+  try{
+    if(!pid || !S.game || !S.game.game_date) return 0
+    var gq = db.from('games').select('id').eq('game_date', S.game.game_date).neq('id', S.gameId)
+    if(!IS_TEST) gq = gq.neq('season','__test__')
+    var gr = await gq
+    var ids = (gr.data||[]).map(function(x){ return x.id })
+    if(!ids.length) return 0
+    var r = await db.from('pitches').select('id',{count:'exact',head:true}).in('game_id', ids).eq('pitcher_id', pid)
+    return (typeof r.count==='number') ? r.count : 0
+  }catch(e){ return 0 }
+}
 function checkArmCare(before, after){
   for (var i=0; i<ARM_STEPS.length; i++){
     var t = ARM_STEPS[i]
     if (before < t && after >= t){
       var name = (S.currentPitcherName||'Pitcher').split(' ')[0]
+      window._armToastAt = Date.now()
       if (t === DAILY_MAX) showToast('🛑 '+name+' at '+DAILY_MAX+' — daily max reached')
       else showToast('⚠ '+name+' at '+t+' — now needs '+restDaysRequired(t)+ ' day'+(restDaysRequired(t)===1?'':'s')+' rest')
       break
@@ -953,6 +990,7 @@ function buildNotesPayload(){
     aces_pitcher_name:S.currentPitcherName||null, aces_pitcher_num:S.currentPitcherNum||null,
     opp_pitcher:S.oppPitcher||'', opp_lineup:S.oppLineup||[], subs_log:S.subsLog||[], scoring_start_utc:S.scoringStartUtc||null,
     cur_batter_idx:S.currentBatterIdx||0, cur_opp_batter_idx:S.currentOppBatterIdx||0,
+    clip_base:S.clipBase||null,
     scorer_dev:SCORER_ID }
 }
 async function saveNotes(){
@@ -1028,7 +1066,13 @@ async function applyAcePitch(playerId){
   var p=(S.roster||[]).find(function(r){return r.id===playerId}); if(!p) return
   S.currentPitcherId=p.id; S.currentPitcherName=p.first_name+' '+p.last_name; S.currentPitcherNum=p.jersey_num
   var li=S.acesLineup.find(function(e){return e.playerId===p.id}); if(li) li.position='P'
-  try{ var {count}=await db.from('pitches').select('id',{count:'exact',head:true}).eq('game_id',S.gameId).eq('pitcher_id',p.id); S.acesPitchCount=count||0 }catch(e){}
+  // The database count, unless it can't be had (offline: count comes back
+  // null, no throw) or is behind this device (queued pitches) — then what
+  // this device has seen him throw wins. Never silently reset him to zero.
+  var _dbc = null
+  try{ var _cr=await db.from('pitches').select('id',{count:'exact',head:true}).eq('game_id',S.gameId).eq('pitcher_id',p.id); if(typeof _cr.count==='number') _dbc=_cr.count }catch(e){}
+  S.acesPitchCount = Math.max(_dbc||0, PC_LOCAL[p.id]||0)
+  S.acesPitchPrior = await pitcherPriorToday(p.id)
   logSub('pitching-change',{jerseyNum:p.jersey_num, playerName:S.currentPitcherName})
   updateBatterDisplay()
   closeSubs(); await saveNotes()
@@ -1074,7 +1118,9 @@ async function applyOppBat(){
     var _brEvents='(stolen_base,wp_advance,pb_advance,balk_advance,caught_stealing,pickoff_1b,pickoff_2b,pickoff_3b,out_advancing)'
     var {count:_oc}=await db.from('at_bats').select('id',{count:'exact',head:true})
       .eq('game_id',S.gameId).is('batter_id',null).not('result','in',_brEvents)
-    if(S.oppLineup.length) S.currentOppBatterIdx=(_oc||0)%S.oppLineup.length
+    // only when the count actually came back — a failed request returns null,
+    // and null used to send the pointer back to their leadoff hitter
+    if(typeof _oc==='number' && S.oppLineup.length) S.currentOppBatterIdx=_oc%S.oppLineup.length
   }catch(e){}
   updateBatterDisplay()
   closeSubs(); await saveNotes()
@@ -1256,18 +1302,96 @@ async function syncStreamMeta(videoId){
   // Start-Scoring tap time already written there is wrong by however early
   // the camera started rolling.
   if(meta.actualStart && S.game && meta.actualStart!==S.game.stream_start_utc){
+    var oldBase=S.game.stream_start_utc;
     S.game.stream_start_utc=meta.actualStart;
     try{ await db.from('games').update({stream_start_utc:meta.actualStart}).eq('id',S.gameId) }catch(e){}
+    // Plays stamped BEFORE this moment measured from the Start-Scoring tap
+    // (clip_base 'tap'), so every one is off by the same amount: how long the
+    // camera had already been rolling. Shift them onto the real clock once.
+    // Skipped if any stamp came from the embedded player's own clock — those
+    // were already video time and must not move.
+    if(meta.mode==='live' && S.clipBase==='tap' && !_stampedByPlayer && oldBase){
+      var shift=Math.round((new Date(oldBase)-new Date(meta.actualStart))/1000);
+      if(shift) reanchorClips(shift);
+    }
   }
+  // Persisted by the next pushState. Never saveNotes() from here: this can
+  // resolve during Start Scoring, before the lineup has loaded into S, and
+  // would write an empty lineup over the real one.
+  if(meta.actualStart) S.clipBase='api';
+}
+var _stampedByPlayer=false;
+async function reanchorClips(shift){
+  try{
+    var r=await db.from('at_bats').select('id,yt_offset_sec').eq('game_id',S.gameId).not('yt_offset_sec','is',null);
+    var rows=r.data||[], n=0;
+    for(var i=0;i<rows.length;i++){
+      var v=rows[i].yt_offset_sec+shift;   // before the broadcast began = no footage = no clip
+      try{ await db.from('at_bats').update({yt_offset_sec: v<0 ? null : v}).eq('id',rows[i].id); n++; }catch(e){}
+    }
+    var q=getQueue(), touched=false;
+    q.forEach(function(it){ if(it.table==='at_bats' && it.data && it.data.game_id===S.gameId && typeof it.data.yt_offset_sec==='number'){ var w=it.data.yt_offset_sec+shift; it.data.yt_offset_sec = w<0 ? null : w; touched=true; } });
+    if(touched) saveQueue(q);
+    if(n) showToast('🎬 Re-timed '+n+' play'+(n===1?'':'s')+' to the stream');
+  }catch(e){}
+}
+// No stream linked: the gamecast may have found it since (first viewer writes
+// the id back to the game row), so ask the row — free — every couple minutes.
+async function healStreamId(){
+  _streamMetaAt=Date.now();
+  try{
+    var r=await db.from('games').select('youtube_stream_id').eq('id',S.gameId).single();
+    var id=r.data && r.data.youtube_stream_id;
+    if(id && /^[A-Za-z0-9_-]{11}$/.test(id)) await linkStream(id, true);
+  }catch(e){}
+}
+async function linkStream(id, quiet){
+  if(!id || !S.game) return;
+  var changed = id !== S.game.youtube_stream_id;
+  S.game.youtube_stream_id=id;
+  if(changed){ try{ await db.from('games').update({youtube_stream_id:id}).eq('id',S.gameId) }catch(e){} }
+  streamMode='unknown';
+  createYtPlayer(id);
+  await syncStreamMeta(id);
+  updateStreamChip();
+  if(!quiet) showToast('🔗 Stream linked ✓');
+}
+function updateStreamChip(){
+  var bar=document.getElementById('stream-warn'), rel=document.getElementById('stream-relink');
+  var has=!!(S.game && S.game.youtube_stream_id);
+  if(bar) bar.style.display = (S.gameId && !has) ? 'flex' : 'none';
+  if(rel) rel.style.display = has ? '' : 'none';
+}
+// One tap: look for the channel's live broadcast; if that isn't it, paste.
+async function streamChipTap(){
+  if(!S.gameId) return;
+  var found=null;
+  if(ACES_CONFIG.ytApiKey && ACES_CONFIG.ytChannelId){
+    try{
+      var r=await fetch('https://www.googleapis.com/youtube/v3/search?part=snippet&channelId='+ACES_CONFIG.ytChannelId+'&type=video&eventType=live&key='+ACES_CONFIG.ytApiKey);
+      var j=await r.json();
+      found=j.items && j.items[0] && j.items[0].id && j.items[0].id.videoId;
+    }catch(e){}
+  }
+  var cur=S.game && S.game.youtube_stream_id;
+  if(found && found!==cur){ linkStream(found); return; }
+  var typed=prompt(found ? 'This game is already linked to the live stream.\n\nTo switch, paste a different YouTube link or ID:' : 'No live stream found on the channel.\n\nPaste the YouTube link or video ID:', '');
+  if(!typed) return;
+  var v=extractVideoId(typed);
+  if(!v){ showToast('That link wasn\'t recognized'); return; }
+  linkStream(v);
 }
 window.onYouTubeIframeAPIReady=function(){ _ytApiReady=true; if(_ytPending){ var v=_ytPending; _ytPending=null; createYtPlayer(v); } };
 function _loadYtApi(){ if(document.getElementById('yt-iframe-api')) return; var s=document.createElement('script'); s.id='yt-iframe-api'; s.src='https://www.youtube.com/iframe_api'; document.head.appendChild(s); }
 function extractVideoId(s){
   s=(s||'').trim(); if(!s) return '';
-  var m=s.match(/(?:v=|\/live\/|\/embed\/|youtu\.be\/|\/shorts\/)([A-Za-z0-9_-]{11})/);
+  var m=s.match(/(?:v=|\/live\/|\/embed\/|youtu\.be\/|\/shorts\/|\/video\/)([A-Za-z0-9_-]{11})/);
   if(m) return m[1];
   if(/^[A-Za-z0-9_-]{11}$/.test(s)) return s;
-  return s;
+  // Anything else (an @channel/live link, a pasted title…) is NOT an id. This
+  // used to return the text as-is, which then got saved as the game's stream
+  // id and broke the gamecast embed and every clip.
+  return '';
 }
 // Video visibility: on phones the panel defaults COLLAPSED — live clip timing
 // comes from wall clock now, not the embed, and ~230px of the primary screen
@@ -1298,8 +1422,9 @@ function currentClipOffset(){
   // Self-heal: no API verdict yet (e.g. scoring started before the YoloBox
   // went live) — re-ask every 2 min. Async on purpose; this stamp proceeds
   // with the old behavior and later stamps get the corrected clock.
-  if(streamMode==='unknown' && S.game && S.game.youtube_stream_id && Date.now()-_streamMetaAt>120000){
-    syncStreamMeta(S.game.youtube_stream_id);
+  if(streamMode==='unknown' && S.game && Date.now()-_streamMetaAt>120000){
+    if(S.game.youtube_stream_id) syncStreamMeta(S.game.youtube_stream_id);
+    else healStreamId();   // nothing linked yet — see if the game row has one now
   }
   var player=null;
   try{ if(ytPlayer && ytPlayer.getCurrentTime){ var t=ytPlayer.getCurrentTime(); if(typeof t==='number' && t>0) player=Math.floor(t); } }catch(e){}
@@ -1307,15 +1432,44 @@ function currentClipOffset(){
   // LIVE: the embed is behind the field, so its clock stamps early — trust
   // wall clock vs the API-verified broadcast start instead.
   if(streamMode==='live') return wall!=null ? wall : player;
-  // VOD (or no verdict): the scorer is watching the only picture there is —
-  // the player clock is exact and pause/rewind-safe.
-  return player!=null ? player : wall;
+  // VOD: only the player's clock means anything. With the recording not
+  // playing there is no honest offset — wall clock here is "seconds since an
+  // old broadcast began", i.e. a clip pointing days past the end of the video.
+  if(streamMode==='vod') return player;
+  // No verdict: player clock if the picture is running, else wall.
+  if(player!=null){ _stampedByPlayer=true; return player; }
+  return wall;
 }
 
 async function startScoring() {
   var gid = document.getElementById('game-sel').value
   if(!gid){alert('Select a game');return}
-  var {data:g} = await db.from('games').select('*,opponents(name)').eq('id',gid).single()
+  // No signal at the field must not mean no scoring. supabase-js reports a
+  // failed request as {error} (it doesn't throw), so `g` came back null and the
+  // next line crashed — after first showing a false "No lineup is set" warning.
+  // Fall back to this device's own copy: the cached game list (it carries the
+  // lineup) plus the state mirror every tap writes.
+  var g = null, _offlineStart = false
+  try{
+    var _gr = await db.from('games').select('*,opponents(name)').eq('id',gid).single()
+    if(_gr.error) throw _gr.error
+    g = _gr.data
+  }catch(e){}
+  if(!g){
+    try{ g = (JSON.parse(localStorage.getItem('aces_games_cache')||'[]')||[]).find(function(x){ return x.id===gid }) || null }catch(e2){}
+    if(!g){ alert('No connection, and this game isn\'t saved on this device yet.\n\nGet a signal for a moment and tap Start again.'); return }
+    _offlineStart = true
+    try{
+      var _m = JSON.parse(localStorage.getItem('aces_game_state_'+gid)||'null')
+      if(_m){
+        g.our_score=_m.our_score; g.opp_score=_m.opp_score; g.inning=_m.inning; g.half=_m.half
+        g.outs=_m.outs; g.balls=_m.balls; g.strikes=_m.strikes
+        if(_m.bases){ g.base_1b=_m.bases[0]; g.base_2b=_m.bases[1]; g.base_3b=_m.bases[2] }
+        if(_m.notes) g.notes=_m.notes
+      }
+    }catch(e3){}
+    setTimeout(function(){ showToast('Offline — scoring from this device\'s saved copy. It syncs when the signal returns.') }, 1200)
+  }
 
   // GUARD: scoring without a lineup "works" but writes batter_id null on every
   // at-bat — the game looks scored while no kid gets credit for anything, and
@@ -1368,6 +1522,12 @@ async function startScoring() {
   // Mirror the start time locally too — S.game came from the pre-update fetch,
   // so on a fresh game it still has stream_start_utc null, which left the game
   // clock (and the wall-clock clip-offset fallback) with nothing to measure from.
+  // Which clock the clip offsets are measured from: 'tap' = this Start Scoring
+  // tap (a guess until YouTube reports the broadcast's real start), 'api' =
+  // the real start. Persisted in notes so a reload knows whether earlier plays
+  // still need shifting (see syncStreamMeta / reanchorClips).
+  var _n0 = {}; try{ _n0 = JSON.parse(g.notes || '{}') }catch(e){}
+  S.clipBase = _n0.clip_base || (g.stream_start_utc ? 'api' : 'tap')
   var startedAt = g.stream_start_utc || new Date().toISOString()
   S.game.stream_start_utc = startedAt
   // The game clock waits for the FIRST PITCH (markClockStart), not Start
@@ -1376,7 +1536,11 @@ async function startScoring() {
   // clock. Notes may hold the persisted value from a previous session
   // (restored in LOAD LINEUP below); until then the clock stays blank.
   S.scoringStartUtc = null
-  await db.from('games').update({status:'live',stream_start_utc:startedAt}).eq('id',gid)
+  var _lv = null
+  try{ _lv = await db.from('games').update({status:'live',stream_start_utc:startedAt}).eq('id',gid).select('id') }catch(e){}
+  // If that didn't land (offline start), pushState keeps trying until it does —
+  // otherwise the plays sync later but the game never shows as live.
+  S._needLive = _offlineStart || !_lv || !!_lv.error || !(_lv.data && _lv.data.length)
   // Ping subscribed families exactly once per game — only on the FIRST
   // transition to live (a mid-game reload must not re-notify; the server
   // also dedupes via games.push_sent_live). Fire-and-forget.
@@ -1389,10 +1553,18 @@ async function startScoring() {
   // Safety net: a team can only be playing one game at a time. If any other
   // game got left in 'live' status (forgot to tap Final, dead battery, rained
   // out, etc.), close it out now so it can never hijack the live viewer.
+  // Scoped: a PRACTICE game only ever closes other practice games — starting a
+  // dry run on a second device used to flip the real live game to Final — and
+  // a real game only closes this team's.
   try{
-    await db.from('games').update({status:'final'}).eq('status','live').neq('id',gid)
+    var _cl = db.from('games').update({status:'final'}).eq('status','live').neq('id',gid)
+    if(IS_TEST) _cl = _cl.eq('season','__test__')
+    else if(g.team_id) _cl = _cl.eq('team_id', g.team_id)
+    await _cl
   }catch(e){}
-  var ytId = extractVideoId(document.getElementById('yt-id').value) || (g.youtube_stream_id || '')
+  var _typedYt = (document.getElementById('yt-id').value||'').trim()
+  var ytId = extractVideoId(_typedYt) || extractVideoId(g.youtube_stream_id || '')
+  if(_typedYt && !extractVideoId(_typedYt)) setTimeout(function(){ showToast('⚠ That stream link wasn\'t recognized — tap "Link stream"') }, 2600)
   if(ytId){
     if(ytId !== g.youtube_stream_id) await db.from('games').update({youtube_stream_id:ytId}).eq('id',gid)
     S.game.youtube_stream_id = ytId
@@ -1475,7 +1647,10 @@ async function startScoring() {
   // restarting pitch_num at 1 (duplicate numbers inside one at-bat).
   try {
     var {data:_lastAb}=await db.from('at_bats').select('created_at').eq('game_id',gid).not('result','in',baserunnerEvents).order('created_at',{ascending:false}).limit(1)
-    var _pq=db.from('pitches').select('id',{count:'exact',head:true}).eq('game_id',gid)
+    // …in THIS half only: when a runner makes the third out mid-at-bat, that
+    // batter's pitches sit after the last at-bat row but belong to a half that
+    // is over — the new half's leadoff hitter starts at pitch 1.
+    var _pq=db.from('pitches').select('id',{count:'exact',head:true}).eq('game_id',gid).eq('inning',S.inning).eq('half',S.isTop?'top':'bottom')
     if(_lastAb&&_lastAb.length) _pq=_pq.gt('created_at',_lastAb[0].created_at)
     var {count:_pcnt}=await _pq
     S.pitchCount=_pcnt||0
@@ -1486,6 +1661,8 @@ async function startScoring() {
       S.acesPitchCount = apc||0
     } else { S.acesPitchCount = 0 }
   } catch(e){ S.acesPitchCount = 0 }
+  if(S.currentPitcherId) PC_LOCAL[S.currentPitcherId] = Math.max(PC_LOCAL[S.currentPitcherId]||0, S.acesPitchCount)
+  S.acesPitchPrior = await pitcherPriorToday(S.currentPitcherId)
 
   // Load the roster so mid-game substitutions can pick from the bench
   try {
@@ -1528,6 +1705,10 @@ async function startScoring() {
   updateKbDot()
   flushQueue()
   showToast('Game on! ⚾ Aces are the '+(S.acesHome?'HOME team — opponent bats first':'AWAY team — Aces bat first'))
+  // With no pitcher set, our pitches are written with no pitcher id — they
+  // count for nobody, and on a reload they'd be counted as the opponent's.
+  if(!S.currentPitcherId) setTimeout(function(){ showToast('⚠ No Aces pitcher set — ⇄ Subs → Pitching change') }, 3600)
+  updateStreamChip()
   keepAwake()
 }
 
@@ -1588,9 +1769,10 @@ function renderPC(){
   var el = document.getElementById('ab-pc'); if(!el) return
   var pc = currentPC()
   var ours = !acesUp()
-  var tier = ours ? armTier(pc) : {cls:'', note:''}
+  var prior = ours ? (S.acesPitchPrior||0) : 0
+  var tier = ours ? armTier(pc + prior) : {cls:'', note:''}
   el.className = 'ab-sub'+(tier.cls?' '+tier.cls:'')
-  el.textContent = 'PC '+pc+(tier.note?'  ·  '+tier.note:'')
+  el.textContent = 'PC '+pc+(prior?' (+'+prior+' earlier today)':'')+(tier.note?'  ·  '+tier.note:'')
 }
 
 function advanceBatter() {
@@ -1641,14 +1823,15 @@ async function flushQueue() {
       var item = q[i]
       try {
         var {data, error} = await db.from(item.table).insert(item.data).select().single()
-        if (error) throw error
+        if (error && error.code !== '23505') throw error   // 23505: this row already landed before a timeout
         synced.push(item.id)
         // Update HISTORY with real DB id if we can match it (a single entry can
         // hold both a queued pitch and a queued at-bat — see HISTORY comment)
-        if (data?.id) {
+        var _rid = (data && data.id) || (item.data && item.data.id)
+        if (_rid) {
           HISTORY.forEach(function(h){
-            if(item.table==='pitches' && h.localPitchId === item.id) h.pitchId = data.id
-            if(item.table==='at_bats' && h.localAbId    === item.id) h.atBatId = data.id
+            if(item.table==='pitches' && h.localPitchId === item.id) h.pitchId = _rid
+            if(item.table==='at_bats' && h.localAbId    === item.id) h.atBatId = _rid
           })
         }
       } catch(e) {}
@@ -1735,8 +1918,10 @@ async function quickLog(result, opts) {
   else { S.pitchCount++; _pnum = S.pitchCount }
   var pcBefore = S.acesPitchCount
   if(acesUp()) S.oppPitchCount++; else S.acesPitchCount++
-  // Arm care: warn the moment OUR pitcher crosses a rest threshold
-  if(!acesUp()) checkArmCare(pcBefore, S.acesPitchCount)
+  if(!acesUp() && S.currentPitcherId) PC_LOCAL[S.currentPitcherId] = S.acesPitchCount
+  // Arm care: warn the moment OUR pitcher crosses a rest threshold (on his
+  // total for the DAY — earlier games count)
+  if(!acesUp()) checkArmCare(pcBefore + (S.acesPitchPrior||0), S.acesPitchCount + (S.acesPitchPrior||0))
   // The count the batter actually saw. logAB resets balls/strikes BEFORE it
   // records the outcome's pitch, so it hands the pre-play count in — without
   // this every in-play pitch row read 0-0 and the count splits were fiction.
@@ -1787,67 +1972,84 @@ async function quickLog(result, opts) {
     if(entry) entry.recent=(entry.recent||0)+1
   }
 
+  // Paint NOW. The insert below can take seconds on a weak signal, and a
+  // screen that hasn't moved invites a second tap for the same pitch.
+  if(!inAB){
+    renderAll()
+    if(result!=='in_play') _radar.pendingExit = null   // an exit reading belongs to a batted ball, never a later pitch
+  }
+
   var offset=currentClipOffset()
   // Radar: an armed (gun-filled) velo older than 20s is a warm-up throw or a
   // pickoff, not this pitch — drop it rather than glue it to the wrong pitch.
   var _veloWasManual = _radar.manual
   if(S.velo!==null && !_radar.manual && Date.now()-_radar.armedAt>20000) S.velo=null
-  var pd={game_id:S.gameId,
+  var pd={id:newRowId(), game_id:S.gameId,
     pitcher_id: !acesUp() ? S.currentPitcherId : null,  // our pitcher only when the Aces are in the field
     pitch_num:_pnum,pitch_type:S.pitchType,
     velocity_mph:S.velo,velo_source:S.velo===null?null:(_radar.manual?'manual':'radar'),
     result:result,inning:S.inning,
     half:S.isTop?'top':'bottom',balls_before:bBefore,strikes_before:sBefore,yt_offset_sec:offset}
   _radar.lastPitch = null
-  try{
-    if (!isOnline) throw new Error('offline')
-    var {data,error}=await db.from('pitches').insert(pd).select().single()
-    if(error) throw error
-    S.lastPitchId=data?.id
-    if(entry && data?.id) entry.pitchId = data.id
-    // remember this pitch so a gun reading that lands AFTER the tap can attach to it
-    _radar.lastPitch = {id:data?.id, t:Date.now(), manual:_veloWasManual, hasVelo:S.velo!==null}
-    setSynced(true)
-  }catch(e){
-    // Queue locally if offline or failed
-    var localId = queueItem('pitches', pd)
-    if(entry) entry.localPitchId = localId
-    setSynced(false)
-  }
+  var _hadVelo = S.velo!==null
   // Radar mode: the velo box empties after every pitch so a missed reading
-  // shows as blank instead of silently repeating the last number.
+  // shows as blank instead of silently repeating the last number. (Done here,
+  // with the tap — it used to wait for the save and could wipe a reading
+  // that arrived for the NEXT pitch in between.)
   if(_radar.active) radarClearVelo()   // manual or not, this pitch consumed the value
 
+  // The save runs behind the tap. Everything the coach can see or tap next is
+  // settled synchronously around it — nothing below waits on the network
+  // before changing game state.
+  var ins = (async function(){
+    try{
+      if (!isOnline) throw new Error('offline')
+      var {data,error}=await db.from('pitches').insert(pd).select().single()
+      if(error && error.code!=='23505') throw error
+      var _pid = (data && data.id) || pd.id
+      // Undo was tapped while this insert was in flight. The entry is already
+      // popped (nothing else will ever delete this row) and the state is
+      // already restored — so remove the row here.
+      if(entry && entry.undone){ try{ await db.from('pitches').delete().eq('id',_pid) }catch(e2){} return }
+      S.lastPitchId=_pid
+      if(entry) entry.pitchId = _pid
+      // remember this pitch so a gun reading that lands AFTER the tap can attach to it
+      _radar.lastPitch = {id:_pid, t:Date.now(), manual:_veloWasManual, hasVelo:_hadVelo}
+      setSynced(true)
+    }catch(e){
+      if(entry && entry.undone) return   // undone mid-flight: never queue it
+      // Queue locally if offline or failed
+      var localId = queueItem('pitches', pd)
+      if(entry) entry.localPitchId = localId
+      setSynced(false)
+    }
+  })()
+
   // Auto-trigger outcomes (fromAuto=true: the outcome joins THIS pitch's
-  // history entry, so one Undo removes e.g. ball-4 + the walk together)
+  // history entry, so one Undo removes e.g. ball-4 + the walk together).
+  // Ball four / strike three become the walk / strikeout IN THE SAME TICK as
+  // the tap. They used to wait for the pitch to save first, and a pitch tapped
+  // in that gap saw "4 balls" on the board and walked a second batter.
   // The D3K chip must not appear over the NEXT half: a 2-out inning-ending K
   // flips the half inside logAB's awaits, so re-check the half before offering.
   var _hT=S.isTop, _hI=S.inning
-  if(autoWalk){
-    S.balls=0; S.strikes=0
-    await pushState(); renderAll()
-    await logAB('walk','Walk (BB)', true, true, null, entry)
-    return
-  }
-  if(autoK){
+  if(autoWalk || autoK || autoKLooking){
     // D3K is legal when 1st is open or there are 2 outs — capture BEFORE the
     // K adds its out, and offer a quick conversion chip after logging.
-    var d3kLegal = !S.bases[0] || S.outs >= 2
+    var d3kLegal = !autoWalk && (!S.bases[0] || S.outs >= 2)
     S.balls=0; S.strikes=0
-    await pushState(); renderAll()
-    await logAB('strikeout_swinging','K swinging', true, true, null, entry)
-    if(d3kLegal && S.isTop===_hT && S.inning===_hI) offerD3K()
-    return
-  }
-  if(autoKLooking){
-    var d3kLegal2 = !S.bases[0] || S.outs >= 2
-    S.balls=0; S.strikes=0
-    await pushState(); renderAll()
-    await logAB('strikeout_looking','K looking', true, true, null, entry)
-    if(d3kLegal2 && S.isTop===_hT && S.inning===_hI) offerD3K()
+    if(autoWalk)      await logAB('walk','Walk (BB)', true, true, null, entry, ins)
+    else if(autoK)    await logAB('strikeout_swinging','K swinging', true, true, null, entry, ins)
+    else              await logAB('strikeout_looking','K looking', true, true, null, entry, ins)
+    if(d3kLegal && S.isTop===_hT && S.inning===_hI) offerD3K(entry)
     return
   }
 
+  await ins
+  // Inside logAB the at-bat row follows and logAB publishes once, after it.
+  // (Publishing here too put a games UPDATE carrying the post-play bases
+  // BETWEEN the pitch and the at-bat, and the gamecast drew a runner twice.)
+  if(inAB) return
   await pushState(); renderAll()
 }
 
@@ -1867,13 +2069,30 @@ function threeOutsGuard(){
   return false
 }
 
-async function logAB(result, label, skipPitchLog, fromAuto, runnerId, entryOverride) {
+// A play that cannot happen from the current bases. Every one of these used
+// to be accepted and booked a phantom out (pickoff at an empty base, caught
+// stealing with nobody on, a double play with the bases empty = two outs for
+// one batter). Returns the reason to show, or '' when the play is possible.
+function impossiblePlay(r){
+  var b = S.bases, any = b[0]||b[1]||b[2]
+  if(r==='pickoff_1b' && !b[0]) return 'Nobody on 1st to pick off'
+  if(r==='pickoff_2b' && !b[1]) return 'Nobody on 2nd to pick off'
+  if(r==='pickoff_3b' && !b[2]) return 'Nobody on 3rd to pick off'
+  if(/^(stolen_base|caught_stealing|out_advancing|wp_advance|pb_advance|balk_advance)$/.test(r) && !any) return 'No runners on base'
+  if(r==='double_play' && !any) return 'No runner on base to double up'
+  if(r==='fielders_choice' && !any) return 'Fielder\'s choice needs a runner on — use Single or Error'
+  return ''
+}
+
+async function logAB(result, label, skipPitchLog, fromAuto, runnerId, entryOverride, pitchSaved) {
   // Double-tap guard: two OUTCOMES inside 450ms is a phone double-tap, not
   // two real plays. Raw pitch taps (Ball/Strike) stay unguarded — those can
   // legitimately come fast — and auto walk/K calls are exempt.
   var _dtNow = Date.now()
   if(!fromAuto && _dtNow - (window._lastLogAB||0) < 450) return
+  if(entryOverride && entryOverride.undone) return   // the pitch that triggered this walk/K was undone mid-flight
   if(!fromAuto && threeOutsGuard()) return
+  if(!fromAuto){ var _why = impossiblePlay(result); if(_why){ showToast(_why); return } }
   window._lastLogAB = _dtNow
   markClockStart()   // covers a first play logged without a pitch (e.g. quick walk)
   hideD3K(); hideBaseCheck()   // any new action invalidates pending offers
@@ -1902,10 +2121,15 @@ async function logAB(result, label, skipPitchLog, fromAuto, runnerId, entryOverr
   // A "sacrifice" with two outs is just the third out — nothing can score
   // behind it and the batter is charged an AB. Record what actually happened
   // rather than a sac_fly row that every stat page would excuse from an AB.
-  if(S.outs>=2 && (result==='sac_fly' || result==='sac_bunt')){
+  // Same when there is nobody to sacrifice FOR: a sac fly needs a runner on
+  // third to score, a sac bunt needs a runner to move. Otherwise it's just an out.
+  var _noSac = result==='sac_fly' ? (S.outs>=2 || !S.bases[2])
+             : result==='sac_bunt' ? (S.outs>=2 || !(S.bases[0]||S.bases[1]||S.bases[2])) : false
+  if(_noSac){
+    var _whyNoSac = S.outs>=2 ? '2 outs' : (result==='sac_fly' ? 'Nobody on 3rd' : 'Bases empty')
     result = result==='sac_fly' ? 'flyout' : 'groundout'
     label  = result==='flyout' ? 'Fly out' : 'Ground out'
-    showToast('2 outs — recorded as '+label.toLowerCase()+' (no sacrifice)')
+    showToast(_whyNoSac+' — recorded as '+label.toLowerCase()+' (no sacrifice)')
   }
   var scoreUsBefore=S.scores.us, scoreThemBefore=S.scores.them
   // Batting-order spot (1-9) — Aces half only; the opponent has no slot here.
@@ -1938,6 +2162,7 @@ async function logAB(result, label, skipPitchLog, fromAuto, runnerId, entryOverr
   if(!fromAuto && _abAnchor && _abAnchor.off!=null && Date.now()-_abAnchor.t<90000) offset=_abAnchor.off
   _abAnchor=null
   var abd={
+    id:newRowId(),
     game_id:S.gameId,
     batter_id: acesUp() ? getCurrentBatterId() : null,  // our batter only when the Aces bat
     aces_pitcher_id: !acesUp() ? S.currentPitcherId : null,  // our pitcher only when the Aces field
@@ -1959,7 +2184,9 @@ async function logAB(result, label, skipPitchLog, fromAuto, runnerId, entryOverr
     S.scores[t]+=runs
     showToast(runs===1?'Run scores! 🏃':''+runs+' runs score! 🏃')
   }
-  if(CLIP.includes(result)) setTimeout(function(){showToast('📹 Clip queued!')},800)
+  // (not over an arm-care warning — "now needs 3 days rest" used to be on
+  // screen for under a second before this replaced it)
+  if(CLIP.includes(result)) setTimeout(function(){ if(Date.now()-(window._armToastAt||0) > 4500) showToast('📹 Clip queued!') },800)
   // feed the recent-plays panel with the outcome (batter hasn't advanced yet)
   var _od = /(single|double|triple|home_run)/i.test(result)?'hit'
           : /(walk|hbp)/i.test(result)?'walk'
@@ -1994,6 +2221,7 @@ async function logAB(result, label, skipPitchLog, fromAuto, runnerId, entryOverr
     // last one (3, 3, 3, 4, 5…), which wrecks pitches-per-batter for our arms.
     S.pitchCount = 0
   }
+  renderAll()   // paint before the network — see quickLog
   // The in_play pitch goes in BEFORE the at-bat row (the gamecast closes the
   // live at-bat card on the at_bats insert, so the pitch chip must precede it).
   // Which pitch ended the at-bat, if the outcome came from a modal rather than
@@ -2010,10 +2238,17 @@ async function logAB(result, label, skipPitchLog, fromAuto, runnerId, entryOverr
     else if(isHit || isOut) _payoff='in_play'
     if(_payoff) await quickLog(_payoff, {fromLogAB:true, entry:entry, pitchNum:_inPlayNum, countBefore:countBefore})
   }
+  // auto walk/K: the triggering pitch is still saving — its row must land
+  // before the at-bat row (the gamecast closes the at-bat card on that insert)
+  if(pitchSaved){ try{ await pitchSaved }catch(e){} }
+  if(entry && entry.undone) return   // undone while the payoff pitch was in flight (it cleaned itself up)
   try{
     if (!isOnline) throw new Error('offline')
     var {data:abd2,error}=await db.from('at_bats').insert(abd).select().single()
-    if(error) throw error
+    if(error && error.code!=='23505') throw error
+    if(!abd2) abd2 = {id:abd.id}
+    // Undone while this insert was in flight: same rule as the pitch row.
+    if(entry && entry.undone){ try{ await db.from('at_bats').delete().eq('id',abd2.id) }catch(e2){} return }
     if(entry && abd2?.id) entry.atBatId = abd2.id
     // Exit velo: the gun's outbound reading for a batted ball lands long
     // before this row exists (the result pick is 10-30s after contact), so
@@ -2026,6 +2261,7 @@ async function logAB(result, label, skipPitchLog, fromAuto, runnerId, entryOverr
     }
     setSynced(true)
   }catch(e){
+    if(entry && entry.undone) return
     var localId2 = queueItem('at_bats', abd)
     if(entry) entry.localAbId = localId2
     setSynced(false)
@@ -2041,14 +2277,14 @@ async function logAB(result, label, skipPitchLog, fromAuto, runnerId, entryOverr
   // Runners were on before a ball in play — the by-the-book advance may not
   // match the field. Offer the check while the play is fresh (skip on the 3rd
   // out: the half-end flow makes any correction stale immediately).
-  if(BC_RESULTS.test(result) && basesBefore.some(Boolean) && !endsHalf) offerBaseCheck(result, label, runs)
+  if(BC_RESULTS.test(result) && basesBefore.some(Boolean) && !endsHalf) offerBaseCheck(result, label, runs, entry)
   // Aces recorded an out in the field — offer defensive credit (fine on the
   // 3rd out: the tag is a row patch, still valid after the half flips)
-  if(FT_RESULTS.test(result) && !acesUp()) offerFielderTag(result, label)
+  if(FT_RESULTS.test(result) && !acesUp()) offerFielderTag(result, label, entry)
   // Any batted ball arms the field diagram for a spray-chart tap (both halves
   // — our kids' charts AND opponent tendencies). Row patch only, zero taps
   // if ignored.
-  if(SPRAY_RESULTS.test(result)) armSpray(result)
+  if(SPRAY_RESULTS.test(result)) armSpray(result, entry)
 }
 
 function applyBaserunners(r) {
@@ -2166,19 +2402,38 @@ async function pushState() {
   }
   // Save locally first (the offline-resume source in startScoring)
   try { localStorage.setItem('aces_game_state_'+S.gameId, JSON.stringify(state)) } catch(e){}
-  // Push to Supabase
+  // Push to Supabase — ONE request at a time. Each push carries the whole
+  // state, so two in flight can land out of order and leave the broadcast on
+  // the older one until the next tap. A push asked for while another is out
+  // just flags "go again"; the loop re-reads S, so the last word sent is
+  // always the newest state.
+  if(_pushBusy){ _pushAgain = true; return }
+  _pushBusy = true
   try{
-    if(!isOnline) return
-    var upd = {
-      our_score:S.scores.us, opp_score:S.scores.them,
-      inning:S.inning, half:S.isTop?'top':'bottom',
-      outs:S.outs, balls:S.balls, strikes:S.strikes,
-      base_1b:S.bases[0], base_2b:S.bases[1], base_3b:S.bases[2]
-    }
-    if (notesJson) upd.notes = notesJson
-    await guardedGameUpdate(upd)   // refuses if another device took over scoring
+    do{
+      _pushAgain = false
+      if(!isOnline) break
+      var notesNow = null
+      try { notesNow = JSON.stringify(buildNotesPayload()); if(S.game) S.game.notes = notesNow } catch(e){}
+      var upd = {
+        our_score:S.scores.us, opp_score:S.scores.them,
+        inning:S.inning, half:S.isTop?'top':'bottom',
+        outs:S.outs, balls:S.balls, strikes:S.strikes,
+        base_1b:S.bases[0], base_2b:S.bases[1], base_3b:S.bases[2]
+      }
+      if (notesNow) upd.notes = notesNow
+      if (S._needLive && !GAME_OVER){
+        try{
+          var _nl = await db.from('games').update({status:'live'}).eq('id',S.gameId).select('id')
+          if(!_nl.error && _nl.data && _nl.data.length) S._needLive = false
+        }catch(e2){}
+      }
+      await guardedGameUpdate(upd)   // refuses if another device took over scoring
+    }while(_pushAgain)
   }catch(e){}
+  finally{ _pushBusy = false }
 }
+var _pushBusy = false, _pushAgain = false
 
 /* ── VELO ── */
 // One-tap presets spanning the team's typical FB band (63-73 per Chris,
@@ -2363,6 +2618,8 @@ function pickOutcome(v,l){
   // advancing): either the pitch was already logged separately, or there
   // was no pitch at all (pickoff throw) — never log a phantom pitch for these.
   var skipPitch = /(walk|intentional_walk|stolen_base|wp_advance|pb_advance|balk|caught_stealing|pickoff|out_advancing)/i.test(v)
+  var _imp = impossiblePlay(v)
+  if(_imp){ showToast(_imp); return }   // leave the menu open so the right play is one tap away
   // Aces runner event -> ask who (opponent's half = their runners, skip)
   if(RUNNER_EVENTS.test(v) && acesUp() && S.acesLineup.length){
     _pendingBR = {v:v, l:l, skipPitch:skipPitch}
@@ -2458,6 +2715,9 @@ function skipBatter(){
   if(S.pitchCount===0 && S.balls===0 && S.strikes===0){
     if(!confirm('Skip '+ (fromName||'this batter') +'?\n\nThe order already moves on its own after each play — you only need this if '+(fromName||'he')+' genuinely did not bat.')) return
   }
+  // An undoable action like any other. Without its own snapshot, undoing an
+  // EARLIER play restored that play's pointer and silently reverted the skip.
+  snapManual(); pushRecent('out','Skipped batter', fromName||'')
   S.balls=0;S.strikes=0;S.pitchCount=0;S.velo=null;paintVeloQuick()
   document.getElementById('velo-val').textContent='—'
   renderCount()
@@ -2506,6 +2766,7 @@ function endHalfManual(){
 }
 function newHalf(){
   hideD3K(); hideBaseCheck()
+  _radar.pendingExit = null; _radar.lastAb = null   // a gun reading can't belong to the next half
   S.balls=0;S.strikes=0;S.outs=0;S.bases=[false,false,false];S.pitchCount=0;S.velo=null;paintVeloQuick()
   // NOTE: acesPitchCount/oppPitchCount are per-pitcher game totals and are NOT
   // reset on a half change — each side's counter keeps accumulating across the
@@ -2528,6 +2789,7 @@ async function undoLast(){
   hideBaseCheck()   // the play being undone is the one the chip would patch
   if(!HISTORY.length){showToast('Nothing to undo');return}
   var last = HISTORY.pop()
+  last.undone = true   // any insert still in flight for this action sees this and removes its own row
   // fielder tag survives other actions, but not the deletion of its own play
   if(_fldTag && _fldTag.entry === last) hideFielderTag()
   if(_spray && _spray.entry === last) disarmSpray()
@@ -2540,21 +2802,10 @@ async function undoLast(){
     saveQueue(q); updateSyncIndicator()
   }
 
-  // Delete from DB — .select() so a silent 0-row delete (missing RLS policy)
-  // is caught instead of quietly leaving the play in the season stats.
-  var missed = []
-  try{
-    if(last.pitchId){
-      var dp = await db.from('pitches').delete().eq('id',last.pitchId).select('id')
-      if(dp.error || !(dp.data&&dp.data.length)) missed.push('pitch')
-    }
-    if(last.atBatId){
-      var da = await db.from('at_bats').delete().eq('id',last.atBatId).select('id')
-      if(da.error || !(da.data&&da.data.length)) missed.push('at-bat')
-    }
-  }catch(e){console.log('undo delete error:',e); missed.push('db')}
-
-  // Restore state snapshot (preserve gameId, game, npInput, pitchType, velo)
+  // Restore the board FIRST, synchronously. This used to wait for the two
+  // deletes below, and a play tapped in that gap was snapshotted against the
+  // not-yet-undone state, saved to the database, and then wiped off the board
+  // when the restore finally ran — a phantom play in the stats.
   var prev = last.state
   S.balls    = prev.balls
   S.strikes  = prev.strikes
@@ -2572,18 +2823,46 @@ async function undoLast(){
   // on the mound, otherwise a new pitcher inherits the old one's count.
   if(prev.currentPitcherId===undefined || prev.currentPitcherId===S.currentPitcherId) S.acesPitchCount = prev.acesPitchCount
   if(prev.oppPitcher===undefined || prev.oppPitcher===S.oppPitcher) S.oppPitchCount = prev.oppPitchCount
-
-  await pushState()
-  renderAll()
-  updateBatterDisplay()
+  if(S.currentPitcherId) PC_LOCAL[S.currentPitcherId] = S.acesPitchCount
   // Pop every feed row this action pushed (an auto walk/K entry holds the
   // pitch row AND the outcome row — popping just one left a stale line).
   for(var _r=last.recent||1; _r>0; _r--) popRecent()
+  renderAll()
+  updateBatterDisplay()
+
+  // Delete from DB — .select() so a silent 0-row delete (missing RLS policy)
+  // is caught instead of quietly leaving the play in the season stats.
+  // (A row whose insert is still in flight has no id here yet; that insert
+  // sees last.undone when it lands and deletes itself.)
+  var missed = []
+  try{
+    if(last.pitchId){
+      var dp = await db.from('pitches').delete().eq('id',last.pitchId).select('id')
+      if(dp.error || !(dp.data&&dp.data.length)) missed.push('pitch')
+    }
+    if(last.atBatId){
+      var da = await db.from('at_bats').delete().eq('id',last.atBatId).select('id')
+      if(da.error || !(da.data&&da.data.length)) missed.push('at-bat')
+    }
+  }catch(e){console.log('undo delete error:',e); missed.push('db')}
+
+  await pushState()
   showToast(missed.length ? '⚠ Undone here, but the '+missed.join('+')+' stayed in the DB' : 'Undone ↩')
 }
 async function endGame(){
   if(!confirm('End game? Final: Aces '+S.scores.us+' – '+S.scores.them))return
-  await db.from('games').update({status:'final',our_score:S.scores.us,opp_score:S.scores.them}).eq('id',S.gameId)
+  // Plays still waiting on this device go up first — a Final with half the
+  // game missing is worse than a Final thirty seconds late.
+  if(getQueue().length){ showToast('Syncing saved plays first…'); try{ await flushQueue() }catch(e){} }
+  var _fin = null
+  try{ _fin = await db.from('games').update({status:'final',our_score:S.scores.us,opp_score:S.scores.them}).eq('id',S.gameId).select('id') }catch(e){}
+  if(!_fin || _fin.error || !(_fin.data && _fin.data.length)){
+    // This used to say "Game final ✓" and leave the page regardless — offline,
+    // the game stayed LIVE for families and nothing ever told the coach.
+    alert('Couldn\'t mark the game Final — no connection right now.\n\nEverything you scored is safe on this device. Get a signal and tap End game again.')
+    return
+  }
+  if(getQueue().length) alert(getQueue().length+' play(s) are still saved on this device and not yet in the database.\n\nOpen the scorer again on wifi and they will sync on their own.')
   // Final-score ping (server dedupes via games.push_sent_final)
   if (!IS_TEST) {
     try {
@@ -2659,10 +2938,14 @@ function showToast(msg){
 // prompt, the K logs instantly and, when D3K was LEGAL (1B open or 2 outs),
 // a 7s chip offers to convert the play. Any other action dismisses it.
 var _d3k = null, _d3kTimer = null
-function offerD3K(){
+function offerD3K(entry){
   if(CFG.chip_d3k === false) return
   if(!HISTORY.length) return
-  _d3k = { entry: HISTORY[HISTORY.length-1], isTop: S.isTop, inning: S.inning }
+  // The chip belongs to the play that earned it. It used to grab "whatever is
+  // last in HISTORY" after three network waits, so a quick next tap got it.
+  entry = entry || HISTORY[HISTORY.length-1]
+  if(entry !== HISTORY[HISTORY.length-1]) return   // the coach has already moved on
+  _d3k = { entry: entry, isTop: S.isTop, inning: S.inning }
   document.getElementById('d3k-chip').style.display = 'flex'
   // No timer: the coach may be watching the play, not the phone. The chip
   // dies on the next action anyway (which is exactly when it becomes stale).
@@ -2717,7 +3000,7 @@ async function convertD3K(safe){
   if(!safe && !acesUp()) offerFielderTag('dropped_third_k', label, entry)
   // Batter safe with runners aboard: the forced advances (and a bases-loaded
   // run) were by-the-book guesses — same check every ball in play gets.
-  if(safe && (S.bases.some(Boolean) || runs>0)) offerBaseCheck(result, label, runs)
+  if(safe && (S.bases.some(Boolean) || runs>0)) offerBaseCheck(result, label, runs, entry)
   // The K was the third out and the coach cancelled "end half?" to resolve
   // the dropped third. Out at 1st leaves it at three outs — ask again, or the
   // scorer just sits there with nothing prompting the half to end.
@@ -2748,11 +3031,13 @@ function bcSummary(bases, runs){
   if(bases[0]) on.push('1st'); if(bases[1]) on.push('2nd'); if(bases[2]) on.push('3rd')
   return (on.length ? on.join('·') : 'bases empty') + (runs>0 ? ' · '+runs+' in' : '')
 }
-function offerBaseCheck(result, label, runs){
+function offerBaseCheck(result, label, runs, entry){
   if(CFG.chip_base_check === false) return
   if(!HISTORY.length) return
+  entry = entry || HISTORY[HISTORY.length-1]
+  if(entry !== HISTORY[HISTORY.length-1]) return   // see offerD3K — never bind a fix to a later tap
   var lastFeed = RECENT[RECENT.length-1] || {}
-  _baseCheck = { entry: HISTORY[HISTORY.length-1], isTop: S.isTop, inning: S.inning,
+  _baseCheck = { entry: entry, isTop: S.isTop, inning: S.inning,
                  result: result, runs: runs, feed: {d: lastFeed.d, m: lastFeed.m} }
   document.getElementById('bc-q').textContent = 'Bases: '+bcSummary(S.bases, runs)
   document.getElementById('bc-chip').style.display = 'flex'
@@ -2814,7 +3099,7 @@ async function saveBaseFix(){
     S.scores[t] = Math.max(0, S.scores[t] + delta)
   }
   // Same RBI rule as logAB: no credit on errors/double plays
-  var noRbi = /(error|double_play|wp_advance|pb_advance|balk|stolen_base|caught_stealing|pickoff|out_advancing)/i.test(bc.result)
+  var noRbi = /(error|double_play|wp_advance|pb_advance|balk|stolen_base|caught_stealing|pickoff|out_advancing|dropped_third)/i.test(bc.result)
   var patch = { runs_scored: newRuns, rbi: (newRuns>0 && !noRbi) ? newRuns : 0 }
   var entry = bc.entry
   if(entry.atBatId){
@@ -3099,6 +3384,9 @@ function setBatterIdx(idx){
   document.getElementById('modal-overlay').style.display = 'none'
   var order = acesOrder()
   if(!order[idx]) return
+  if(idx !== S.currentBatterIdx % order.length){
+    snapManual(); pushRecent('out','Batter set', (order[idx].playerName||'').split(' ').pop())
+  }
   S.currentBatterIdx = idx
   updateBatterDisplay()
   pushState()   // publish the corrected pointer so viewers follow
