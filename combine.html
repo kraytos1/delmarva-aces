@@ -506,7 +506,7 @@ const pct = (pid, sid) => { const p = PLAYERS.find(x=>x.id===pid);
 
 /* ════════ Rotation ════════ */
 let ZONE = ['all','pitch','hit','ath'].includes(params.get('zone')) ? params.get('zone') : 'all';
-const SECS = Math.max(6, +params.get('secs') || 12);
+const SECS = Math.max(6, +params.get('secs') || 18);
 const zoneStations = () => STATIONS.filter(s => ZONE==='all' || s.g===ZONE);
 const zoneLabel = { all:'Facility', pitch:'Pitching Lab', hit:'Hitting Bays', ath:'Athletic Testing' };
 
