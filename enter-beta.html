@@ -5,10 +5,10 @@
 <link rel="icon" href="logo.png">
 <link rel="apple-touch-icon" href="logo.png">
 <!--
-Option A parked beta: the Google-Forms-free entry experience.
-Reads the live Rosters feed, POSTs to the Apps Script web app (doPost).
-SANDBOX=true while parked - submissions land in the sheet's Sandbox tab.
-Going live later = set SANDBOX=false and copy this file over enter.html.
+The Google-Forms-free entry experience. Reads the live Rosters feed, POSTs to
+the Apps Script web app (doPost). LIVE since Stage 2 (2026-10-06): rows land in
+the Results tab next to the Google Forms rows. Stage 4 = copy over enter.html.
+Rollback = SANDBOX back to true (rows go to the Sandbox tab, TVs never see them).
 -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -140,7 +140,7 @@ Going live later = set SANDBOX=false and copy this file over enter.html.
 /* ══ Config ══ */
 const params = new URLSearchParams(location.search);
 const EXEC_URL = params.get('exec') || 'https://script.google.com/macros/s/AKfycbwJ_d-_7NPr3sAeymFY_RRBEaD7edMutCuL7OiM2xU0kNVzhHM87KxzKowZ4KF5inudGg/exec';
-const SANDBOX = true;                        // parked: rows land in the Sandbox tab
+const SANDBOX = false;                       // STAGE 2 (2026-10-06): rows land in the real Results tab
 const ROSTER_SRC = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTOx0py80kbfpe43IlhJFlMnZT2ZO38KYffmwLZBcSaMEHG_GPUoRBzLXOMLJAonQ3syTDL0Fui4EBU/pub?gid=1951964958&single=true&output=csv';
 
 const MIN_TM = 11;
