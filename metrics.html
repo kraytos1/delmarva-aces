@@ -365,6 +365,8 @@ function teamShort(team){
   return sp > 0 ? team.slice(sp + 1) : team;
 }
 function pickTeam(t){ S.team = t; render(); }
+// one id per Save tap: a retry re-sends the same id and the server ignores the repeat
+const saveId = () => Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 10);
 function renderPlayers(){
   const qstr = (document.getElementById('psearch').value || '').trim().toLowerCase();
   const list = PLAYERS.filter(p => p.div === S.div.key &&
@@ -411,7 +413,7 @@ async function saveEntry(){
   // server's rules - a real rejection is a shout-worthy edge case.
   // Results rows carry the SHORT team ("East", "Coastal"), matching the Google
   // Forms path - the team-site player pages filter on it. Rosters keep full labels.
-  const payload = { kind:'result', sandbox: SANDBOX, divLabel: S.div.label,
+  const payload = { kind:'result', id: saveId(), sandbox: SANDBOX, divLabel: S.div.label,
     team: teamShort(S.player.team), jersey: S.player.num, player: S.player.full, entries };
   const who = S.player.full;
   toast('Saved ✔' + (SANDBOX ? ' (sandbox)' : ''));
@@ -429,7 +431,7 @@ async function saveAdd(){
   if (!name || !get('addfirst') || !get('addlast')){ toast('Need first and last name', true); return; }
   if (!EXEC_URL){ toast('Preview mode - backend not connected yet', true); return; }
   const divKey = document.getElementById('adddiv').value;
-  const payload = { kind:'player', sandbox: SANDBOX, divKey,
+  const payload = { kind:'player', id: saveId(), sandbox: SANDBOX, divKey,
     team: get('addteam') || divByKey[divKey].label, jersey: get('addnum'), name };
   PLAYERS.push({ div: divKey, team: payload.team, num: payload.jersey, full: name });
   toast('Player added ✔');
