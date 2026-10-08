@@ -271,14 +271,14 @@ const DIVS = [
   {key:'14U', label:'14U', age:14}, {key:'15U', label:'15U', age:15},
   {key:'16U', label:'16U', age:16},
   {key:'17/18U', label:'17/18U', age:17},
-  {key:'DCP15U', label:'DCP 15U', age:15},
   {key:'DCP2030', label:'DCP 2030', age:14},
   {key:'DCP2029', label:'DCP 2029', age:15},
-  {key:'DCP2028', label:'DCP 2028', age:16}, {key:'DCP17U', label:'DCP 17U', age:17},
+  {key:'DCP2028', label:'DCP 2028', age:16},
   {key:'DCPScout', label:'DCP Scout', age:18},
 ];
 const divByKey = {}; DIVS.forEach(d => divByKey[d.key] = d);
 const divByLabel = {}; DIVS.forEach(d => divByLabel[d.label] = d);
+divByLabel['DCP 15U'] = divByKey['DCP2030']; divByLabel['DCP 17U'] = divByKey['DCP2028'];   // pre-pooling labels
 const TEAMS = [
   {team:"8U East", short:"EAST", div:"8U", players:[["1","Sonny Ward"],["2","Beckett Hearne"],["4","Logan Grier"],["5","Nolan Fox"],["7","Jackson McAllister"],["10","Chase Hutton"],["12","Rafe Aiello"],["13","Brooks Ennis"],["16","Remington Booth"],["17","Ridge Davis"],["34","Nash Allen"],["67","Cole Jensen"]]},
   {team:"8U Coastal", short:"COASTAL", div:"8U", players:[["1","Hudson Sockriter"],["2","Brady Johnson"],["3","Waylon Lambert"],["10","Blayne Lewis"],["7","Alston Spence"],["8","Thomas Salvatore"],["16","Gael Rincon-Rios"],["19","Leo Wells"],["24","Theodore Vilkoski"],["44","Owen Sinclair"]]},
@@ -288,10 +288,10 @@ const TEAMS = [
   {team:"11U Beach", short:"BEACH", div:"11U", players:[["1","Luke Ennis"],["2","Jaxson Fisher"],["3","Nixon Miller"],["4","Dylan McAllister"],["5","Johnathan Webster"],["7","Caleb Russo"],["9","Jonathan Webster"],["11","Raylan Windsor"],["14","Reeve Moore"],["17","Jayden Hayes"],["35","Teague Hammond"]]},
   {team:"16U East", short:"EAST", div:"16U", players:[["1","Reed Knowlton"],["2","Noah Hedrick"],["7","Ethan Wright"],["7","Tucker Hinkle"],["8","Matt Westcott"],["9","Caleb Clark"],["12","Christopher Reed"],["16","Kylan McCoy"],["21","Stephen Smith"],["24","Andrew Wilk"],["34","Logan Mason"],["87","Xander Rose"],["91","Ayden Bradley"]]},
   {team:"DCP 2030 Black", short:"BLACK", div:"DCP2030", players:[["4","Cole Boulden"],["13","Rico Chapa"],["19","Jace Christman"],["8","Sammy Dixon"],["1","Christian Farlow"],["9","Jameson Fuchs"],["3","Ethan Hoffman"],["17","Grayson Hudson"],["22","Brett Krout"],["7","Sean Lucey"],["11","Kane Messina"],["5","Golden Myers"],["12","Landon Netsch"],["6","Colton Wall"],["26","Owen Nelson"]]},
-  {team:"DCP 17U Black", short:"BLACK", div:"DCP17U", players:[["","Crusher Bissell"],["","Vinnie Carlini"],["","Mason Davis"],["","Brett Filliben"],["","Jack Lewis"],["","Julia Lucey"],["","Mason Miller"],["","Carter Nelson"],["","Adrian Ward"]]},
+  {team:"DCP 17U Black", short:"BLACK", div:"DCP2028", players:[["","Crusher Bissell"],["","Vinnie Carlini"],["","Mason Davis"],["","Brett Filliben"],["","Jack Lewis"],["","Julia Lucey"],["","Mason Miller"],["","Carter Nelson"],["","Adrian Ward"]]},
   {team:"DCP 2029 Black", short:"BLACK", div:"DCP2029", players:[["12","Joshua Biondolillo"],["15","Connor Brown"],["1","Mason Coleman"],["4","Ethan Demers"],["29","Jacob Donaway"],["00","Parker Gilbert"],["2","Jacob Hall"],["26","Ryan Harms"],["7","Lowell Kogut"],["20","Tyler Patone"],["10","Rocco Smit"],["30","Connor Stock"]]},
   {team:"DCP Scout Black", short:"SCOUT BLACK", div:"DCPScout", players:[["","Shane Powell"],["","Dallas Richarts"],["","Joseph Trincia"],["","Quinten Collins"]]},
-  {team:"DCP Scout Orange 2027", short:"SCOUT ORANGE", div:"DCPScout", players:[["","Keith Biggar III"],["","Sawyer DeLuca"],["","Landen Erbe"],["","Matthew Givens"],["","Deacon Herring"],["","Jayden Matthews"],["","Noah Thompson"],["","Cole Walter"],["","Ty Weber"],["","Evan Woodall"]]},
+  {team:"DCP Scout Orange", short:"SCOUT ORANGE", div:"DCPScout", players:[["","Keith Biggar III"],["","Sawyer DeLuca"],["","Landen Erbe"],["","Matthew Givens"],["","Deacon Herring"],["","Jayden Matthews"],["","Noah Thompson"],["","Cole Walter"],["","Ty Weber"],["","Evan Woodall"]]},
   {team:"11U East", short:"EAST", div:"11U", players:[["3","Sam Hevner"],["6","Gavin Braniff"],["7","Anderson Callaway"],["8","Brycen Young"],["10","Cameron Johnson"],["11","Ledger Updike"],["14","Christopher Martinez"],["17","Clayton Pusey"],["22","Wyatt Brown"],["23","JJ Dunlap"],["31","Grayson Ennis"],["34","Jace Hart"]]},
   {team:"11U Coastal", short:"COASTAL", div:"11U", players:[["7","Lucas Goodspeed"],["8","Clay Beauchamp"],["9","Garrett Short"],["10","Avion Spence"],["11","Owen White"],["13","Liam Reed"],["14","Beau Goff"],["21","Carson Kirby"],["23","Declan Parks"],["29","Cullen Kaufman"],["30","Dillion Soares"]]},
   {team:"10U East", short:"EAST", div:"10U", players:[["2","Reid Plugge"],["4","Owen Leibforth"],["5","James Kirk"],["11","Finn Lubach"],["13","Matthew O'Malley"],["14","Dylan Otwell"],["26","Carter Bounds"],["29","Charlie Churchill"],["35","Reece Bradford"],["47","Zachary Hopkins"],["97","Jax Neal"],["99","Colton Richardson"]]},
@@ -307,12 +307,12 @@ const TEAMS = [
   {team:"14U East", short:"EAST", div:"14U", players:[["3","Ben Green"],["4","Dylan DeLoy"],["7","Benny Maldonado"],["12","Colton Stoltzfus"],["13","Mateo Tressler"],["15","James Runkles"],["21","Colin Clingan"],["26","Landon Bounds"],["27","Luke Dickerson"],["28","Brooks Huyett"],["33","Ryan Otwell"],["55","Marquise Blake"]]},
   {team:"14U Coastal", short:"COASTAL", div:"14U", players:[["1","Hoyt Kapp"],["2","Chance Nichols"],["3","Vincent Delgado"],["5","Kam Anvar"],["7","Gabriel Willey"],["9","Landon Facemire"],["10","Nathan Gaull"],["11","Cole Beauchamp"],["21","Ashton Esham"],["22","Brantley Collins"],["29","Gabe Fisher"]]},
   {team:"15U East", short:"EAST", div:"15U", players:[["8","Brody Bradley"],["9","Gavin Short"],["12","Deegan Griffith"],["13","Mathias Zapata"],["17","Jullian James"],["20","Liam Efford"],["22","Starlin Herrera"],["27","Nate Powell"],["31","Ethan Seman"],["44","Hunter Hall"],["99","Mason Conran"]]},
-  {team:"DCP 2028", short:"NATIONAL", div:"DCP2028", players:[["0","Cameron Deiter"],["1","Caleb Sutch"],["3","Lane Mears"],["7","Brandon Toadvine"],["8","Tanner Edelmann"],["10","Lukin Jones"],["12","Nicky Soares"],["13","Luke Luzader"],["17","Kole Vodvarka"],["21","Kade Willey"],["22","Ben Tollett"],["33","Mason Glover"],["34","Dylan Legum"],["45","Austin Kinhart"],["48","Conner Calloway"]]},
+  {team:"DCP 2028 17U", short:"NATIONAL", div:"DCP2028", players:[["0","Cameron Deiter"],["1","Caleb Sutch"],["3","Lane Mears"],["7","Brandon Toadvine"],["8","Tanner Edelmann"],["10","Lukin Jones"],["12","Nicky Soares"],["13","Luke Luzader"],["17","Kole Vodvarka"],["21","Kade Willey"],["22","Ben Tollett"],["33","Mason Glover"],["34","Dylan Legum"],["45","Austin Kinhart"],["48","Conner Calloway"]]},
   {team:"DCP 2028 American", short:"AMERICAN", div:"DCP2028", players:[["0","Jermaine Logan"],["1","Bryce Luck"],["2","Gavin Smith"],["3","Kalib Thompson"],["4","Uriah Taylor-Brown"],["5","Jason Ryan"],["7","Deven West"],["8","Jordan Workman"],["9","Max Behornar"],["10","Anthony Brittingham"],["13","Austin Carter"],["16","Coy Collins"],["17","Rex Cordrey"],["20","Shane Campbell"],["23","Ascher Mitchell"]]},
-  {team:"DCP 17U", short:"DCP", div:"DCP17U", players:[["1","Bradley Chatham"],["3","John Wayne Dize Jr."],["4","Blake Riley"],["6","Noah Downin"],["7","Colby Rathel"],["8","Gavin Luffman"],["10","James Adams"],["11","Caleb McFarland"],["13","Caleb Dufresne"],["23","Bryce Baker"],["27","Noah Bounds"],["34","Hunter Kissinger"],["35","Maxx Pusey"],["42","Drake Trotter"],["99","Trent Hall"]]},
-  {team:"DCP 2029", short:"NATIONAL", div:"DCP2029", players:[["1","Jaron Young"],["2","Dylan Lingo"],["4","Lee Santoro"],["5","Geoffrey Myers"],["6","Terez Jacobs"],["7","Jack Owens"],["8","Scott Fillingame"],["10","Crown Rosenquist"],["11","Evan DuPont"],["12","Charlie Imperial"],["13","Dahl Culver"],["21","Coleman Yates"],["23","Kasen Adams"],["27","Nate Collins"]]},
-  {team:"DCP 15U", short:"DCP", div:"DCP15U", players:[["2","Clayton Luck"],["3","Bryce Wagner"],["5","Jer-si Logan"],["8","Logan Reed"],["17","Michael Baim"],["20","Colton Rhoad"],["24","Rowan Cherrix"],["26","Gavin Benson"],["50","Caleb Nater"],["99","Conner Vaughan"]]},
-  {team:"DCP 2030", short:"NATIONAL", div:"DCP2030", players:[["5","Nehemiah Woods"],["6","Lance Brabitz"],["9","Josh Hopkins"],["10","Ryan Mensonides"],["11","Ayden Salter"],["12","Callen Senft"],["14","Leandro Cruz"],["15","Chase Bristow"],["18","Caleb Bunting"],["23","Miguel Sabino"],["58","Max Stallings"],["98","Colton Webb"]]},
+  {team:"DCP 17U", short:"17U", div:"DCP2028", players:[["1","Bradley Chatham"],["3","John Wayne Dize Jr."],["4","Blake Riley"],["6","Noah Downin"],["7","Colby Rathel"],["8","Gavin Luffman"],["10","James Adams"],["11","Caleb McFarland"],["13","Caleb Dufresne"],["23","Bryce Baker"],["27","Noah Bounds"],["34","Hunter Kissinger"],["35","Maxx Pusey"],["42","Drake Trotter"],["99","Trent Hall"]]},
+  {team:"DCP 2029 National", short:"NATIONAL", div:"DCP2029", players:[["1","Jaron Young"],["2","Dylan Lingo"],["4","Lee Santoro"],["5","Geoffrey Myers"],["6","Terez Jacobs"],["7","Jack Owens"],["8","Scott Fillingame"],["10","Crown Rosenquist"],["11","Evan DuPont"],["12","Charlie Imperial"],["13","Dahl Culver"],["21","Coleman Yates"],["23","Kasen Adams"],["27","Nate Collins"]]},
+  {team:"DCP 15U", short:"15U", div:"DCP2030", players:[["2","Clayton Luck"],["3","Bryce Wagner"],["5","Jer-si Logan"],["8","Logan Reed"],["17","Michael Baim"],["20","Colton Rhoad"],["24","Rowan Cherrix"],["26","Gavin Benson"],["50","Caleb Nater"],["99","Conner Vaughan"]]},
+  {team:"DCP 2030 15U", short:"NATIONAL", div:"DCP2030", players:[["5","Nehemiah Woods"],["6","Lance Brabitz"],["9","Josh Hopkins"],["10","Ryan Mensonides"],["11","Ayden Salter"],["12","Callen Senft"],["14","Leandro Cruz"],["15","Chase Bristow"],["18","Caleb Bunting"],["23","Miguel Sabino"],["58","Max Stallings"],["98","Colton Webb"]]},
   {team:"DCP 2029 American", short:"AMERICAN", div:"DCP2029", players:[["1","Wyatt Woods"],["2","Nathan Kristunas"],["5","Liam Countryman"],["10","Grayson Wooldridge"],["11","Jack Willmot"],["15","Carter Lewis"],["17","Evan Wright"],["20","Rhys Thompson"],["31","Jacob Kissinger"],["40","Ryan Allam"],["44","Jameson MacPhee"]]},
   {team:"17/18U Aces", short:"ACES", div:"17/18U", players:[["1","Douglas Simpson"],["2","Ben Williams"],["5","Noah Hutchins"],["7","Jayden Matthews"],["8","Johnnie Jones"],["11","Bradley Means"],["12","Porter Cherrix"],["13","Jon Perna"],["19","Larry Handy"],["20","Kyler Todd"],["27","Nathan Dees"]]},
 ];
@@ -326,8 +326,10 @@ for (const t of TEAMS){ for (const pr of t.players){
 } }
 function teamShort(team){
   if (team.indexOf('DCP') === 0){
-    const rest = team.split(/\s+/).slice(1).filter(t => !/^(\d{4}|\d+U)$/i.test(t)).join(' ');
-    return (rest || (/^DCP (2030|2029|2028)$/.test(team) ? 'National' : 'DCP')).toUpperCase();
+    const toks = team.split(/\s+/).slice(1);
+    const rest = toks.filter(t => !/^(\d{4}|\d+U)$/i.test(t)).join(' ');
+    const chip = rest || (/^DCP (2028 17U|2030 15U)$/.test(team) ? 'National' : (toks.find(t => /^\d+U$/i.test(t)) || 'DCP'));
+    return chip.toUpperCase();
   }
   const sp = team.indexOf(' ');
   return (sp > 0 ? team.slice(sp+1) : team).toUpperCase();
