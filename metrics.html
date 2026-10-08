@@ -71,11 +71,12 @@ Rollback = SANDBOX back to true (rows go to the Sandbox tab, TVs never see them)
     color:var(--cream); background:var(--panel-b); border:1px solid var(--line);
     border-radius:99px; padding:9px 16px; cursor:pointer; }
   .teamchips button.sel{ background:var(--orange-deep); border-color:var(--orange); color:#FFE2CF; }
-  #psearch{ width:100%; font:600 17px var(--body); color:var(--cream);
+  #psearch, #anysearch{ width:100%; font:600 17px var(--body); color:var(--cream);
     background:var(--panel-b); border:1px solid var(--line); border-radius:12px;
     padding:14px 16px; margin-bottom:12px; outline:none; }
-  #psearch:focus{ border-color:var(--orange); }
+  #psearch:focus, #anysearch:focus{ border-color:var(--orange); }
   .plist{ display:flex; flex-direction:column; gap:8px; }
+  #anylist:not(:empty){ margin-bottom:14px; }
   button.prow{ display:flex; align-items:center; gap:14px; text-align:left; cursor:pointer;
     color:var(--cream); background:linear-gradient(180deg,var(--panel-a),var(--panel-b));
     border:1px solid var(--line); border-radius:12px; padding:13px 16px; font-family:var(--body); }
@@ -306,9 +307,15 @@ function render(){
     </div></div>`;
   }
   else if (S.mode === 'div'){
-    view.innerHTML = `<div class="screen"><h2>Pick the age group</h2><div class="chips">
+    // a name search across every eligible group - coaches don't have to know
+    // which DCP cohort a kid is filed under
+    view.innerHTML = `<div class="screen"><h2>Pick the age group</h2>
+      <input id="anysearch" type="search" placeholder="Or type any player's name&#8230;" autocomplete="off">
+      <div class="plist" id="anylist"></div>
+      <div class="chips">
       ${divsFor(S.station).map(d => `<button class="chipbtn" onclick="pickDiv('${d.key}')">${d.label}</button>`).join('')}
     </div></div>`;
+    document.getElementById('anysearch').addEventListener('input', renderAnySearch);
   }
   else if (S.mode === 'player'){
     // team filter chips - only when this age group actually has multiple teams
@@ -383,6 +390,18 @@ function renderPlayers(){
       <span class="pt">${esc(p.team)}</span></button>`).join('')
     : `<p class="note">Nobody matches. Missing player? Head back and tap &#8220;Player Not Listed?&#8221;</p>`;
 }
+function renderAnySearch(){
+  const qstr = (document.getElementById('anysearch').value || '').trim().toLowerCase();
+  const ok = new Set(divsFor(S.station).map(d => d.key));
+  const list = qstr.length < 2 ? [] : PLAYERS.filter(p => ok.has(p.div) && p.full.toLowerCase().includes(qstr))
+    .sort((a,b) => a.full.localeCompare(b.full)).slice(0, 12);
+  document.getElementById('anylist').innerHTML = list.map(p =>
+    `<button class="prow" onclick="pickAny('${p.div}','${esc(p.full).replace(/'/g,"\'")}')">
+      <span class="no">#${esc(p.num)}</span><span class="pn">${esc(p.full)}</span>
+      <span class="pt">${esc(divByKey[p.div].label)} &#183; ${esc(teamShort(p.team))}</span></button>`).join('')
+    + (qstr.length >= 2 && !list.length ? `<p class="note">Nobody matches &#8220;${esc(qstr)}&#8221; for this station.</p>` : '');
+}
+function pickAny(div, full){ S.div = divByKey[div]; S.team = null; pickPlayer(div, full); }
 function pickStation(i){ S.station = STATIONS[i]; S.mode = 'div'; render(); }
 function pickDiv(key){ S.div = divByKey[key]; S.team = null; S.mode = 'player'; render(); }
 function pickPlayer(div, full){
