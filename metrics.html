@@ -152,7 +152,7 @@ const DIVS = [
   {key:'17/18U', label:'17/18U', age:17},
   {key:'DCP15U', label:'DCP 15U', age:15}, {key:'DCP2030', label:'DCP 2030', age:14},
   {key:'DCP2029', label:'DCP 2029', age:15}, {key:'DCP2028', label:'DCP 2028', age:16},
-  {key:'DCP17U', label:'DCP 17U', age:17},
+  {key:'DCP17U', label:'DCP 17U', age:17}, {key:'DCPScout', label:'DCP Scout', age:18},
 ];
 const divByKey = {}; DIVS.forEach(d => divByKey[d.key] = d);
 
@@ -359,8 +359,10 @@ function render(){
 }
 function teamShort(team){
   team = String(team).trim();
-  if (team.indexOf('American') >= 0) return 'American';
-  if (team.indexOf('DCP') === 0) return 'DCP';
+  if (team.indexOf('DCP') === 0){
+    const rest = team.split(/\s+/).slice(1).filter(t => !/^(\d{4}|\d+U)$/i.test(t)).join(' ');
+    return rest || 'DCP';
+  }
   const sp = team.indexOf(' ');
   return sp > 0 ? team.slice(sp + 1) : team;
 }
