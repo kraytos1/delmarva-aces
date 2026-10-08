@@ -76,7 +76,6 @@ Rollback = SANDBOX back to true (rows go to the Sandbox tab, TVs never see them)
     padding:14px 16px; margin-bottom:12px; outline:none; }
   #psearch:focus, #anysearch:focus{ border-color:var(--orange); }
   .plist{ display:flex; flex-direction:column; gap:8px; }
-  #anylist:not(:empty){ margin-bottom:14px; }
   button.prow{ display:flex; align-items:center; gap:14px; text-align:left; cursor:pointer;
     color:var(--cream); background:linear-gradient(180deg,var(--panel-a),var(--panel-b));
     border:1px solid var(--line); border-radius:12px; padding:13px 16px; font-family:var(--body); }
@@ -309,12 +308,11 @@ function render(){
   else if (S.mode === 'div'){
     // a name search across every eligible group - coaches don't have to know
     // which DCP cohort a kid is filed under
-    view.innerHTML = `<div class="screen"><h2>Pick the age group</h2>
-      <input id="anysearch" type="search" placeholder="Or type any player's name&#8230;" autocomplete="off">
-      <div class="plist" id="anylist"></div>
-      <div class="chips">
+    view.innerHTML = `<div class="screen"><h2>Pick the age group</h2><div class="chips">
       ${divsFor(S.station).map(d => `<button class="chipbtn" onclick="pickDiv('${d.key}')">${d.label}</button>`).join('')}
-    </div></div>`;
+    </div>
+      <input id="anysearch" type="search" placeholder="Or type any player's name&#8230;" autocomplete="off" style="margin-top:18px">
+      <div class="plist" id="anylist"></div></div>`;
     document.getElementById('anysearch').addEventListener('input', renderAnySearch);
   }
   else if (S.mode === 'player'){
