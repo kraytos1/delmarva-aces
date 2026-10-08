@@ -361,7 +361,7 @@ function teamShort(team){
   team = String(team).trim();
   if (team.indexOf('DCP') === 0){
     const rest = team.split(/\s+/).slice(1).filter(t => !/^(\d{4}|\d+U)$/i.test(t)).join(' ');
-    return rest || 'DCP';
+    return rest || (/^DCP (2030|2029)$/.test(team) ? 'National' : 'DCP');
   }
   const sp = team.indexOf(' ');
   return sp > 0 ? team.slice(sp + 1) : team;
