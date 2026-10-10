@@ -631,7 +631,7 @@ var COMBINE_STATIONS = {
   push: {n:'Push-Ups',     u:'REPS', d:0, dir:1},
   pull: {n:'Pull-Ups',     u:'REPS', d:0, dir:1},
   grip: {n:'Grip',         u:'LBS',  d:0, dir:1},
-  broad:{n:'Broad Jump',   u:'IN',   d:0, dir:1},
+  broad:{n:'Broad Jump',   u:'',     d:0, dir:1},   // shown as feet + inches
   vert: {n:'Vertical',     u:'IN',   d:1, dir:1},
   shut: {n:'5-10-5',       u:'SEC',  d:2, dir:-1},
   dash: {n:'30-Yd Dash',   u:'SEC',  d:2, dir:-1},
@@ -702,10 +702,11 @@ async function loadCombine(p){
         sub = 'tested ' + (latest.t.getMonth()+1) + '/' + latest.t.getDate()
       } else {
         var chg = latest.v - list[0].v
-        sub = list.length + ' sessions · ' + (chg >= 0 ? '+' : '−') + Math.abs(chg).toFixed(s.d) + ' ' + s.u
+        sub = list.length + ' sessions · ' + (chg >= 0 ? '+' : '−') + (id === 'broad' ? Math.abs(chg).toFixed(0) + '"' : Math.abs(chg).toFixed(s.d) + ' ' + s.u)
       }
       if (isPR) sub += ' · <b style="color:var(--orange)">PR</b>'
-      return sc(s.n, best.toFixed(s.d) +
+      var ftin = function(n){ n = Math.round(n); return Math.floor(n / 12) + "'" + (n % 12) + '"' }
+      return sc(s.n, (id === 'broad' ? ftin(best) : best.toFixed(s.d)) +
         ' <span style="font-size:13px;color:var(--muted)">' + s.u + '</span>', sub, isPR)
     }).join('')
 

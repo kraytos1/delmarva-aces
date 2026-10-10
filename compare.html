@@ -339,7 +339,9 @@ function teamShort(team){
 let STATS = {};   // pid -> sid -> {best, n, last}
 const hasData = (p, sid) => !!(STATS[p.id] && STATS[p.id][sid]);
 const tested = p => STATS[p.id] && Object.keys(STATS[p.id]).length;
-const fmt = (v, s) => (+v).toFixed(s.dec);
+const ftin = n => { const t = Math.round(n); return Math.floor(t / 12) + "'" + (t % 12) + '"'; };
+const fmt = (v, s) => s.id === 'broad' ? ftin(+v) : (+v).toFixed(s.dec);
+const unitOf = s => s.id === 'broad' ? '' : s.unit;
 
 function pct(p, sid){
   const board = PLAYERS.filter(x => x.div === p.div && hasData(x, sid))
@@ -537,7 +539,7 @@ function rowHTML(s, a, b){
     : `<div class="cellv ${cls}"><div class="v none">&#8212;</div></div>`;
   return `<div class="row">
     ${side(A, da, winA, 'a')}
-    <div class="mid"><div class="lab">${s.name}</div><div class="un">${s.unit}</div></div>
+    <div class="mid"><div class="lab">${s.name}</div><div class="un">${unitOf(s)}</div></div>
     ${B ? side(B, db, winB, 'b') : '<div class="cellv b"></div>'}
   </div>`;
 }
@@ -557,7 +559,7 @@ function sparkSVG(h, s){
     const last = i === h.length - 1;
     const dt = (x.t.getMonth()+1) + '/' + x.t.getDate();
     return `<circle cx="${X(i).toFixed(1)}" cy="${Y(x.v).toFixed(1)}" r="${last?4.5:2.5}"
-      fill="${last ? '#FF7A33' : '#8A94A3'}"><title>${dt} &#183; ${fmt(x.v, s)} ${s.unit}</title></circle>`;
+      fill="${last ? '#FF7A33' : '#8A94A3'}"><title>${dt} &#183; ${fmt(x.v, s)} ${unitOf(s)}</title></circle>`;
   }).join('');
   return `<svg class="spark" viewBox="0 0 220 52">
     <polyline points="${pts}" fill="none" stroke="#FF7A33" stroke-width="2"
@@ -573,13 +575,13 @@ function profileRow(s){
   let tinfo = d.h.length < 2
     ? `1 SESSION &#183; FIRST TESTED ${first.t.getMonth()+1}/${first.t.getDate()}`
     : `${d.h.length} SESSIONS &#183; ` + (change === 0 ? 'HOLDING STEADY'
-      : (improved ? `<b>${s.dir<0?'&#8722;':'+'}${Math.abs(change).toFixed(s.dec)} ${s.unit}</b>`
-                  : `${s.dir<0?'+':'&#8722;'}${Math.abs(change).toFixed(s.dec)} ${s.unit}`)
+      : (improved ? `<b>${s.dir<0?'&#8722;':'+'}${s.id==='broad' ? Math.abs(change).toFixed(0)+'"' : Math.abs(change).toFixed(s.dec)+' '+s.unit}</b>`
+                  : `${s.dir<0?'+':'&#8722;'}${s.id==='broad' ? Math.abs(change).toFixed(0)+'"' : Math.abs(change).toFixed(s.dec)+' '+s.unit}`)
         + ` SINCE ${first.t.getMonth()+1}/${first.t.getDate()}`);
   const pc = pct(A, s.id);
   return `<div class="prow">
     <div class="best"><div class="lab">${s.name}</div>
-      <div class="v num">${fmt(d.best, s)}<span class="un">${s.unit}</span>${isPRnow?'<span class="prchip">PR</span>':''}</div></div>
+      <div class="v num">${fmt(d.best, s)}<span class="un">${unitOf(s)}</span>${isPRnow?'<span class="prchip">PR</span>':''}</div></div>
     <div class="trend">${sparkSVG(d.h, s)}<div class="tinfo">${tinfo}</div></div>
     <div class="pcell"><div class="bar"><i class="${pc<40?'cold':''}" style="transform:scaleX(${Math.max(6,pc)/100})"></i></div>
       <div class="pc">${pc} PCTL &#183; ${divByKey[A.div].label}</div></div>

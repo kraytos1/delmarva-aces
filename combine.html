@@ -499,7 +499,10 @@ function buildDemo(){
   };
 }
 
-const fmt = (v,s) => v.toFixed(s.dec);
+// broad jump lives as total inches in the sheet; the wall reads feet + inches
+const ftin = n => { const t = Math.round(n); return Math.floor(t / 12) + "'" + (t % 12) + '"'; };
+const fmt = (v,s) => s.id === 'broad' ? ftin(v) : v.toFixed(s.dec);
+const unitOf = s => s.id === 'broad' ? '' : s.unit;
 const hasData = (p, sid) => !!(DATA[p.id] && DATA[p.id][sid]);
 const leaders = (sid, divKey) => PLAYERS.filter(p=>p.div===divKey && hasData(p, sid))
   .map(p => ({ p, v: DATA[p.id][sid].best }))
@@ -593,7 +596,7 @@ function renderLB({s, div}){
     return `<div class="row">
       <span class="rk num">${i+2}</span>
       <span class="nm">${esc(r.p.name)}</span><span class="tm">${esc(r.p.short)}</span>
-      <span class="v num" data-count="${r.v}" data-dec="${s.dec}">${fmt(r.v,s)}</span>
+      <span class="v num" data-count="${r.v}" data-dec="${s.dec}" data-ftin="${s.id==='broad'?1:0}">${fmt(r.v,s)}</span>
       <span class="d num">−${Math.abs(d).toFixed(s.dec)}</span>
     </div>`; }).join('');
   return el(`<section class="board lb">
@@ -606,11 +609,11 @@ function renderLB({s, div}){
         <div class="nm">${esc(top.p.name)}</div>
         <div class="tm">${esc(top.p.team.toUpperCase())} · #${esc(top.p.num)}</div>
       </div>
-      <div class="val"><b class="num" data-count="${top.v}" data-dec="${s.dec}">${fmt(top.v,s)}</b>
-        <span class="unit">${s.unit}</span></div>
+      <div class="val"><b class="num" data-count="${top.v}" data-dec="${s.dec}" data-ftin="${s.id==='broad'?1:0}">${fmt(top.v,s)}</b>
+        <span class="unit">${unitOf(s)}</span></div>
     </div>
     <div class="rows">
-      <div class="hd"><span>Top ${Math.min(8,board.length)} · ${div.label}</span><span class="r">${s.unit}</span></div>
+      <div class="hd"><span>Top ${Math.min(8,board.length)} · ${div.label}</span><span class="r">${unitOf(s)}</span></div>
       ${rows || `<div class="row" style="justify-content:center">
         <span class="tm" style="font-size:24px;letter-spacing:.2em">FIRST ON THE BOARD &#8212; WHO'S NEXT?</span>
       </div>`}
@@ -628,7 +631,7 @@ function renderPR({f}){
     <div class="vals">
       <span class="old num">${fmt(prev,s)}</span>
       <span class="arrow"><svg class="chev" viewBox="0 0 12 14" aria-hidden="true"><path d="M1.5 1l9 6-9 6z"/></svg></span>
-      <span class="new num" data-count="${v}" data-dec="${s.dec}">${fmt(v,s)}<span class="unit">${s.unit}</span></span>
+      <span class="new num" data-count="${v}" data-dec="${s.dec}" data-ftin="${s.id==='broad'?1:0}">${fmt(v,s)}<span class="unit">${unitOf(s)}</span></span>
     </div>
   </section>`);
 }
@@ -654,7 +657,7 @@ function renderCC({p}){
       const d = DATA[p.id][s.id]; const pc = pct(p.id, s.id);
       return `<div class="m">
         <div class="l"><span class="lab">${esc(s.short)}</span>
-          <span class="v num" data-count="${d.best}" data-dec="${s.dec}">${fmt(d.best,s)}<span class="unit">${s.unit}</span></span></div>
+          <span class="v num" data-count="${d.best}" data-dec="${s.dec}" data-ftin="${s.id==='broad'?1:0}">${fmt(d.best,s)}<span class="unit">${unitOf(s)}</span></span></div>
         <div class="bar"><i class="${pc<40?'cold':''}" data-w="${Math.max(6,pc)}"></i></div>
       </div>`; }).join('');
     return `<div class="col"><div class="gh">${label}</div>${ms}</div>`; }).join('');
@@ -674,12 +677,12 @@ function renderMI(){
   // rank by gain normalized to the division range so every station competes fairly
   const rows = miRows();
   const html = rows.map(r=>`<div class="row">
-      <div class="delta num">${r.s.dir<0?'−':'+'}${r.gain.toFixed(r.s.dec)}<span class="unit" style="font-size:26px"> ${r.s.unit}</span></div>
+      <div class="delta num">${r.s.dir<0?'−':'+'}${r.s.id === 'broad' ? r.gain.toFixed(0) + '"' : r.gain.toFixed(r.s.dec)}<span class="unit" style="font-size:26px"> ${unitOf(r.s)}</span></div>
       <div class="who"><div class="nm">${esc(r.p.name)}</div>
         <div class="st">${esc(r.s.name)} · ${divByKey[r.p.div].label} ${esc(r.p.short)}</div></div>
       <div class="then num"><span class="a">${fmt(r.d.prev,r.s)}</span><span class="ar"><svg class="chev" viewBox="0 0 12 14" aria-hidden="true"><path d="M1.5 1l9 6-9 6z"/></svg></span>
-        <span class="b" data-count="${r.d.best}" data-dec="${r.s.dec}">${fmt(r.d.best,r.s)}</span>
-        <span class="unit" style="font-size:20px">${r.s.unit}</span></div>
+        <span class="b" data-count="${r.d.best}" data-dec="${r.s.dec}" data-ftin="${r.s.id==='broad'?1:0}">${fmt(r.d.best,r.s)}</span>
+        <span class="unit" style="font-size:20px">${unitOf(r.s)}</span></div>
     </div>`).join('');
   return el(`<section class="board mi">
     <div class="hd"><h2 class="bt">Most Improved</h2><span class="chip org">LAST 30 DAYS</span>
@@ -694,7 +697,7 @@ function renderRW({div}){
     const top = leaders(s.id, div.key)[0];
     return `<div class="cell">
       <div class="st">${esc(s.name)}</div>
-      <div class="v num" data-count="${top.v}" data-dec="${s.dec}">${fmt(top.v,s)}<span class="unit"> ${s.unit}</span></div>
+      <div class="v num" data-count="${top.v}" data-dec="${s.dec}" data-ftin="${s.id==='broad'?1:0}">${fmt(top.v,s)}<span class="unit"> ${unitOf(s)}</span></div>
       <div class="who">${esc(top.p.name)}</div>
     </div>`; }).join('');
   const cols = sts.length > 12 ? 4 : sts.length > 6 ? 3 : 2;
@@ -747,7 +750,7 @@ function renderBR(){
     if (!top) return '';
     return `<div class="cell">
       <div class="st">${esc(s.name)}</div>
-      <div class="v num" data-count="${top.v}" data-dec="${s.dec}">${fmt(top.v,s)}<span class="unit"> ${s.unit}</span></div>
+      <div class="v num" data-count="${top.v}" data-dec="${s.dec}" data-ftin="${s.id==='broad'?1:0}">${fmt(top.v,s)}<span class="unit"> ${unitOf(s)}</span></div>
       <div class="who">${esc(top.p.name)}<small>${divByKey[top.p.div].label}</small></div>
     </div>`; }).filter(Boolean);
   const cols = cells.length > 12 ? 4 : cells.length > 6 ? 3 : 2;
@@ -773,7 +776,7 @@ function countUps(root){
     const t0 = performance.now(), dur = 850;
     (function step(t){
       const k = Math.min(1,(t-t0)/dur), e = 1-Math.pow(2,-10*k);
-      n.innerHTML = (target*e).toFixed(dec) + unitHTML;
+      n.innerHTML = (n.dataset.ftin === '1' ? ftin(target*e) : (target*e).toFixed(dec)) + unitHTML;
       if (k<1) requestAnimationFrame(step);
     })(t0);
   });
@@ -828,7 +831,7 @@ function renderTicker(){
     ${f.isPR?'<span class="flag">PR</span>':''}
     <span class="who">${esc(f.p.name)}</span>
     <span class="what">${esc(f.s.short)}</span>
-    <span class="val num">${fmt(f.v,f.s)} ${f.s.unit}</span>
+    <span class="val num">${fmt(f.v,f.s)} ${unitOf(f.s)}</span>
     <span class="ag">${divByKey[f.p.div].label}</span>
     <span class="what">&#183; ${f.when}</span>
   </span>`).join('')
