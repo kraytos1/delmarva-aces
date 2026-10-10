@@ -100,6 +100,8 @@ Rollback = SANDBOX back to true (rows go to the Sandbox tab, TVs never see them)
     padding:10px 14px; outline:none; }
   .field input:focus{ border-color:var(--orange); }
   .field input.text{ width:100%; font:600 18px var(--body); text-align:left; }
+  .field input.ftin{ width:64px; padding:10px 8px; }
+  .field .ftlab{ font:700 12px var(--body); letter-spacing:.12em; color:var(--muted); text-transform:uppercase; margin:0 2px 0 -8px; }
 
   #savebar{ position:sticky; bottom:16px; margin-top:22px; display:flex; gap:10px; }
   button.save{ flex:1; font:700 17px var(--body); letter-spacing:.14em; text-transform:uppercase;
@@ -334,6 +336,10 @@ function render(){
     const age = S.div.age;
     view.innerHTML = `<div class="screen"><h2>Enter results</h2><div class="fields">
       ${S.station.fields.map(id => { const m = METRICS[id];
+        if (id === 'broad')   // coaches measure the broad jump in feet + inches; saved as total inches
+          return `<div class="field"><label><b>${m.n}</b><span>FEET + INCHES</span></label>
+            <input inputmode="numeric" class="ftin" data-sid="broad" placeholder="ft"><span class="ftlab">ft</span>
+            <input inputmode="numeric" class="ftin" data-in="broad" placeholder="in"><span class="ftlab">in</span></div>`;
         return `<div class="field"><label><b>${m.n}</b><span>${m.u === 'IN' ? 'INCHES' : m.u}</span></label>
           <input inputmode="decimal" data-sid="${id}" placeholder="&#8212;"></div>`; }).join('')}
     </div>
@@ -342,7 +348,7 @@ function render(){
       <button class="save" onclick="saveEntry()">Save ${esc(S.player.full.split(' ')[0])}'s results</button>
     </div>
     <p class="note">${S.station.id === 'ath'
-      ? 'Fill only the tests he just ran - blanks are fine. Best individual attempt &#183; jumps in inches &#183; times like 4.85.'
+      ? 'Fill only the tests he just ran - blanks are fine. Best individual attempt &#183; vertical in inches &#183; times like 4.85.'
       : 'Best individual attempt.'}</p></div>`;
     view.querySelector('input').focus();
   }
@@ -412,11 +418,21 @@ async function saveEntry(){
   const entries = [];
   for (const input of view.querySelectorAll('input[data-sid]')){
     const raw = input.value.trim();
-    if (raw === '') continue;
     const sid = input.dataset.sid, m = METRICS[sid];
-    const v = parseFloat(raw);
+    let v;
+    if (sid === 'broad'){
+      const inEl = view.querySelector('input[data-in=broad]'), inch = inEl.value.trim();
+      if (raw === '' && inch === '') continue;
+      if (inch !== '' && (!/^\d+$/.test(inch) || +inch > 11)){ toast('Broad Jump inches must be 0–11', true); inEl.focus(); return; }
+      if (raw !== '' && !/^\d+$/.test(raw)){ toast('Broad Jump feet must be a whole number', true); input.focus(); return; }
+      v = (+raw || 0) * 12 + (+inch || 0);
+    } else {
+      if (raw === '') continue;
+      v = parseFloat(raw);
+    }
     if (!isFinite(v) || v < m.min || v > m.max){
-      toast(m.n.replace(/&#183;/g,'·') + ' must be ' + m.min + '–' + m.max + ' ' + m.u, true);
+      const ftin = n => Math.floor(n / 12) + "'" + (n % 12) + '"';
+      toast(m.n.replace(/&#183;/g,'·') + ' must be ' + (sid === 'broad' ? ftin(m.min) + '–' + ftin(m.max) : m.min + '–' + m.max + ' ' + m.u), true);
       input.focus(); return;
     }
     const r = rangeFor(m, S.div.age), spread = r[1] - r[0];
