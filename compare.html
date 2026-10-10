@@ -285,7 +285,7 @@ const divByLabel = {}; DIVS.forEach(d => divByLabel[d.label] = d);
 divByLabel['DCP 15U'] = divByKey['DCP2030']; divByLabel['DCP 17U'] = divByKey['DCP2028'];   // pre-pooling labels
 // Vertical jump is recorded as TOUCH HEIGHT off the tape; true vertical = touch - standing
 // reach. Reach comes from the Rosters tab 'Reach' column when measured, else ~1.33 x height
-// ('Height' column, or the HEIGHTS list below). No height = raw touch is shown.
+// ('Height' column, or the HEIGHTS list below). No height = the vertical is hidden (never the raw tape number).
 const parseLen = t => { t = String(t || '').trim(); if (!t) return null;
   const m = t.match(/^(\d+)\s*'\s*(\d+(?:\.\d+)?)?/); if (m) return +m[1] * 12 + (+m[2] || 0);
   const n = parseFloat(t); if (!isFinite(n)) return null; return n > 100 ? n / 2.54 : n; };
