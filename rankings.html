@@ -143,6 +143,8 @@ const parseLen = t => { t = String(t || '').trim(); if (!t) return null;
   const n = parseFloat(t); if (!isFinite(n)) return null; return n > 100 ? n / 2.54 : n; };
 const hgt = n => HEIGHTS[String(n || '').trim().toLowerCase()] || [null, null];
 const reachOf = p => p.reach || (p.height ? p.height * 1.33 : null);
+// inches from the floor to the tape's 0 mark at the vertical station. null = adjustment OFF (raw reading shown)
+const VERT_TAPE_ZERO = null;
 const HEIGHTS = {"caleb nater":[72,null],"ryan allam":[69,null],"joshua biondolillo":[70,null],"connor brown":[70,null],"mason coleman":[68,null],"nate collins":[71,null],"liam countryman":[72,null],"dahl culver":[72,null],"ethan demers":[75,null],"jacob donaway":[68,null],"evan dupont":[72,null],"gavin benson":[70,null],"parker gilbert":[68,null],"jacob hall":[63,null],"terez jacobs":[70,null],"jacob kissinger":[70,null],"lowell kogut":[70,null],"nathan kristunas":[67,null],"carter lewis":[69,null],"dylan lingo":[71,null],"geoffrey myers":[70,null],"jack owens":[69,null],"colton rhoad":[67,null],"crown rosenquist":[69,null],"rhys thompson":[72,null],"jack willmot":[74,null],"wyatt woods":[70,null],"grayson wooldridge":[70,null],"evan wright":[69,null],"coleman yates":[69,null],"jaron young":[70,null],"cole boulden":[67,null],"chase bristow":[70,null],"caleb bunting":[70,null],"rico chapa":[71,null],"rowan cherrix":[71,null],"jace christman":[71,null],"leandro cruz":[70,null],"jameson fuchs":[70,null],"ethan hoffman":[67,null],"josh hopkins":[69,null],"grayson hudson":[71,null],"brett krout":[70,null],"jer-si logan":[72,null],"sean lucey":[74,null],"ryan mensonides":[74,null],"kane messina":[70,null],"landon netsch":[71,null],"logan reed":[68,null],"miguel sabino":[72,null],"ayden salter":[69.5,null],"callen senft":[73,null],"max stallings":[74,null],"conner vaughan":[73,null],"bryce wagner":[68,null],"colton wall":[72,null],"colton webb":[73,null],"nehemiah woods":[69,null],"golden myers":[72,null]};   // from heights-*.json via regen-rosters.py
 const divByLabel = {}; DIVS.forEach(d => divByLabel[d.label] = d);
 divByLabel['DCP 15U'] = divByKey['DCP2030']; divByLabel['DCP 17U'] = divByKey['DCP2028'];   // pre-pooling labels
@@ -220,7 +222,7 @@ function applyRows(rows){
     let v = parseFloat(row[iV]); if (!isFinite(v)) continue;
     if (s.id === 'mvmt') v = Math.abs(v);
     const p = playerFor(div.key, String(row[iP]), iTeam >= 0 ? String(row[iTeam]) : '', iJ >= 0 ? String(row[iJ]) : '');
-    if (s.id === 'vert'){ const rch = reachOf(p); if (rch) v = Math.round((v - rch) * 10) / 10; }   // touch height -> true vertical
+    if (s.id === 'vert' && VERT_TAPE_ZERO != null){ const rch = reachOf(p); if (rch) v = Math.round((VERT_TAPE_ZERO + v - rch) * 10) / 10; }   // tape reading -> true vertical
     const rec = (ns[p.id] = ns[p.id] || {});
     if (!rec[s.id]) rec[s.id] = { best: v, n: 1 };
     else { rec[s.id].n++; if ((v - rec[s.id].best) * s.dir > 0) rec[s.id].best = v; }
@@ -298,7 +300,7 @@ function render(){
       <td class="pn l">${esc(r.p.full)}<small>${ALL ? esc(divByKey[r.p.div].label) + ' &#183; ' : ''}${esc(teamShort(r.p.team))}${r.p.num ? ' &#183; #' + esc(r.p.num) : ''}</small></td>
       <td class="ovr">${r.ovr >= 0 ? `<b>${r.ovr}</b><span class="r">${r.n} of ${sts.length} tests</span>` : '&#8212;'}</td>` +
       sts.map(s => { const d = STATS[r.p.id][s.id]; if (!d) return `<td class="none">&#8212;</td>`;
-        const rk = rank[s.id][r.p.id]; return `<td class="${rk <= 3 ? 'top' + rk : ''}">${fmt(d.best, s)}<span class="r">#${rk} &#183; ${r.pc[s.id]} pctl${s.id === 'vert' && !r.p.reach && r.p.height ? ' &#183; est' : ''}</span></td>`; }).join('') + '</tr>').join('') + '</tbody>'
+        const rk = rank[s.id][r.p.id]; return `<td class="${rk <= 3 ? 'top' + rk : ''}">${fmt(d.best, s)}<span class="r">#${rk} &#183; ${r.pc[s.id]} pctl${s.id === 'vert' && VERT_TAPE_ZERO != null && !r.p.reach && r.p.height ? ' &#183; est' : ''}</span></td>`; }).join('') + '</tr>').join('') + '</tbody>'
     : `<tr><td class="empty">No results yet for ${esc(div.label)}${TEAM ? ' &#183; ' + esc(teamShort(TEAM)) : ''}</td></tr>`;
   document.getElementById('tbl').innerHTML = html;
   document.querySelectorAll('#tbl th').forEach(h => h.onclick = () => { const k = h.dataset.k; if (!k) return;
