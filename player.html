@@ -684,6 +684,7 @@ async function loadCombine(p){
       if (String(row[iJ]).trim() !== String(p.jerseyNum)) continue
       var sid = String(row[iS]).trim()
       if (!COMBINE_STATIONS[sid]) continue
+      if (sid === 'vert') continue   // sheet holds tape-relative readings (tape 0 = 6 ft); needs the kid's reach to become a vertical - not on file here, so hide rather than mislead
       var v = parseFloat(row[iV])
       if (!isFinite(v)) continue
       if (sid === 'mvmt') v = Math.abs(v)   // horizontal break is stored signed; show the size
