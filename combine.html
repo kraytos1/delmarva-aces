@@ -385,6 +385,7 @@ const STATIONS = [
   { id:'split', g:'ath', young:true, name:'10-Yard Split',     short:'10 YD',      unit:'SEC', dec:2, dir:-1, rng:{8:[1.9,2.4],18:[1.45,1.8]} },
   { id:'inf',   g:'arm', young:true, name:'Infield Velo',      short:'INF Velo',   unit:'MPH', dec:1, dir:+1, rng:{8:[35,48],18:[70,85]} },
   { id:'ofv',   g:'arm', young:true, name:'Outfield Velo',     short:'OF Velo',    unit:'MPH', dec:1, dir:+1, rng:{8:[38,52],18:[75,90]} },
+  { id:'pop',   g:'arm', young:true, name:'Catcher Pop Time',  short:'Pop Time',   unit:'SEC', dec:2, dir:-1, rng:{8:[2.6,3.2],18:[1.95,2.25]} },
 ];
 const stationById = Object.fromEntries(STATIONS.map(s=>[s.id,s]));
 const eligible = (s, age) => !!s.young || age >= MIN_TM;
@@ -643,7 +644,7 @@ function renderCC({p}){
   // so their card re-balances into Pitching / Strength / Speed & Power
   const young = p.age < MIN_TM;
   const layout = young
-    ? [['Pitching & Arm',['fb','inf','ofv']], ['Strength',['push','pull','grip']],
+    ? [['Pitching & Arm',['fb','inf','ofv','pop']], ['Strength',['push','pull','grip']],
        ['Speed & Power',['broad','vert','shut','dash']]]
     : Object.entries(GROUPS).map(([g,label]) =>
         [label, STATIONS.filter(s=>s.g===g).map(s=>s.id)]);
