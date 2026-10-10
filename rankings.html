@@ -110,6 +110,7 @@ const STATIONS = [
   { id:'split', g:'ath', young:true, name:'10-Yard Split',     unit:'SEC', dec:2, dir:-1, rng:{8:[1.9,2.4],18:[1.45,1.8]} },
   { id:'inf',   g:'arm', young:true, name:'Infield Velo',      unit:'MPH', dec:1, dir:+1, rng:{8:[35,48],18:[70,85]} },
   { id:'ofv',   g:'arm', young:true, name:'Outfield Velo',     unit:'MPH', dec:1, dir:+1, rng:{8:[38,52],18:[75,90]} },
+  { id:'cvelo', g:'arm', young:true, name:'Catcher Velo',      unit:'MPH', dec:1, dir:+1, rng:{8:[35,48],18:[68,82]} },
   { id:'pop',   g:'arm', young:true, name:'Catcher Pop Time',  unit:'SEC', dec:2, dir:-1, rng:{8:[2.6,3.2],18:[1.95,2.25]} },
 ];
 const stationById = {}; STATIONS.forEach(s => stationById[s.id] = s);
@@ -136,7 +137,7 @@ const DIVS = [
 const divByKey = {}; DIVS.forEach(d => divByKey[d.key] = d);
 const divByLabel = {}; DIVS.forEach(d => divByLabel[d.label] = d);
 divByLabel['DCP 15U'] = divByKey['DCP2030']; divByLabel['DCP 17U'] = divByKey['DCP2028'];   // pre-pooling labels
-const SHORT = { fb:'Velo', spin:'Spin', ivb:'IVB', mvmt:'HB', ev:'Exit V', bat:'Bat', la:'Launch', dist:'Dist', push:'Push', pull:'Pull', grip:'Grip', broad:'Broad', vert:'Vert', shut:'5-10-5', dash:'30 YD', split:'10 YD', inf:'INF Velo', ofv:'OF Velo', pop:'Pop' };
+const SHORT = { fb:'Velo', spin:'Spin', ivb:'IVB', mvmt:'HB', ev:'Exit V', bat:'Bat', la:'Launch', dist:'Dist', push:'Push', pull:'Pull', grip:'Grip', broad:'Broad', vert:'Vert', shut:'5-10-5', dash:'30 YD', split:'10 YD', inf:'INF Velo', ofv:'OF Velo', cvelo:'C Velo', pop:'Pop' };
 const ftin = n => { const t = Math.round(n); return Math.floor(t / 12) + "'" + (t % 12) + '"'; };
 const fmt = (v, s) => s.id === 'broad' ? ftin(+v) : (+v).toFixed(s.dec);
 const unitOf = s => s.id === 'broad' ? 'FT IN' : s.unit;

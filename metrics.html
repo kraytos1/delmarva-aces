@@ -180,6 +180,7 @@ const METRICS = {
   inf:  {n:'Infield Velo', u:'MPH', dec:1, min:20, max:100, rng:{8:[35,48],18:[70,85]}},
   ofv:  {n:'Outfield Velo', u:'MPH', dec:1, min:20, max:100, rng:{8:[38,52],18:[75,90]}},
   pop:  {n:'Pop Time (C)', u:'SEC', dec:2, min:1.4, max:4, rng:{8:[2.6,3.2],18:[1.95,2.25]}},
+  cvelo:{n:'Catcher Velo (C)', u:'MPH', dec:1, min:20, max:100, rng:{8:[35,48],18:[68,82]}},
 };
 const STATIONS = [
   { id:'ath',   em:'&#128170;', name:'Athletic Testing', sub:'All age groups',
@@ -190,8 +191,8 @@ const STATIONS = [
     who:'older', fields:['fb','spin','ivb','mvmt'] },
   { id:'thit',  em:'&#9889;', name:'Trackman Hitting', sub:'11U and up',
     who:'older', fields:['ev','bat','la','dist'] },
-  { id:'arm',   em:'&#9918;', name:'I/O Velo', sub:'Infield &#183; Outfield &#183; Pop time &#183; All age groups',
-    who:'all',   fields:['inf','ofv','pop'] },
+  { id:'arm',   em:'&#9918;', name:'I/O Velo', sub:'Infield &#183; Outfield &#183; Catcher &#183; All age groups',
+    who:'all',   fields:['inf','ofv','cvelo','pop'] },
 ];
 const divsFor = s => DIVS.filter(d =>
   s.who === 'all' ? true : s.who === 'young' ? d.age < MIN_TM && d.key.indexOf('DCP') < 0

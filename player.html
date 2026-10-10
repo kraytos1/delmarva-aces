@@ -638,10 +638,11 @@ var COMBINE_STATIONS = {
   split:{n:'10-Yd Split',  u:'SEC',  d:2, dir:-1},
   inf:  {n:'Infield Velo', u:'MPH',  d:1, dir:1},
   ofv:  {n:'Outfield Velo',u:'MPH',  d:1, dir:1},
+  cvelo:{n:'Catcher Velo', u:'MPH',  d:1, dir:1},
   pop:  {n:'Pop Time',     u:'SEC',  d:2, dir:-1}
 }
 var COMBINE_ORDER = ['fb','spin','ivb','mvmt','ev','bat','la','dist',
-                     'push','pull','grip','broad','vert','shut','dash','split','inf','ofv','pop']
+                     'push','pull','grip','broad','vert','shut','dash','split','inf','ofv','cvelo','pop']
 
 function combineParseCSV(text){
   var rows = [], row = [], cur = '', inQ = false

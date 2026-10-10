@@ -255,6 +255,7 @@ const STATIONS = [
   { id:'split', g:'ath', young:true, name:'10-Yard Split',     unit:'SEC', dec:2, dir:-1, rng:{8:[1.9,2.4],18:[1.45,1.8]} },
   { id:'inf',   g:'arm', young:true, name:'Infield Velo',      unit:'MPH', dec:1, dir:+1, rng:{8:[35,48],18:[70,85]} },
   { id:'ofv',   g:'arm', young:true, name:'Outfield Velo',     unit:'MPH', dec:1, dir:+1, rng:{8:[38,52],18:[75,90]} },
+  { id:'cvelo', g:'arm', young:true, name:'Catcher Velo',      unit:'MPH', dec:1, dir:+1, rng:{8:[35,48],18:[68,82]} },
   { id:'pop',   g:'arm', young:true, name:'Catcher Pop Time',  unit:'SEC', dec:2, dir:-1, rng:{8:[2.6,3.2],18:[1.95,2.25]} },
 ];
 const stationById = {}; STATIONS.forEach(s => stationById[s.id] = s);
