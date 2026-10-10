@@ -183,14 +183,14 @@ const METRICS = {
 const STATIONS = [
   { id:'ath',   em:'&#128170;', name:'Athletic Testing', sub:'All age groups',
     who:'all',   fields:['push','pull','grip','broad','vert','shut','dash','split'] },
-  { id:'arm',   em:'&#9918;', name:'I/O Velo', sub:'Infield &#183; Outfield &#183; All age groups',
-    who:'all',   fields:['inf','ofv'] },
   { id:'yvelo', em:'&#128640;', name:'Pitch Velocity 8U&#8211;10U', sub:'Radar gun',
     who:'young', fields:['fb'] },
   { id:'tpitch', em:'&#128293;', name:'Trackman Pitching', sub:'11U and up',
     who:'older', fields:['fb','spin','ivb','mvmt'] },
   { id:'thit',  em:'&#9889;', name:'Trackman Hitting', sub:'11U and up',
     who:'older', fields:['ev','bat','la','dist'] },
+  { id:'arm',   em:'&#9918;', name:'I/O Velo', sub:'Infield &#183; Outfield &#183; All age groups',
+    who:'all',   fields:['inf','ofv'] },
 ];
 const divsFor = s => DIVS.filter(d =>
   s.who === 'all' ? true : s.who === 'young' ? d.age < MIN_TM && d.key.indexOf('DCP') < 0
