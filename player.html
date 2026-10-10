@@ -682,6 +682,7 @@ async function loadCombine(p){
       if (!COMBINE_STATIONS[sid]) continue
       var v = parseFloat(row[iV])
       if (!isFinite(v)) continue
+      if (sid === 'mvmt') v = Math.abs(v)   // horizontal break is stored signed; show the size
       var t = new Date(row[iT])
       if (isNaN(t)) t = new Date()
       ;(mine[sid] = mine[sid] || []).push({t:t, v:v})

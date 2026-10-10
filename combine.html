@@ -948,7 +948,8 @@ function applyRows(rows){
     if (!row || !row[iP]) continue;
     const div = divByLabel[String(row[iD]).trim()]; if (!div) continue;
     const s = stationById[String(row[iS]).trim()]; if (!s) continue;
-    const v = parseFloat(row[iV]); if (!isFinite(v)) continue;
+    let v = parseFloat(row[iV]); if (!isFinite(v)) continue;
+    if (s.id === 'mvmt') v = Math.abs(v);   // horizontal break: sign = direction, boards rank by size
     let t = new Date(row[iT]); if (isNaN(t)) t = new Date();
     entries.push({ t, div, s, v,
       p: playerFor(div.key, String(row[iP]),

@@ -162,7 +162,7 @@ const METRICS = {
   fb:   {n:'Pitch Velocity', u:'MPH', dec:1, min:20, max:105, rng:{8:[36,50],18:[76,92]}},
   spin: {n:'Spin Rate', u:'RPM', dec:0, min:500, max:3500, rng:{11:[1450,1950],18:[2000,2500]}},
   ivb:  {n:'Induced Vert Break', u:'IN', dec:1, min:-5, max:30, rng:{11:[7,13],18:[13,20]}},
-  mvmt: {n:'Horizontal Break', u:'IN', dec:1, min:0, max:40, rng:{11:[7,13],18:[11,18]}},
+  mvmt: {n:'Horizontal Break', u:'IN', dec:1, min:-30, max:30, rng:{11:[7,13],18:[11,18]}},   // signed - TrackMan's minus = direction
   ev:   {n:'Exit Velocity', u:'MPH', dec:1, min:30, max:125, rng:{11:[52,70],18:[82,102]}},
   bat:  {n:'Bat Speed', u:'MPH', dec:1, min:20, max:95, rng:{11:[42,58],18:[64,78]}},
   la:   {n:'Launch Angle', u:'DEG', dec:0, min:-20, max:60, rng:{11:[8,24],18:[12,28]}},
@@ -420,7 +420,8 @@ async function saveEntry(){
       input.focus(); return;
     }
     const r = rangeFor(m, S.div.age), spread = r[1] - r[0];
-    if (v < r[0] - spread * 0.4 || v > r[1] + spread * 0.4){
+    const mag = sid === 'mvmt' ? Math.abs(v) : v;   // break is judged by size, sign is just direction
+    if (mag < r[0] - spread * 0.4 || mag > r[1] + spread * 0.4){
       if (!confirm(v + ' ' + (m.u === 'IN' ? 'INCHES' : m.u) + ' is unusual for ' + S.div.label + '. Save it anyway?')){
         input.focus(); return;
       }
