@@ -247,14 +247,16 @@ function pctl(p, sid, pool){
 function render(){
   // age-group chips with tested counts
   const counts = {}; PLAYERS.forEach(p => { if (tested(p)) counts[p.div] = (counts[p.div] || 0) + 1; });
-  if (!DIV || !divByKey[DIV]) DIV = (DIVS.find(d => counts[d.key]) || DIVS[0]).key;
-  document.getElementById('divchips').innerHTML = DIVS.map(d =>
+  if (DIV !== 'ALL' && (!DIV || !divByKey[DIV])) DIV = (DIVS.find(d => counts[d.key]) || DIVS[0]).key;
+  const allCount = PLAYERS.filter(tested).length;
+  document.getElementById('divchips').innerHTML = `<button data-k="ALL" aria-pressed="${String(DIV === 'ALL')}">All<small>${allCount}</small></button>` + DIVS.map(d =>
     `<button data-k="${d.key}" aria-pressed="${String(d.key === DIV)}">${d.label}<small>${counts[d.key] || 0}</small></button>`).join('');
   document.querySelectorAll('#divchips button').forEach(b => b.onclick = () => { DIV = b.dataset.k; TEAM = ''; render(); });
-  const div = divByKey[DIV];
-  const groupPlayers = PLAYERS.filter(p => p.div === DIV && tested(p));
+  const ALL = DIV === 'ALL';
+  const div = ALL ? { key:'ALL', label:'All Age Groups', age: 18 } : divByKey[DIV];
+  const groupPlayers = PLAYERS.filter(p => (ALL || p.div === DIV) && tested(p));
   const teams = [...new Set(groupPlayers.map(p => p.team))].sort();
-  document.getElementById('teamchips').innerHTML = teams.length > 1
+  document.getElementById('teamchips').innerHTML = !ALL && teams.length > 1
     ? [{k:'', l:'All Teams'}].concat(teams.map(t => ({k:t, l:teamShort(t)}))).map(t =>
         `<button data-t="${esc(t.k)}" aria-pressed="${String(TEAM === t.k)}">${esc(t.l)}</button>`).join('') : '';
   document.querySelectorAll('#teamchips button').forEach(b => b.onclick = () => { TEAM = b.dataset.t; render(); });
@@ -280,7 +282,7 @@ function render(){
   const th = (k, label, sub, cls) => `<th class="${cls || ''}${SORT === k ? ' on' : ''}${SORT === k && ASC ? ' asc' : ''}" data-k="${k}">${label}${sub ? `<small>${sub}</small>` : ''}</th>`;
   const html = rows.length ? `<thead><tr><th class="rk">#</th>${th('name', 'Player', '', 'l')}${th('ovr', 'OVR', 'avg pctl')}${sts.map(s => th(s.id, SHORT[s.id], unitOf(s))).join('')}</tr></thead><tbody>` +
     rows.map((r, i) => `<tr><td class="rk">${i + 1}</td>
-      <td class="pn l">${esc(r.p.full)}<small>${esc(teamShort(r.p.team))}${r.p.num ? ' &#183; #' + esc(r.p.num) : ''}</small></td>
+      <td class="pn l">${esc(r.p.full)}<small>${ALL ? esc(divByKey[r.p.div].label) + ' &#183; ' : ''}${esc(teamShort(r.p.team))}${r.p.num ? ' &#183; #' + esc(r.p.num) : ''}</small></td>
       <td class="ovr">${r.ovr >= 0 ? `<b>${r.ovr}</b><span class="r">${r.n} of ${sts.length} tests</span>` : '&#8212;'}</td>` +
       sts.map(s => { const d = STATS[r.p.id][s.id]; if (!d) return `<td class="none">&#8212;</td>`;
         const rk = rank[s.id][r.p.id]; return `<td class="${rk <= 3 ? 'top' + rk : ''}">${fmt(d.best, s)}<span class="r">#${rk} &#183; ${r.pc[s.id]} pctl</span></td>`; }).join('') + '</tr>').join('') + '</tbody>'
@@ -300,7 +302,7 @@ document.getElementById('dl').addEventListener('click', () => {
   const out = [line(['Rank', 'Player', 'Team', 'Jersey', 'OVR pctl'].concat(sts.map(s => s.name.replace(/&#183;/g, '-') + ' (' + s.unit + ')')))];
   rows.forEach((r, i) => out.push(line([i + 1, r.p.full, r.p.team, r.p.num, r.ovr >= 0 ? r.ovr : ''].concat(sts.map(s => STATS[r.p.id][s.id] ? STATS[r.p.id][s.id].best : '')))));
   const blob = new Blob([out.join('\n')], { type:'text/csv' }); const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob); a.download = 'combine-rankings-' + divByKey[DIV].label.replace(/[^A-Za-z0-9]+/g, '-') + '.csv'; a.click();
+  a.href = URL.createObjectURL(blob); a.download = 'combine-rankings-' + (DIV === 'ALL' ? 'All' : divByKey[DIV].label.replace(/[^A-Za-z0-9]+/g, '-')) + '.csv'; a.click();
 });
 
 /* ---- boot ---- */
