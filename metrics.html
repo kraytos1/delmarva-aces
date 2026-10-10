@@ -346,15 +346,15 @@ function render(){
           return `<div class="field"><label><b>${m.n}</b><span>FEET + INCHES</span></label>
             <input inputmode="numeric" class="ftin" data-sid="broad" placeholder="ft"><span class="ftlab">ft</span>
             <input inputmode="numeric" class="ftin" data-in="broad" placeholder="in"><span class="ftlab">in</span></div>`;
-        return `<div class="field"><label><b>${m.n}</b><span>${m.u === 'IN' ? 'INCHES' : m.u}</span></label>
-          <input inputmode="decimal" data-sid="${id}" placeholder="&#8212;"></div>`; }).join('')}
+        return `<div class="field"><label><b>${m.n}</b><span>${id === 'vert' ? 'CM' : m.u === 'IN' ? 'INCHES' : m.u}</span></label>
+          <input inputmode="decimal" data-sid="${id}" placeholder="${id === 'vert' ? 'cm' : '&#8212;'}"></div>`; }).join('')}
     </div>
     <div id="savebar">
       <button class="ghostb" onclick="goto('player')">Back</button>
       <button class="save" onclick="saveEntry()">Save ${esc(S.player.full.split(' ')[0])}'s results</button>
     </div>
     <p class="note">${S.station.id === 'ath'
-      ? 'Fill only the tests he just ran - blanks are fine. Best individual attempt &#183; vertical in inches &#183; times like 4.85.'
+      ? 'Fill only the tests he just ran - blanks are fine. Best individual attempt &#183; vertical in cm &#183; times like 4.85.'
       : 'Best individual attempt.'}</p></div>`;
     view.querySelector('input').focus();
   }
@@ -435,16 +435,21 @@ async function saveEntry(){
     } else {
       if (raw === '') continue;
       v = parseFloat(raw);
+      if (sid === 'vert') v = Math.round(v / 2.54 * 10) / 10;   // entered in cm, stored in inches
     }
     if (!isFinite(v) || v < m.min || v > m.max){
       const ftin = n => Math.floor(n / 12) + "'" + (n % 12) + '"';
-      toast(m.n.replace(/&#183;/g,'·') + ' must be ' + (sid === 'broad' ? ftin(m.min) + '–' + ftin(m.max) : m.min + '–' + m.max + ' ' + m.u), true);
+      const lim = sid === 'broad' ? ftin(m.min) + '–' + ftin(m.max)
+                : sid === 'vert' ? Math.round(m.min * 2.54) + '–' + Math.round(m.max * 2.54) + ' CM'
+                : m.min + '–' + m.max + ' ' + m.u;
+      toast(m.n.replace(/&#183;/g,'·') + ' must be ' + lim, true);
       input.focus(); return;
     }
     const r = rangeFor(m, S.div.age), spread = r[1] - r[0];
     const mag = sid === 'mvmt' ? Math.abs(v) : v;   // break is judged by size, sign is just direction
     if (mag < r[0] - spread * 0.4 || mag > r[1] + spread * 0.4){
-      if (!confirm(v + ' ' + (m.u === 'IN' ? 'INCHES' : m.u) + ' is unusual for ' + S.div.label + '. Save it anyway?')){
+      const shown = sid === 'vert' ? raw + ' CM' : v + ' ' + (m.u === 'IN' ? 'INCHES' : m.u);
+      if (!confirm(shown + ' is unusual for ' + S.div.label + '. Save it anyway?')){
         input.focus(); return;
       }
     }
