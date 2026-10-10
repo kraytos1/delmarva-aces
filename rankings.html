@@ -222,7 +222,7 @@ function applyRows(rows){
     let v = parseFloat(row[iV]); if (!isFinite(v)) continue;
     if (s.id === 'mvmt') v = Math.abs(v);
     const p = playerFor(div.key, String(row[iP]), iTeam >= 0 ? String(row[iTeam]) : '', iJ >= 0 ? String(row[iJ]) : '');
-    if (s.id === 'vert' && VERT_TAPE_ZERO != null){ const rch = reachOf(p); if (rch) v = Math.round((VERT_TAPE_ZERO + v - rch) * 10) / 10; }   // tape reading -> true vertical
+    if (s.id === 'vert' && VERT_TAPE_ZERO != null){ const rch = reachOf(p); if (!rch) continue; v = Math.round((VERT_TAPE_ZERO + v - rch) * 10) / 10; }   // tape reading -> true vertical; no height on file = skip (never show the raw tape number)
     const rec = (ns[p.id] = ns[p.id] || {});
     if (!rec[s.id]) rec[s.id] = { best: v, n: 1 };
     else { rec[s.id].n++; if ((v - rec[s.id].best) * s.dir > 0) rec[s.id].best = v; }
