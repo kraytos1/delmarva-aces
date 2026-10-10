@@ -412,6 +412,15 @@ const DIVS = [
   {key:'DCPScout', label:'DCP Scout', age:18},
 ];
 const divByKey = Object.fromEntries(DIVS.map(d=>[d.key,d]));
+// Vertical jump is recorded as TOUCH HEIGHT off the tape; true vertical = touch - standing
+// reach. Reach comes from the Rosters tab 'Reach' column when measured, else ~1.33 x height
+// ('Height' column, or the HEIGHTS list below). No height = raw touch is shown.
+const parseLen = t => { t = String(t || '').trim(); if (!t) return null;
+  const m = t.match(/^(\d+)\s*'\s*(\d+(?:\.\d+)?)?/); if (m) return +m[1] * 12 + (+m[2] || 0);
+  const n = parseFloat(t); if (!isFinite(n)) return null; return n > 100 ? n / 2.54 : n; };
+const hgt = n => HEIGHTS[String(n || '').trim().toLowerCase()] || [null, null];
+const reachOf = p => p.reach || (p.height ? p.height * 1.33 : null);
+const HEIGHTS = {};   // __HEIGHTS__ (filled by regen-rosters.py from heights-*.json)
 const TEAMS = [
   {team:"8U East", short:"EAST", div:"8U", players:[["1","Sonny Ward"],["2","Beckett Hearne"],["4","Logan Grier"],["5","Nolan Fox"],["7","Jackson McAllister"],["10","Chase Hutton"],["12","Rafe Aiello"],["13","Brooks Ennis"],["16","Remington Booth"],["17","Ridge Davis"],["34","Nash Allen"],["67","Cole Jensen"]]},
   {team:"8U Coastal", short:"COASTAL", div:"8U", players:[["1","Hudson Sockriter"],["2","Brady Johnson"],["3","Waylon Lambert"],["10","Blayne Lewis"],["7","Alston Spence"],["8","Thomas Salvatore"],["16","Gael Rincon-Rios"],["19","Leo Wells"],["24","Theodore Vilkoski"],["44","Owen Sinclair"]]},
@@ -457,7 +466,7 @@ for (const t of TEAMS){ for (const [num, full] of t.players){
   const parts = full.replace(/\s+(Jr\.?|Sr\.?|II|III)$/i,'').trim().split(/\s+/);
   const lastw = parts[parts.length-1];
   PLAYERS.push({ id:'p'+PLAYERS.length, full, name:`${parts[0]} ${lastw[0]}.`, lastw,
-    num, div:t.div, team:t.team, short:t.short, age: divByKey[t.div].age });
+    num, div:t.div, team:t.team, short:t.short, age: divByKey[t.div].age, height: hgt(full)[0], reach: hgt(full)[1] });
 } }
 
 /* DATA[pid][sid] = {best, prev} — prev is the best from before the improvement
