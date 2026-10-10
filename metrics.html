@@ -177,10 +177,14 @@ const METRICS = {
   shut: {n:'5-10-5 Shuttle', u:'SEC', dec:2, min:3.5, max:9, rng:{8:[5.7,6.6],18:[4.2,4.9]}},
   dash: {n:'30-Yard Dash', u:'SEC', dec:2, min:3, max:8, rng:{8:[5.0,5.9],18:[3.7,4.4]}},
   split:{n:'10-Yard Split', u:'SEC', dec:2, min:1, max:4, rng:{8:[1.9,2.4],18:[1.45,1.8]}},
+  inf:  {n:'Infield Velo', u:'MPH', dec:1, min:20, max:100, rng:{8:[35,48],18:[70,85]}},
+  ofv:  {n:'Outfield Velo', u:'MPH', dec:1, min:20, max:100, rng:{8:[38,52],18:[75,90]}},
 };
 const STATIONS = [
   { id:'ath',   em:'&#128170;', name:'Athletic Testing', sub:'All age groups',
     who:'all',   fields:['push','pull','grip','broad','vert','shut','dash','split'] },
+  { id:'arm',   em:'&#9918;', name:'Throwing Velo', sub:'Infield &#183; Outfield &#183; All age groups',
+    who:'all',   fields:['inf','ofv'] },
   { id:'yvelo', em:'&#128640;', name:'Pitch Velocity 8U&#8211;10U', sub:'Radar gun',
     who:'young', fields:['fb'] },
   { id:'tpitch', em:'&#128293;', name:'Trackman Pitching', sub:'11U and up',

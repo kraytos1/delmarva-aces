@@ -234,7 +234,7 @@ const SRC = params.get('src') || CONFIG_SRC;
 const DEMO = params.get('demo') === '1' || !SRC;
 const ROSTER_SRC = params.get('roster') || 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTOx0py80kbfpe43IlhJFlMnZT2ZO38KYffmwLZBcSaMEHG_GPUoRBzLXOMLJAonQ3syTDL0Fui4EBU/pub?gid=1951964958&single=true&output=csv';
 
-const GROUPS = { pitch:'Pitching', hit:'Hitting', ath:'Athletic Testing' };
+const GROUPS = { pitch:'Pitching', hit:'Hitting', ath:'Athletic Testing', arm:'Arm Strength' };
 const MIN_TM = 11;
 const STATIONS = [
   { id:'fb',    g:'pitch', young:true, name:'Pitch Velocity',  unit:'MPH', dec:1, dir:+1, rng:{8:[36,50],18:[76,92]} },
@@ -253,6 +253,8 @@ const STATIONS = [
   { id:'shut',  g:'ath', young:true, name:'5-10-5 Shuttle',    unit:'SEC', dec:2, dir:-1, rng:{8:[5.7,6.6],18:[4.2,4.9]} },
   { id:'dash',  g:'ath', young:true, name:'30-Yard Dash',      unit:'SEC', dec:2, dir:-1, rng:{8:[5.0,5.9],18:[3.7,4.4]} },
   { id:'split', g:'ath', young:true, name:'10-Yard Split',     unit:'SEC', dec:2, dir:-1, rng:{8:[1.9,2.4],18:[1.45,1.8]} },
+  { id:'inf',   g:'arm', young:true, name:'Infield Velo',      unit:'MPH', dec:1, dir:+1, rng:{8:[35,48],18:[70,85]} },
+  { id:'ofv',   g:'arm', young:true, name:'Outfield Velo',     unit:'MPH', dec:1, dir:+1, rng:{8:[38,52],18:[75,90]} },
 ];
 const stationById = {}; STATIONS.forEach(s => stationById[s.id] = s);
 const eligible = (s, age) => !!s.young || age >= MIN_TM;

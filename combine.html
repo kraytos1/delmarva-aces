@@ -172,7 +172,7 @@ the verdict, and DESIGN.md
   .cc .id .meta{ display:flex; gap:12px; margin-top:26px; flex-wrap:wrap; }
   .cc .id .foot{ margin-top:auto; font-size:18px; font-weight:700; letter-spacing:.22em;
     text-transform:uppercase; color:var(--muted); }
-  .cc .grid{ flex:1; display:grid; grid-template-columns:1fr 1fr 1fr; }
+  .cc .grid{ flex:1; display:grid; grid-auto-flow:column; grid-auto-columns:1fr; }
   .cc .col{ padding:44px 44px 36px; display:flex; flex-direction:column; }
   .cc .col + .col{ border-left:1px solid var(--line-soft); }
   .cc .col .gh{ font-family:var(--display); font-weight:600; font-size:24px; letter-spacing:.24em;
@@ -361,7 +361,7 @@ const SRC = params.get('src') || CONFIG_SRC;
 const DEMO = params.get('demo') === '1' || !SRC;
 const IMPROVE_DAYS = 30;
 
-const GROUPS = { pitch:'Pitching Lab', hit:'Hitting Bays', ath:'Athletic Testing' };
+const GROUPS = { pitch:'Pitching Lab', hit:'Hitting Bays', ath:'Athletic Testing', arm:'Arm Strength' };
 /* dir:+1 higher is better, -1 lower is better.
    rng holds two age anchors; each age group's range is interpolated between them.
    young:true = part of the 8U-10U battery; all other stations (Trackman/laser) start at 11U. */
@@ -383,6 +383,8 @@ const STATIONS = [
   { id:'shut',  g:'ath', young:true, name:'5-10-5 Shuttle',    short:'5-10-5',     unit:'SEC', dec:2, dir:-1, rng:{8:[5.7,6.6],18:[4.2,4.9]} },
   { id:'dash',  g:'ath', young:true, name:'30-Yard Dash',      short:'30 YD',      unit:'SEC', dec:2, dir:-1, rng:{8:[5.0,5.9],18:[3.7,4.4]} },
   { id:'split', g:'ath', young:true, name:'10-Yard Split',     short:'10 YD',      unit:'SEC', dec:2, dir:-1, rng:{8:[1.9,2.4],18:[1.45,1.8]} },
+  { id:'inf',   g:'arm', young:true, name:'Infield Velo',      short:'INF Velo',   unit:'MPH', dec:1, dir:+1, rng:{8:[35,48],18:[70,85]} },
+  { id:'ofv',   g:'arm', young:true, name:'Outfield Velo',     short:'OF Velo',    unit:'MPH', dec:1, dir:+1, rng:{8:[38,52],18:[75,90]} },
 ];
 const stationById = Object.fromEntries(STATIONS.map(s=>[s.id,s]));
 const eligible = (s, age) => !!s.young || age >= MIN_TM;
@@ -515,7 +517,7 @@ const pct = (pid, sid) => { const p = PLAYERS.find(x=>x.id===pid);
 /* ════════ Rotation ════════ */
 let ZONE = ['all','pitch','hit','ath'].includes(params.get('zone')) ? params.get('zone') : 'all';
 const SECS = Math.max(6, +params.get('secs') || 18);
-const zoneStations = () => STATIONS.filter(s => ZONE==='all' || s.g===ZONE);
+const zoneStations = () => STATIONS.filter(s => ZONE==='all' || s.g===ZONE || (ZONE==='ath' && s.g==='arm'));   // arm velos ride with the athletic TV
 const zoneLabel = { all:'Facility', pitch:'Pitching Lab', hit:'Hitting Bays', ath:'Athletic Testing' };
 
 /* Boards only exist where data exists: in live mode a (station, division)
@@ -641,7 +643,7 @@ function renderCC({p}){
   // so their card re-balances into Pitching / Strength / Speed & Power
   const young = p.age < MIN_TM;
   const layout = young
-    ? [['Pitching',['fb']], ['Strength',['push','pull','grip']],
+    ? [['Pitching & Arm',['fb','inf','ofv']], ['Strength',['push','pull','grip']],
        ['Speed & Power',['broad','vert','shut','dash']]]
     : Object.entries(GROUPS).map(([g,label]) =>
         [label, STATIONS.filter(s=>s.g===g).map(s=>s.id)]);
